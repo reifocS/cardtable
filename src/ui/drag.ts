@@ -22,8 +22,12 @@ function indexAt(target: HTMLElement, dragged: CardId[], x: number, y: number): 
 }
 
 export function finishTargeting(to: string) {
-  const { targeting } = useStore.getState();
-  if (targeting && targeting !== to) act({ type: 'arrow', from: targeting, to });
+  const { targeting, targetMode, attachCards, state } = useStore.getState();
+  if (targeting && targeting !== to) {
+    if (targetMode === 'arrow') act({ type: 'arrow', from: targeting, to });
+    // Only cards can carry attachments.
+    else if (state?.cards[to]) act({ type: 'attach', cards: attachCards, to });
+  }
   useStore.setState({ targeting: null });
 }
 

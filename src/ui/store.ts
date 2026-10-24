@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Op } from '../core/ops';
 import { zoneOf } from '../core/state';
 import type { CardId, GameState, PlayerId, Zone, ZoneId } from '../core/types';
-import type { Session, Status } from '../net/session';
+import type { Route, Session, Status } from '../net/session';
 
 export interface MenuItem {
   label: string;
@@ -25,6 +25,7 @@ interface Store {
   me: PlayerId | null;
   status: Status;
   error: string | null;
+  route: Route;
 
   selection: CardId[];
   hovered: CardId | null;
@@ -35,9 +36,14 @@ interface Store {
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
   dialog: 'import' | 'create' | 'help' | null;
+  /** Opponent whose battlefield is shown big over the table. */
+  focus: PlayerId | null;
   prompt: Prompt | null;
-  /** Source id while the player is picking the target of an arrow. */
+  /** Source id while the player is picking a target: for an arrow, or a host to attach to. */
   targeting: string | null;
+  targetMode: 'arrow' | 'attach';
+  /** Cards to attach once the host is picked. */
+  attachCards: CardId[];
 
   connect(session: Session): void;
   leave(): void;
@@ -49,6 +55,7 @@ export const useStore = create<Store>((set, get) => ({
   me: null,
   status: 'connecting',
   error: null,
+  route: null,
   selection: [],
   hovered: null,
   previewId: null,
@@ -56,14 +63,17 @@ export const useStore = create<Store>((set, get) => ({
   menu: null,
   viewer: null,
   dialog: null,
+  focus: null,
   prompt: null,
   targeting: null,
+  targetMode: 'arrow',
+  attachCards: [],
 
   connect(session) {
     const sync = () => {
       const state = session.getState();
       const selection = state ? get().selection.filter((id) => state.cards[id]) : [];
-      set({ state, me: session.me, status: session.status, error: session.error, selection });
+      set({ state, me: session.me, status: session.status, error: session.error, route: session.route, selection });
     };
     session.subscribe(sync);
     set({ session });
@@ -112,3 +122,6 @@ export function askNumber(title: string, value: number, submit: (n: number) => v
 // Dev only: when hot reload swaps this module out, close the session it holds. Otherwise the old
 // one keeps running invisibly, holds the table code, and keeps answering peers.
 import.meta.hot?.dispose(() => useStore.getState().session?.close());
+
+// Dev only: reach the live store from the browser console (`__cardtable.getState()`).
+if (import.meta.env.DEV) Object.assign(window, { __cardtable: useStore });

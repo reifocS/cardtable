@@ -9,11 +9,20 @@ interface ScryCard {
   collector_number: string;
   type_line?: string;
   oracle_text?: string;
+  id?: string;
+  all_parts?: { id: string; name: string; component: string }[];
   image_uris?: { normal: string; large: string };
   card_faces?: { name: string; type_line?: string; oracle_text?: string; image_uris?: { normal: string; large: string } }[];
 }
 
 export function facesOf(c: ScryCard): CardFace[] {
+  const faces = rawFaces(c);
+  const tokens = c.all_parts?.filter((p) => p.component === 'token' && p.id !== c.id);
+  if (tokens?.length) faces[0].tokens = [...new Map(tokens.map((t) => [t.name, { id: t.id, name: t.name }])).values()];
+  return faces;
+}
+
+function rawFaces(c: ScryCard): CardFace[] {
   if (c.card_faces?.[0]?.image_uris) {
     return c.card_faces.map((f) => ({
       name: f.name,
@@ -91,6 +100,13 @@ export async function resolveCards(
     else missing.push(l.name);
   }
   return { found, missing };
+}
+
+/** One card by its Scryfall id (e.g. a related token). */
+export async function fetchCard(id: string): Promise<CardFace[]> {
+  const res = await fetch(`${API}/cards/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`Scryfall error ${res.status}`);
+  return facesOf(await res.json());
 }
 
 /** Full-text Scryfall search, tokens included. */

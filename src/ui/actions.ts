@@ -1,6 +1,7 @@
 import type React from 'react';
 import { zoneId } from '../core/state';
 import type { Card, CardId, Zone } from '../core/types';
+import { fetchCard } from '../cards/scryfall';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
 
 const DEFAULT_COUNTER = '+1/+1';
@@ -54,7 +55,11 @@ export function closeViewer() {
 }
 
 export function startTargeting(from: string) {
-  useStore.setState({ targeting: from, menu: null });
+  useStore.setState({ targeting: from, targetMode: 'arrow', menu: null });
+}
+
+export function startAttaching(ids: CardId[]) {
+  if (ids.length) useStore.setState({ targeting: ids[0], targetMode: 'attach', attachCards: ids, menu: null });
 }
 
 function addCounterPrompt(ids: CardId[]) {
@@ -74,6 +79,19 @@ export function duplicate(ids: CardId[]) {
     cards: cards.map((c) => c.faces),
     positions: cards.map((c) => [c.x + 24, c.y + 24]),
   });
+}
+
+/** Creates a related token (from the card database) on my battlefield, next to its source. */
+async function createToken(id: string, near: Card) {
+  const bf = myZone('battlefield');
+  if (!bf) return;
+  try {
+    const faces = await fetchCard(id);
+    const onBoard = near.zone === bf.id;
+    act({ type: 'create', zone: bf.id, token: true, cards: [faces], positions: onBoard ? [[near.x + 80, near.y]] : undefined });
+  } catch (e) {
+    console.warn('Could not fetch token', e);
+  }
 }
 
 export function openMenu(e: React.MouseEvent, items: MenuItem[]) {
@@ -101,8 +119,15 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
       { label: `Add ${DEFAULT_COUNTER} counter`, hint: '+', action: () => act({ type: 'counter', cards: ids, key: DEFAULT_COUNTER, delta: 1 }) },
       { label: 'Add counter…', action: () => addCounterPrompt(ids) },
       { label: 'Target…', hint: 'A', action: () => startTargeting(card.id) },
+      card.attachedTo
+        ? { label: 'Detach', action: () => act({ type: 'attach', cards: ids, to: null }) }
+        : { label: `Attach to…${many}`, action: () => startAttaching(ids) },
       { label: 'Duplicate as token', action: () => duplicate(ids) },
     );
+  }
+  if (!onBoard) items.push({ label: `Attach to…${many}`, action: () => startAttaching(ids) });
+  for (const t of card.faces[0]?.tokens ?? []) {
+    items.push({ label: `Create ${t.name}${/emblem/i.test(t.name) ? '' : ' token'}`, action: () => createToken(t.id, card) });
   }
   if (card.home === 'command') {
     items.push(
@@ -178,8 +203,16 @@ export function zoneMenu(zone: Zone): MenuItem[] {
         },
       );
     }
+  } else if (zone.role === 'hand' && !mine) {
+    const who = state.players[zone.owner]?.name ?? 'them';
+    items.push(
+      { label: `Make ${who} discard at random`, action: () => act({ type: 'random', zone: zone.id, action: 'discard' }) },
+      { label: `Reveal a random card from ${who}'s hand`, action: () => act({ type: 'random', zone: zone.id, action: 'reveal' }) },
+    );
   } else if (zone.role === 'hand' && mine) {
     items.push(
+      { label: 'Discard at random', action: () => act({ type: 'random', zone: zone.id, action: 'discard' }) },
+      { label: 'Reveal a random card', action: () => act({ type: 'random', zone: zone.id, action: 'reveal' }) },
       { label: 'Reveal hand', action: () => act({ type: 'reveal', cards: [...zone.cards], to: '*' }) },
       { label: 'Stop revealing hand', action: () => act({ type: 'hide', cards: [...zone.cards] }) },
       { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
@@ -211,6 +244,7 @@ export function onKeyDown(e: KeyboardEvent) {
   if (key === 'escape') {
     if (store.targeting || store.menu || store.dialog) useStore.setState({ targeting: null, menu: null, dialog: null });
     else if (store.viewer) closeViewer();
+    else if (store.focus) useStore.setState({ focus: null });
     else useStore.setState({ selection: [] });
     return;
   }

@@ -11,7 +11,19 @@ import { useStore } from './store';
  * (see fit.ts), so every screen shows every card at full size, closer together when narrow.
  * `flipped` mirrors it top to bottom, for an opponent sitting across the table.
  */
-export function Board({ zone, state, flipped, children }: { zone: Zone; state: GameState; flipped?: boolean; children?: React.ReactNode }) {
+export function Board({
+  zone,
+  state,
+  flipped,
+  maxScale,
+  children,
+}: {
+  zone: Zone;
+  state: GameState;
+  flipped?: boolean;
+  maxScale?: number;
+  children?: React.ReactNode;
+}) {
   const wrap = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
@@ -25,7 +37,7 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
     return () => ro.disconnect();
   }, []);
 
-  const { scale, width, top } = fitBoard(size.w, size.h);
+  const { scale, width, top } = fitBoard(size.w, size.h, maxScale);
 
   return (
     <div className="board-wrap" ref={wrap}>

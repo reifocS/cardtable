@@ -2,7 +2,8 @@ import Peer, { type DataConnection } from 'peerjs';
 import { applyPatch } from '../core/diff';
 import { apply, OPTIMISTIC, type Op } from '../core/ops';
 import type { GameState, PlayerId } from '../core/types';
-import { Emitter, HEARTBEAT_TIMEOUT_MS, PEER_PREFIX, wire, type Session, type Status, type ToClient, type ToHost } from './session';
+import { iceServers, routeOf } from './ice';
+import { Emitter, HEARTBEAT_TIMEOUT_MS, PEER_PREFIX, wire, type Route, type Session, type Status, type ToClient, type ToHost } from './session';
 
 const RETRY_MS = 2000;
 
@@ -12,11 +13,15 @@ export class ClientSession extends Emitter implements Session {
   me: PlayerId | null;
   status: Status = 'connecting';
   error: string | null = null;
+  route: Route = null;
 
-  private peer: Peer;
+  private peer: Peer | null = null;
   private conn: DataConnection | null = null;
-  /** The host's word. */
+  /** The host's word, at version `version`. */
   private confirmed: GameState | null = null;
+  private version = -1;
+  /** A resync was requested; ignore patches until the full state arrives. */
+  private resyncing = false;
   /** `confirmed` plus local predictions; replaced by the next host update. */
   private view: GameState | null = null;
   private closed = false;
@@ -33,46 +38,39 @@ export class ClientSession extends Emitter implements Session {
     super();
     this.seatKey = `cardtable:seat:${code}`;
     this.me = sessionStorage.getItem(this.seatKey);
-    this.peer = new Peer({ debug: 1 });
-    this.peer.on('open', () => this.connect());
-    this.peer.on('disconnected', () => {
-      if (!this.closed && !this.peer.destroyed) this.peer.reconnect();
+    this.watchdog = window.setInterval(() => {
+      if (this.status === 'connected' && Date.now() - this.lastHeard > HEARTBEAT_TIMEOUT_MS) this.lost();
+    }, 1000);
+    this.openPeer();
+  }
+
+  private async openPeer() {
+    const peer = new Peer({ debug: 1, config: { iceServers: await iceServers() } });
+    if (this.closed) return peer.destroy();
+    this.peer = peer;
+    peer.on('open', () => this.connect());
+    peer.on('disconnected', () => {
+      if (!this.closed && !peer.destroyed) peer.reconnect();
     });
-    this.peer.on('error', (err) => {
+    peer.on('error', (err) => {
       this.error = err.type === 'peer-unavailable' ? 'Table not found. Is the host online? Retrying…' : err.message || String(err.type);
       this.emit();
       if (err.type === 'peer-unavailable') this.scheduleRetry();
     });
-    this.watchdog = window.setInterval(() => {
-      if (this.status === 'connected' && Date.now() - this.lastHeard > HEARTBEAT_TIMEOUT_MS) this.lost();
-    }, 1000);
   }
 
   private connect() {
-    if (this.closed) return;
+    if (this.closed || !this.peer) return;
     // Binary serialization chunks large messages; the JSON channel caps them at ~16KB.
     const conn = this.peer.connect(PEER_PREFIX + this.code, { reliable: true, serialization: 'binary' });
     this.conn = conn;
     conn.on('open', () => {
-      const hello: ToHost = { t: 'hello', name: this.name, playerId: this.me ?? undefined };
-      conn.send(wire(hello));
+      this.send({ t: 'hello', name: this.name, playerId: this.me ?? undefined });
     });
     conn.on('data', (raw) => {
       if (this.conn !== conn) return;
       this.lastHeard = Date.now();
-      const msg = raw as ToClient;
-      if (msg.t === 'ping') return;
-      if (msg.t === 'welcome') {
-        this.me = msg.playerId;
-        sessionStorage.setItem(this.seatKey, msg.playerId);
-        this.status = 'connected';
-        this.error = null;
-      } else if (msg.t === 'state') {
-        this.confirmed = this.view = msg.state;
-      } else if (msg.t === 'patch' && this.confirmed) {
-        this.confirmed = this.view = applyPatch(this.confirmed, msg.patch);
-      }
-      this.emit();
+      this.receive(raw as ToClient);
     });
     conn.on('close', () => {
       if (this.conn === conn) this.lost();
@@ -82,6 +80,46 @@ export class ClientSession extends Emitter implements Session {
     });
   }
 
+  private receive(msg: ToClient) {
+    switch (msg.t) {
+      case 'welcome':
+        this.me = msg.playerId;
+        sessionStorage.setItem(this.seatKey, msg.playerId);
+        this.status = 'connected';
+        this.error = null;
+        routeOf(this.conn?.peerConnection).then((r) => {
+          this.route = r;
+          this.emit();
+        });
+        break;
+      case 'state':
+        this.confirmed = this.view = msg.state;
+        this.version = msg.v;
+        this.resyncing = false;
+        break;
+      case 'patch':
+        if (this.resyncing) return;
+        if (!this.confirmed || msg.base !== this.version) return this.resync();
+        this.confirmed = this.view = applyPatch(this.confirmed, msg.patch);
+        this.version = msg.v;
+        break;
+      case 'ping':
+        // The host is ahead of us: a patch went missing.
+        if (msg.v !== this.version && !this.resyncing) this.resync();
+        return;
+    }
+    this.emit();
+  }
+
+  private resync() {
+    this.resyncing = true;
+    this.send({ t: 'resync' });
+  }
+
+  private send(msg: ToHost) {
+    if (this.conn?.open) this.conn.send(wire(msg));
+  }
+
   /** The connection is gone or silent: drop it and dial again. */
   private lost() {
     if (this.closed) return;
@@ -89,6 +127,7 @@ export class ClientSession extends Emitter implements Session {
     this.conn = null;
     conn?.close();
     this.status = 'reconnecting';
+    this.route = null;
     this.view = this.confirmed;
     this.emit();
     this.scheduleRetry();
@@ -97,7 +136,7 @@ export class ClientSession extends Emitter implements Session {
   private scheduleRetry() {
     clearTimeout(this.retryTimer);
     this.retryTimer = window.setTimeout(() => {
-      if (this.closed) return;
+      if (this.closed || !this.peer) return;
       if (this.peer.disconnected) this.peer.reconnect();
       this.connect();
     }, RETRY_MS);
@@ -107,8 +146,9 @@ export class ClientSession extends Emitter implements Session {
     return this.view;
   }
 
+  /** Ops are only sent while connected; the table is locked while reconnecting (see Table). */
   dispatch(op: Op) {
-    if (!this.conn?.open || !this.me) return;
+    if (this.status !== 'connected' || !this.conn?.open || !this.me) return;
     if (this.view && OPTIMISTIC.has(op.type)) {
       try {
         this.view = apply(this.view, this.me, op);
@@ -117,14 +157,13 @@ export class ClientSession extends Emitter implements Session {
         // The host is the judge; a failed prediction just waits for its update.
       }
     }
-    const msg: ToHost = { t: 'op', op };
-    this.conn.send(wire(msg));
+    this.send({ t: 'op', op });
   }
 
   close() {
     this.closed = true;
     clearTimeout(this.retryTimer);
     clearInterval(this.watchdog);
-    this.peer.destroy();
+    this.peer?.destroy();
   }
 }

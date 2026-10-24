@@ -4,6 +4,7 @@ import { Engine } from '../core/engine';
 import type { Op } from '../core/ops';
 import type { GameState, PlayerId } from '../core/types';
 import { redact } from '../core/visibility';
+import { iceServers } from './ice';
 import { Emitter, HEARTBEAT_MS, PEER_PREFIX, makeCode, wire, type Session, type Status, type ToClient, type ToHost } from './session';
 
 const SAVE_PREFIX = 'cardtable:hosted:';
@@ -49,12 +50,13 @@ export class HostSession extends Emitter implements Session {
   readonly me: PlayerId;
   status: Status = 'connecting';
   error: string | null = null;
+  readonly route = null;
 
   private engine: Engine;
   private peer: Peer | null = null;
   private conns = new Map<DataConnection, PlayerId | null>();
-  /** Last view sent on each connection, so later updates only carry what changed. */
-  private sent = new Map<DataConnection, GameState>();
+  /** Last view sent on each connection and its version, so later updates only carry what changed. */
+  private sent = new Map<DataConnection, { view: GameState; v: number }>();
   private view: GameState;
   private closed = false;
   private saveTimer = 0;
@@ -71,13 +73,13 @@ export class HostSession extends Emitter implements Session {
     this.save();
     this.openPeer(0);
     this.heartbeat = window.setInterval(() => {
-      for (const conn of this.conns.keys()) this.send(conn, { t: 'ping' });
+      for (const conn of this.conns.keys()) this.send(conn, { t: 'ping', v: this.sent.get(conn)?.v ?? 0 });
     }, HEARTBEAT_MS);
   }
 
-  private openPeer(attempt: number) {
+  private async openPeer(attempt: number) {
     if (this.closed) return;
-    const peer = new Peer(PEER_PREFIX + this.code, { debug: 1 });
+    const peer = new Peer(PEER_PREFIX + this.code, { debug: 1, config: { iceServers: await iceServers() } });
     this.peer = peer;
     peer.on('open', () => {
       this.status = 'connected';
@@ -127,8 +129,9 @@ export class HostSession extends Emitter implements Session {
   private sync(conn: DataConnection, pid: PlayerId) {
     const view = redact(this.engine.state, pid);
     const prev = this.sent.get(conn);
-    this.send(conn, prev ? { t: 'patch', patch: diffState(prev, view) } : { t: 'state', state: view });
-    this.sent.set(conn, view);
+    const v = (prev?.v ?? 0) + 1;
+    this.send(conn, prev ? { t: 'patch', patch: diffState(prev.view, view), base: prev.v, v } : { t: 'state', state: view, v });
+    this.sent.set(conn, { view, v });
   }
 
   private receive(conn: DataConnection, msg: ToHost) {
@@ -142,6 +145,15 @@ export class HostSession extends Emitter implements Session {
     } else if (msg?.t === 'op') {
       const pid = this.conns.get(conn);
       if (pid) this.engine.dispatch(pid, msg.op);
+    } else if (msg?.t === 'resync') {
+      const pid = this.conns.get(conn);
+      if (!pid) return;
+      // Keep counting versions up, so a late patch can never be mistaken for a current one.
+      const v = this.sent.get(conn)?.v ?? 0;
+      this.sent.delete(conn);
+      const view = redact(this.engine.state, pid);
+      this.send(conn, { t: 'state', state: view, v: v + 1 });
+      this.sent.set(conn, { view, v: v + 1 });
     }
   }
 

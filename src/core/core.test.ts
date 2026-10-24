@@ -112,11 +112,28 @@ describe('ops', () => {
     expect(e.state.log.at(-1)?.text).toMatch(/goes first \(picked at random\)$/);
   });
 
+  it('discards or reveals a random card, with the host picking', () => {
+    const { e, a, b } = twoPlayers();
+    const hand = zoneId(a, 'hand');
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'library'), to: hand, n: 5 });
+    e.dispatch(b, { type: 'random', zone: hand, action: 'discard' });
+    expect(e.state.zones[hand].cards).toHaveLength(4);
+    expect(e.state.zones[zoneId(a, 'graveyard')].cards).toHaveLength(1);
+    expect(e.state.log.at(-1)?.text).toMatch(/^discarded A \d+ at random from Alice's Hand$/);
+    e.dispatch(a, { type: 'random', zone: hand, action: 'reveal' });
+    const revealed = e.state.zones[hand].cards.filter((id) => e.state.cards[id].revealedTo.includes('*'));
+    expect(revealed).toHaveLength(1);
+    expect(redact(e.state, b).cards[revealed[0]].faces).toHaveLength(1);
+  });
+
   it('passes the turn around the table and clears arrows', () => {
     const { e, a, b } = twoPlayers();
     const [c1] = e.state.zones[zoneId(a, 'library')].cards;
     e.dispatch(a, { type: 'arrow', from: c1, to: b });
     expect(e.state.arrows).toHaveLength(1);
+    e.dispatch(b, { type: 'removeArrow', from: c1, to: b });
+    expect(e.state.arrows).toHaveLength(0);
+    e.dispatch(a, { type: 'arrow', from: c1, to: b });
     e.dispatch(a, { type: 'passTurn' });
     expect(e.state.turn.player).toBe(b);
     expect(e.state.arrows).toHaveLength(0);
@@ -159,6 +176,49 @@ describe('commander', () => {
     e.dispatch(a, { type: 'commanderDamage', player: b, from: cmdr, delta: -30 });
     expect(e.state.players[b].commanderDamage?.[cmdr]).toBe(0);
     expect(e.state.players[b].trackers.Life).toBe(40);
+  });
+});
+
+describe('attach', () => {
+  function board() {
+    const { e, a, b } = twoPlayers();
+    const bf = zoneId(a, 'battlefield');
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'library'), to: bf, n: 3 });
+    const [host, aura, sword] = e.state.zones[bf].cards;
+    return { e, a, b, bf, host, aura, sword };
+  }
+
+  it('tucks attachments behind the host and moves them with it', () => {
+    const { e, a, bf, host, aura, sword } = board();
+    e.dispatch(a, { type: 'attach', cards: [aura, sword], to: host });
+    const z = () => e.state.zones[bf].cards;
+    expect(z().indexOf(aura)).toBeLessThan(z().indexOf(host));
+    expect(z().indexOf(sword)).toBeLessThan(z().indexOf(host));
+    expect(e.state.cards[aura].y).toBeLessThan(e.state.cards[host].y);
+    e.dispatch(a, { type: 'move', cards: [host], to: bf, positions: { [host]: [500, 200] } });
+    const h = e.state.cards[host];
+    expect([e.state.cards[aura].x, e.state.cards[sword].x]).toEqual([h.x, h.x]);
+    expect(e.state.cards[sword].attachedTo).toBe(host);
+    expect(z().at(-1)).toBe(host);
+  });
+
+  it('detaches when moved alone, or when the host leaves the battlefield', () => {
+    const { e, a, bf, host, aura, sword } = board();
+    e.dispatch(a, { type: 'attach', cards: [aura, sword], to: host });
+    e.dispatch(a, { type: 'move', cards: [aura], to: bf, positions: { [aura]: [800, 100] } });
+    expect(e.state.cards[aura].attachedTo).toBeUndefined();
+    e.dispatch(a, { type: 'move', cards: [host], to: zoneId(a, 'graveyard') });
+    expect(e.state.cards[sword].attachedTo).toBeUndefined();
+    expect(e.state.cards[sword].zone).toBe(bf);
+  });
+
+  it('pulls a card from elsewhere onto the host battlefield, and detaches on request', () => {
+    const { e, a, b, host } = board();
+    const [stolen] = e.state.zones[zoneId(b, 'library')].cards;
+    e.dispatch(a, { type: 'attach', cards: [stolen], to: host });
+    expect(e.state.cards[stolen].zone).toBe(zoneId(a, 'battlefield'));
+    e.dispatch(a, { type: 'attach', cards: [stolen], to: null });
+    expect(e.state.cards[stolen].attachedTo).toBeUndefined();
   });
 });
 
@@ -301,5 +361,13 @@ describe('diff', () => {
   it('sends nothing but the length when nothing changed', () => {
     const { e, a } = twoPlayers();
     expect(diffState(redact(e.state, a), redact(e.state, a))).toEqual({ logLength: e.state.log.length });
+  });
+});
+
+describe('deck names', () => {
+  it('guesses the commander, else the most played non-basic', async () => {
+    const { guessDeckName } = await import('../cards/decks');
+    expect(guessDeckName('Commander\n1 Krenko, Mob Boss\n\nDeck\n30 Mountain')).toBe('Krenko, Mob Boss');
+    expect(guessDeckName('20 Island\n4 Delver of Secrets\n2 Brazen Borrower')).toBe('Delver of Secrets');
   });
 });

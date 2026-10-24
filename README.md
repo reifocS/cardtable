@@ -19,6 +19,21 @@ npm test
 - `src/net/`: PeerJS (WebRTC). The host tab runs the engine and sends each peer only its redacted view.
   Clients predict simple ops locally so drags feel instant.
 - `src/cards/`: decklist parsing and Scryfall lookups. Lines like `2 Name | https://image.url` work for any game.
-- `src/ui/`: React, DOM rendering. Battlefields are fixed-size logical boards scaled to fit, so every client sees the same layout.
+- `src/ui/`: React, DOM rendering. Card positions on a battlefield are proportional, and cards are sized from the board's height, so every screen shows the same layout with cards as big as it allows (`ui/fit.ts`).
 
 Two tabs on one machine act as two players, which is handy for testing.
+
+## Credits
+
+Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from [game-icons.net](https://game-icons.net), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+Card data and images from [Scryfall](https://scryfall.com). Font: [Grenze](https://fonts.google.com/specimen/Grenze).
+
+## Relay (TURN) for strict networks
+
+Players connect directly when they can. Behind strict NATs they need a relay. Set one of these at build time
+(e.g. `vercel env add VITE_TURN_CREDENTIALS_URL production`, then redeploy):
+
+- `VITE_TURN_CREDENTIALS_URL`: a URL returning an `RTCIceServer[]` (Metered's credentials API works as is)
+- `VITE_ICE_SERVERS`: an `RTCIceServer[]` as JSON
+
+The top bar shows whether a player is connected `direct` or `via relay`.

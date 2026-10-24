@@ -10,6 +10,8 @@ export interface CardFace {
   /** Type line, e.g. "Basic Land — Plains". Used to filter when searching a zone. */
   type?: string;
   text?: string;
+  /** Tokens (and emblems) this card makes, by card-database id. Kept on the first face. */
+  tokens?: { id: string; name: string }[];
 }
 
 export interface Card {
@@ -33,6 +35,8 @@ export interface Card {
   home: string;
   /** Commander tax: extra cost for the next cast from the command zone. Survives zone changes. */
   tax?: number;
+  /** The card this one is attached to (an aura, equipment…). It sits behind its host and moves with it. */
+  attachedTo?: CardId;
 }
 
 /** pile: stacked, top = index 0. fan: spread out (a hand). free: positioned cards (a battlefield). */

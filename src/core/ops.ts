@@ -30,15 +30,20 @@ export type Op =
   | { type: 'commanderDamage'; player: PlayerId; from: CardId; delta: number }
   | { type: 'create'; zone: ZoneId; cards: CardFace[][]; token: boolean; positions?: [number, number][] }
   | { type: 'delete'; cards: CardId[] }
+  /** Attach cards to a host on a battlefield, or detach them (`to: null`). */
+  | { type: 'attach'; cards: CardId[]; to: CardId | null }
   | { type: 'loadDeck'; main: CardFace[][]; side: CardFace[][]; commander: CardFace[][] }
   | { type: 'resetDeck' }
   | { type: 'mulligan'; n?: number }
   | { type: 'roll'; sides: number }
+  /** A card picked by the host's RNG: discarded to its owner's graveyard, or revealed to everyone. */
+  | { type: 'random'; zone: ZoneId; action: 'discard' | 'reveal' }
   | { type: 'passTurn' }
   /** Hand the turn to a player ('random': the host picks). `restart` starts over at turn 1. */
   | { type: 'setTurn'; player: PlayerId | 'random'; restart?: boolean }
   | { type: 'arrow'; from: string; to: string }
   | { type: 'clearArrows' }
+  | { type: 'removeArrow'; from: string; to: string }
   | { type: 'rename'; name: string }
   | { type: 'chat'; text: string }
   | { type: 'undo' };
@@ -47,6 +52,8 @@ export type Op =
 export const OPTIMISTIC = new Set<Op['type']>(['move', 'tap', 'untapAll', 'flip', 'counter', 'tracker']);
 
 const MAX_LOG = 300;
+/** How far each attached card peeks out above its host, in board units. */
+const ATTACH_DY = 22;
 const MERGE_WINDOW_MS = 5000;
 
 /** Returns a new state with `op` applied by `actor`. Never mutates `prev`. */
@@ -182,8 +189,12 @@ class Mutation {
       case 'setTracker': {
         const p = s.players[op.player];
         if (!p || !op.key) return;
+        const had = op.key in p.trackers;
         if (op.value === null) delete p.trackers[op.key];
         else p.trackers[op.key] = op.value;
+        const who = op.player === this.actor ? '' : ` for ${p.name}`;
+        if (op.value === null && had) return this.log(`removed the ${op.key} counter${who}`);
+        if (op.value !== null && !had) return this.log(`added a ${op.key} counter${who}`);
         return;
       }
       case 'commanderTax': {
@@ -221,6 +232,24 @@ class Mutation {
         for (const c of cards) this.remove(c);
         return this.log(`removed ${label}`);
       }
+      case 'attach': {
+        const cards = this.cards(op.cards).filter((c) => c.id !== op.to);
+        if (!cards.length) return;
+        if (op.to === null) {
+          for (const c of cards) delete c.attachedTo;
+          return this.log(`detached ${this.label(cards)}`);
+        }
+        const host = s.cards[op.to];
+        const zone = host && s.zones[host.zone];
+        if (!host || zone?.kind !== 'free') return;
+        // No loops: a host can't end up attached to its own attachment.
+        if (host.attachedTo && op.cards.includes(host.attachedTo)) delete host.attachedTo;
+        const others = cards.filter((c) => c.zone !== zone.id);
+        if (others.length) this.move(others.map((c) => c.id), zone.id, {}, true);
+        for (const c of cards) c.attachedTo = host.id;
+        this.layoutAttachments(host);
+        return this.log(`attached ${this.label(cards)} to ${this.label([host])}`);
+      }
       case 'loadDeck': {
         for (const c of Object.values(s.cards)) if (c.owner === this.actor) this.remove(c);
         const add = (list: CardFace[][], role: string) => {
@@ -247,6 +276,7 @@ class Mutation {
           this.move([c.id], zoneId(this.actor, c.home), { index: -1 }, true);
           Object.assign(c, { face: 0, faceDown: false, rotation: 0, counters: {}, revealedTo: [] });
           delete c.tax;
+          delete c.attachedTo;
         }
         s.arrows = s.arrows.filter((a) => s.cards[a.from] || s.players[a.from]);
         this.resetTrackers(commander);
@@ -262,6 +292,19 @@ class Mutation {
         this.shuffleSilently('library');
         this.move(lib.cards.slice(0, n), hand.id, {}, true);
         return this.log(`mulliganed: shuffled their hand away and drew ${n}`);
+      }
+      case 'random': {
+        const z = this.zone(op.zone);
+        if (!z.cards.length) return;
+        const c = s.cards[z.cards[Math.floor(this.rng() * z.cards.length)]];
+        if (op.action === 'reveal') {
+          if (!c.revealedTo.includes('*')) c.revealedTo.push('*');
+          return this.log(`revealed ${cardName(c)} at random from ${this.zoneLabel(z)}`);
+        }
+        const gy = s.zones[zoneId(c.owner, 'graveyard')];
+        if (!gy) return;
+        this.move([c.id], gy.id, {}, true);
+        return this.log(`discarded ${cardName(c)} at random from ${this.zoneLabel(z)}`);
       }
       case 'roll': {
         const sides = clamp(Math.floor(op.sides) || 6, 2, 1000);
@@ -294,6 +337,11 @@ class Mutation {
       case 'clearArrows':
         s.arrows = [];
         return;
+      case 'removeArrow': {
+        const i = s.arrows.findIndex((a) => a.from === op.from && a.to === op.to);
+        if (i >= 0) s.arrows.splice(i, 1);
+        return;
+      }
       case 'rename': {
         const p = s.players[this.actor];
         const name = op.name.trim().slice(0, 32);
@@ -405,10 +453,31 @@ class Mutation {
     return card;
   }
 
+  private attachmentsOf(host: Card): Card[] {
+    const z = this.s.zones[host.zone];
+    return z ? z.cards.map((id) => this.s.cards[id]).filter((c) => c.attachedTo === host.id) : [];
+  }
+
+  /** Fans attachments out above their host (moving the host down if needed) and puts them behind it. */
+  private layoutAttachments(host: Card) {
+    const z = this.s.zones[host.zone];
+    const atts = this.attachmentsOf(host);
+    if (!z || !atts.length) return;
+    host.y = clamp(Math.max(host.y, atts.length * ATTACH_DY), 0, BOARD_H - CARD_H);
+    atts.forEach((a, k) => {
+      a.x = host.x;
+      a.y = host.y - (atts.length - k) * ATTACH_DY;
+    });
+    const ids = new Set(atts.map((a) => a.id));
+    z.cards = z.cards.filter((id) => !ids.has(id));
+    z.cards.splice(z.cards.indexOf(host.id), 0, ...atts.map((a) => a.id));
+  }
+
   private remove(c: Card) {
     const z = this.s.zones[c.zone];
     if (z) z.cards = z.cards.filter((id) => id !== c.id);
     delete this.s.cards[c.id];
+    for (const other of Object.values(this.s.cards)) if (other.attachedTo === c.id) delete other.attachedTo;
     this.s.arrows = this.s.arrows.filter((a) => a.from !== c.id && a.to !== c.id);
   }
 
@@ -451,8 +520,12 @@ class Mutation {
     to.cards.splice(index, 0, ...cards.map((c) => c.id));
 
     const taxed: Card[] = [];
+    const moving = new Set(cards.map((c) => c.id));
+    const hosts: Card[] = [];
     cards.forEach((c, i) => {
       const changed = c.zone !== to.id;
+      // Moved without its host: it's no longer attached.
+      if (c.attachedTo && !moving.has(c.attachedTo)) delete c.attachedTo;
       // Leaving the command zone for the battlefield is how a commander gets cast here.
       if (changed && c.home === 'command' && from[i].role === 'command' && to.role === 'battlefield') {
         c.tax = (c.tax ?? 0) + 2;
@@ -461,6 +534,7 @@ class Mutation {
       c.zone = to.id;
       if (changed) c.revealedTo = [];
       if (to.kind === 'free') {
+        if (!changed) hosts.push(c);
         const p = opts.positions?.[c.id] ?? (changed ? this.autoPlace(before + i) : undefined);
         if (p) {
           c.x = clamp(p[0], 0, BOARD_W - CARD_W);
@@ -472,6 +546,15 @@ class Mutation {
         Object.assign(c, { rotation: 0, counters: {}, faceDown: false, face: 0 });
       }
     });
+
+    for (const c of cards) {
+      if (to.kind !== 'free' || c.zone !== from[cards.indexOf(c)].id) {
+        // A host that left its battlefield lets go of everything attached to it.
+        for (const a of Object.values(this.s.cards)) if (a.attachedTo === c.id && !moving.has(a.id)) delete a.attachedTo;
+      }
+    }
+    // Attachments follow a host that moved around its battlefield.
+    for (const h of hosts) this.layoutAttachments(h);
 
     if (silent || from.every((z) => z.id === to.id)) return;
     const labels = cards.map((c, i) => (wasPublic[i] || isPublic(c, to) ? cardName(c) : null));

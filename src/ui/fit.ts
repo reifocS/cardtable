@@ -15,9 +15,9 @@ const Y_SPAN = BOARD_H - CARD_H;
  * then shows `width` logical units, whatever fits. Positions are proportional, so a narrow or short
  * screen squeezes cards closer together instead of shrinking them.
  */
-export function fitBoard(w: number, h: number) {
+export function fitBoard(w: number, h: number, maxScale = MAX_SCALE) {
   if (!w || !h) return { scale: 1, width: BOARD_W, top: 0 };
-  const scale = Math.min(h / VIEW_H, MAX_SCALE);
+  const scale = Math.min(h / VIEW_H, maxScale);
   return { scale, width: w / scale, top: (h - VIEW_H * scale) / 2 };
 }
 

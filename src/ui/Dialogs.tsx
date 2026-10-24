@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parseDeck, type DeckLine, type Section } from '../cards/deckParser';
+import { deleteDeck, guessDeckName, listDecks, saveDeck } from '../cards/decks';
 import { lookupKey, resolveCards, searchCards } from '../cards/scryfall';
 import type { CardFace } from '../core/types';
 import { CardImage } from './Zones';
@@ -108,7 +109,16 @@ export function ImportDialog() {
   const [text, setText] = useState(() => localStorage.getItem(DECK_KEY) ?? '');
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [decks, setDecks] = useState(listDecks);
+  const [name, setName] = useState('');
   if (!open) return null;
+
+  const save = () => {
+    if (!text.trim()) return;
+    const n = name.trim() || guessDeckName(text);
+    setName(n);
+    setDecks(saveDeck(n, text));
+  };
 
   const run = async () => {
     const lines = parseDeck(text);
@@ -140,7 +150,36 @@ export function ImportDialog() {
 
   return (
     <Modal title="Import deck" onClose={closeDialog}>
+      {decks.length > 0 && (
+        <div className="saved-decks">
+          {decks.map((d) => (
+            <span key={d.name} className={`saved-deck${d.name === name ? ' on' : ''}`}>
+              <button
+                onClick={() => {
+                  setText(d.text);
+                  setName(d.name);
+                }}
+              >
+                {d.name}
+              </button>
+              <button className="saved-deck-x" title={`Delete ${d.name}`} onClick={() => setDecks(deleteDeck(d.name))}>
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       <textarea className="deck-input" value={text} onChange={(e) => setText(e.target.value)} placeholder={PLACEHOLDER} autoFocus spellCheck={false} />
+      <form
+        className="prompt"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={text.trim() ? guessDeckName(text) : 'Deck name'} maxLength={60} />
+        <button disabled={!text.trim()}>Save deck</button>
+      </form>
       {problem && <p className="problem">{problem}</p>}
       <div className="modal-actions">
         <span className="muted">Replaces your current deck and shuffles it.</span>
@@ -247,7 +286,8 @@ const SHORTCUTS: [string, string][] = [
   ['F', 'Turn face down / up'],
   ['X', 'Transform (next face)'],
   ['+ / −', '+1/+1 counter'],
-  ['A', 'Target with an arrow'],
+  ['A', 'Target with an arrow (click an arrow to remove it)'],
+  ['Right-click → Attach to…', 'Attach an aura or equipment; it moves with the card'],
   ['R', 'Reveal to everyone'],
   ['B / H / G / E / L', 'To battlefield / hand / graveyard / exile / library'],
   ['D', 'Draw'],
@@ -278,6 +318,17 @@ export function HelpDialog() {
         </tbody>
       </table>
       <p className="muted">No rules are enforced: do what you would do at a real table, and the log keeps everyone honest.</p>
+      <p className="muted credits">
+        Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from{' '}
+        <a href="https://game-icons.net" target="_blank" rel="noreferrer">
+          game-icons.net
+        </a>
+        , CC BY 3.0. Card data and images from{' '}
+        <a href="https://scryfall.com" target="_blank" rel="noreferrer">
+          Scryfall
+        </a>
+        .
+      </p>
     </Modal>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { GameState } from '../core/types';
-import { useStore } from './store';
+import { act, useStore } from './store';
 
-type Line = { x1: number; y1: number; x2: number; y2: number; color: string };
+/** `from`/`to` are set for real arrows; the line being drawn while targeting has neither. */
+type Line = { x1: number; y1: number; x2: number; y2: number; color: string; from?: string; to?: string };
 
 function center(id: string): { x: number; y: number } | null {
   const el = document.querySelector(`[data-card-id="${id}"]`) ?? document.querySelector(`[data-player-id="${id}"]`);
@@ -32,7 +33,7 @@ export function Arrows({ state }: { state: GameState }) {
       for (const a of state.arrows) {
         const p = center(a.from);
         const q = center(a.to);
-        if (p && q) next.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, color: state.players[a.by]?.color ?? '#fff' });
+        if (p && q) next.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, color: state.players[a.by]?.color ?? '#fff', from: a.from, to: a.to });
       }
       const src = targeting && center(targeting);
       if (src && mouse.x) next.push({ x1: src.x, y1: src.y, x2: mouse.x, y2: mouse.y, color: (me && state.players[me]?.color) || '#fff' });
@@ -56,9 +57,19 @@ export function Arrows({ state }: { state: GameState }) {
           </marker>
         ))}
       </defs>
-      {lines.map((l, i) => (
-        <line key={i} {...l} stroke={l.color} strokeWidth={4} strokeLinecap="round" markerEnd={`url(#head-${i})`} opacity={0.9} />
-      ))}
+      {lines.map((l, i) => {
+        const { from, to, color, ...pos } = l;
+        const line = <line {...pos} stroke={color} strokeWidth={4} strokeLinecap="round" markerEnd={`url(#head-${i})`} opacity={0.9} />;
+        if (!from || !to) return <g key={i}>{line}</g>;
+        return (
+          <g key={i} className="arrow" onClick={() => act({ type: 'removeArrow', from, to })}>
+            <title>Click to remove</title>
+            {/* A wide invisible stroke makes the thin arrow easy to click. */}
+            <line {...pos} stroke="transparent" strokeWidth={18} strokeLinecap="round" />
+            {line}
+          </g>
+        );
+      })}
     </svg>
   );
 }

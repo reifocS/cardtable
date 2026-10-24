@@ -11,8 +11,8 @@
   --select: #5fb3ff;
   --card-radius: 4.5%;
   color-scheme: dark;
-  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 14px;
+  font-family: 'Grenze', Georgia, serif;
+  font-size: 15px;
   color: var(--text);
 }
 
@@ -235,16 +235,6 @@ kbd {
   display: flex;
   min-height: 0;
 }
-.opp-strip {
-  flex: 0 0 auto;
-  border-bottom: 1px solid #0003;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: #0002;
-  min-width: 0;
-}
 
 /* ---- player header ---- */
 
@@ -288,11 +278,6 @@ kbd {
   border-radius: 4px;
   font-weight: 700;
 }
-.counts {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 12px;
-}
 .trackers {
   display: flex;
   gap: 8px;
@@ -315,6 +300,15 @@ kbd {
 }
 .tracker.life .tracker-value {
   font-size: 20px;
+}
+.tracker.lethal .tracker-value {
+  color: #ff6b6b;
+}
+.tracker-add {
+  padding: 0 7px;
+  line-height: 20px;
+  color: var(--muted);
+  background: none;
 }
 .tracker-key {
   font-size: 11px;
@@ -586,7 +580,13 @@ body.dragging * {
   color: var(--muted);
 }
 .pile.small .pile-slot {
-  width: 40px;
+  width: 30px;
+}
+.pile.small .pile-count {
+  font-size: 9px;
+  padding: 0 3px;
+  bottom: 1px;
+  right: 1px;
 }
 .pile.small .pile-label {
   display: none;
@@ -624,9 +624,9 @@ body.dragging * {
   transform: translateY(-8px);
 }
 .hand.compact {
-  --hand-card-h: 52px;
-  align-self: stretch;
+  --hand-card-h: 40px;
   padding: 0 6px;
+  min-height: 44px;
 }
 .hand.compact .card:hover {
   transform: none;
@@ -787,6 +787,25 @@ body.dragging * {
   pointer-events: none;
   z-index: 800;
 }
+.offline {
+  position: fixed;
+  inset: 44px 0 0 0;
+  z-index: 1040;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #0009;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+.offline p {
+  font-size: 13px;
+  font-weight: 400;
+  max-width: 340px;
+}
 .targeting-hint {
   position: fixed;
   top: 54px;
@@ -916,6 +935,27 @@ body.dragging * {
 .modal-actions .muted {
   font-size: 12px;
 }
+.saved-decks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.saved-deck {
+  display: inline-flex;
+}
+.saved-deck button {
+  border-radius: 6px 0 0 6px;
+  font-size: 12.5px;
+}
+.saved-deck.on button {
+  border-color: var(--accent);
+}
+.saved-deck .saved-deck-x {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+  color: var(--muted);
+  padding: 4px 7px;
+}
 .deck-input {
   height: 320px;
   resize: vertical;
@@ -989,4 +1029,99 @@ body.dragging * {
   .viewer {
     right: 276px;
   }
+}
+
+/* ---- icons, bars ---- */
+
+.icon {
+  display: block;
+  flex-shrink: 0;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: none;
+  border-color: transparent;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--panel-2);
+  border-color: var(--line);
+}
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+}
+.area.mine > .player-header {
+  min-height: 48px;
+  padding: 5px 10px;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+.opponent > .player-header {
+  padding: 3px 8px;
+}
+.opp-zones {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+}
+
+/* ---- big opponent board ---- */
+
+.board-focus {
+  position: fixed;
+  top: 44px;
+  left: 0;
+  right: 320px;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at center, var(--felt-2), var(--felt) 70%);
+}
+.board-focus-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #0004;
+  font-size: 16px;
+}
+.board-focus-head .muted {
+  font-size: 13px;
+}
+@media (max-width: 1300px) {
+  .board-focus {
+    right: 260px;
+  }
+}
+
+/* ---- removable arrows ---- */
+
+.arrows .arrow {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.arrows .arrow:hover line + line {
+  stroke-width: 7px;
+  opacity: 1;
+}
+.credits {
+  font-size: 12px;
+}
+.credits a {
+  color: var(--muted);
 }

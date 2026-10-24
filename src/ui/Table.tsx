@@ -2,12 +2,14 @@ import { useEffect } from 'react';
 import { zoneOf } from '../core/state';
 import { cardName } from '../core/ops';
 import type { Card, GameState, Player, PlayerId } from '../core/types';
-import { onKeyDown, onKeyUp } from './actions';
+import { onKeyDown, onKeyUp, openMenu } from './actions';
+import { ActionBar } from './ActionBar';
 import { Arrows } from './Arrows';
 import { ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
 import { finishTargeting } from './drag';
+import { Icon } from './Icon';
 import { SidePanel, ZoomOverlay } from './SidePanel';
-import { act, useStore } from './store';
+import { act, ask, useStore } from './store';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
 import { Board, Hand, Pile } from './Zones';
@@ -47,27 +49,48 @@ function CommanderDamage({ state, player }: { state: GameState; player: Player }
   );
 }
 
+/** Counters that end the game at a threshold get highlighted there. */
+const LETHAL: Record<string, (v: number) => boolean> = { Life: (v) => v <= 0, Poison: (v) => v >= 10 };
+const COMMON_COUNTERS = ['Poison', 'Energy', 'Experience', 'Rad', 'Tickets'];
+
 function Trackers({ player, editable }: { player: Player; editable: boolean }) {
   const bump = (key: string, delta: number) => act({ type: 'tracker', player: player.id, key, delta });
+  const add = (key: string) => act({ type: 'setTracker', player: player.id, key, value: player.trackers[key] ?? 0 });
+  const addMenu = (e: React.MouseEvent) =>
+    openMenu(e, [
+      { label: 'Add a counter', heading: true },
+      ...COMMON_COUNTERS.filter((k) => !(k in player.trackers)).map((k) => ({ label: k, action: () => add(k) })),
+      { label: 'Other…', action: () => ask('Counter name', '', (k) => k.trim() && add(k.trim().slice(0, 20))) },
+    ]);
   return (
     <div className="trackers">
       {Object.entries(player.trackers).map(([key, v]) => (
-        <div key={key} className={`tracker${key === 'Life' ? ' life' : ''}`} title={`${key} — shift-click for ±5`}>
+        <div
+          key={key}
+          className={`tracker${key === 'Life' ? ' life' : ''}${LETHAL[key]?.(v) ? ' lethal' : ''}`}
+          title={`${key} · shift-click for ±5${key === 'Life' ? '' : ' · right-click to remove'}`}
+          onContextMenu={(e) =>
+            key !== 'Life' && openMenu(e, [{ label: `Remove ${key}`, action: () => act({ type: 'setTracker', player: player.id, key, value: null }) }])
+          }
+        >
           {editable && <button onClick={(e) => bump(key, e.shiftKey ? -5 : -1)}>−</button>}
           <span className="tracker-value">{v}</span>
           <span className="tracker-key">{key}</span>
           {editable && <button onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}>+</button>}
         </div>
       ))}
+      {editable && (
+        <button className="tracker-add" title="Add a counter (poison, energy…)" onClick={addMenu}>
+          +◆
+        </button>
+      )}
     </div>
   );
 }
 
-function PlayerHeader({ state, pid }: { state: GameState; pid: PlayerId }) {
+function PlayerHeader({ state, pid, children }: { state: GameState; pid: PlayerId; children?: React.ReactNode }) {
   const player = state.players[pid];
   const targeting = useStore((s) => s.targeting);
-  const hand = zoneOf(state, pid, 'hand');
-  const lib = zoneOf(state, pid, 'library');
   const active = state.turn.player === pid;
   return (
     <div
@@ -82,9 +105,7 @@ function PlayerHeader({ state, pid }: { state: GameState; pid: PlayerId }) {
       {/* Anyone can adjust anyone's life: at a real table you'd just say it. */}
       <Trackers player={player} editable />
       <CommanderDamage state={state} player={player} />
-      <span className="counts">
-        ✋ {hand?.cards.length ?? 0} · 📚 {lib?.cards.length ?? 0}
-      </span>
+      {children}
     </div>
   );
 }
@@ -95,14 +116,25 @@ function OpponentArea({ state, pid }: { state: GameState; pid: PlayerId }) {
   return (
     <section className="area opponent">
       {/* Laid out like a player sitting across: hand and piles far side, battlefield toward the middle. */}
-      <PlayerHeader state={state} pid={pid} />
-      <div className="opp-strip">
-        {['library', ...SIDE_PILES].map((role) => {
-          const z = zoneOf(state, pid, role);
-          return z && <Pile key={role} zone={z} state={state} small />;
-        })}
-        {hand && <Hand zone={hand} state={state} compact />}
-      </div>
+      <PlayerHeader state={state} pid={pid}>
+        <div className="opp-zones">
+          {['library', ...SIDE_PILES].map((role) => {
+            const z = zoneOf(state, pid, role);
+            return z && <Pile key={role} zone={z} state={state} small />;
+          })}
+          {hand && <Hand zone={hand} state={state} compact />}
+        </div>
+        <button
+          className="icon-btn"
+          title={`See ${state.players[pid].name}'s battlefield in big`}
+          onClick={(e) => {
+            e.stopPropagation();
+            useStore.setState({ focus: pid });
+          }}
+        >
+          <Icon name="expand" />
+        </button>
+      </PlayerHeader>
       <div className="area-body">
         {bf && <Board zone={bf} state={state} flipped />}
       </div>
@@ -139,8 +171,31 @@ function MyArea({ state, me }: { state: GameState; me: PlayerId }) {
         </div>
         {hand && <Hand zone={hand} state={state} />}
       </div>
-      <PlayerHeader state={state} pid={me} />
+      <PlayerHeader state={state} pid={me}>
+        <ActionBar state={state} />
+      </PlayerHeader>
     </section>
+  );
+}
+
+/** One opponent's battlefield over the whole table, for reading a busy board. */
+function FocusBoard({ state }: { state: GameState }) {
+  const focus = useStore((s) => s.focus);
+  const bf = focus ? zoneOf(state, focus, 'battlefield') : undefined;
+  if (!focus || !bf || !state.players[focus]) return null;
+  return (
+    <div className="board-focus">
+      <div className="board-focus-head">
+        <b style={{ color: state.players[focus].color }}>{state.players[focus].name}'s battlefield</b>
+        <span className="muted">You can play on it as usual · Esc to close</span>
+        <div className="spacer" />
+        <button onClick={() => useStore.setState({ focus: null })}>Close</button>
+      </div>
+      <div className="area-body">
+        {/* Let cards grow well past the usual cap: reading a busy board is the point. */}
+        <Board zone={bf} state={state} flipped maxScale={3.5} />
+      </div>
+    </div>
   );
 }
 
@@ -148,6 +203,8 @@ export function Table() {
   const state = useStore((s) => s.state);
   const me = useStore((s) => s.me);
   const targeting = useStore((s) => s.targeting);
+  const attaching = useStore((s) => s.targetMode === 'attach');
+  const offline = useStore((s) => s.session?.role === 'client' && s.status !== 'connected');
 
   useEffect(() => {
     window.addEventListener('keydown', onKeyDown);
@@ -181,6 +238,7 @@ export function Table() {
         <MyArea state={state} me={me} />
       </main>
       <SidePanel state={state} />
+      <FocusBoard state={state} />
       <Viewer state={state} />
       <Arrows state={state} />
       <ZoomOverlay state={state} />
@@ -189,7 +247,15 @@ export function Table() {
       <ImportDialog />
       <CreateDialog />
       <HelpDialog />
-      {targeting && <div className="targeting-hint">Click a card or a player to target · Esc to cancel</div>}
+      {offline && (
+        <div className="offline">
+          <div>Reconnecting to the host…</div>
+          <p className="muted">Actions are paused so nothing gets lost. The table comes back exactly as the host has it.</p>
+        </div>
+      )}
+      {targeting && (
+        <div className="targeting-hint">{attaching ? 'Click the card to attach to' : 'Click a card or a player to target'} · Esc to cancel</div>
+      )}
     </div>
   );
 }
