@@ -79,22 +79,19 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 
 /**
- * A battlefield blown up: the same arrangement as on the table. Opens filling the height (big
- * cards, centered, scroll sideways if needed); zoom with pinch, Ctrl/⌘ + wheel or the buttons.
- * Zoom 1 = the whole board fits.
+ * A battlefield blown up: the same arrangement as on the table. Opens with the whole board fitted
+ * (zoom 1); zoom with pinch, Ctrl/⌘ + wheel or the buttons, and scroll once zoomed in.
  */
 export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameState; flipped?: boolean }) {
   const [wrap, size] = useSize<HTMLDivElement>();
-  // null until the area is measured; then it starts at "fill the height".
-  const [zoom, setZoom] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(1);
   // Content point to keep under the cursor across a zoom change.
   const anchor = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
 
   const width = laidOutWidth.get(zone.id) ?? 1000;
   const fit = size.w && size.h ? Math.min(size.w / width, size.h / VIEW_H) : 1;
   const fillHeight = size.h ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, size.h / VIEW_H / fit)) : 1;
-  const z = zoom ?? fillHeight;
-  const scale = fit * z;
+  const scale = fit * zoom;
 
   const zoomTo = (next: number, px = size.w / 2, py = size.h / 2) => {
     const el = wrap.current;
@@ -103,15 +100,6 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
     anchor.current = { x: (el.scrollLeft + px) / scale, y: (el.scrollTop + py) / scale, px, py };
     setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)));
   };
-
-  // First layout: start centered.
-  const centered = useRef(false);
-  useLayoutEffect(() => {
-    const el = wrap.current;
-    if (!el || !size.w || centered.current) return;
-    centered.current = true;
-    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
-  }, [size.w, wrap]);
 
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -123,8 +111,8 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
   }, [scale, wrap]);
 
   // Pinch on a trackpad arrives as Ctrl + wheel; it must be non-passive to stop the page zooming.
-  const zoomRef = useRef(z);
-  zoomRef.current = z;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   useEffect(() => {
     const el = wrap.current!;
     const onWheel = (e: WheelEvent) => {
@@ -145,14 +133,14 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
         </div>
       </div>
       <div className="zoom-controls">
-        <button onClick={() => zoomTo(z / 1.25)} disabled={z <= MIN_ZOOM} {...tip('Zoom out')}>
+        <button onClick={() => zoomTo(zoom / 1.25)} disabled={zoom <= MIN_ZOOM} {...tip('Zoom out')}>
           −
         </button>
         <span className="zoom-level">{Math.round(scale * 100)}%</span>
-        <button onClick={() => zoomTo(z * 1.25)} disabled={z >= MAX_ZOOM} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
+        <button onClick={() => zoomTo(zoom * 1.25)} disabled={zoom >= MAX_ZOOM} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
           +
         </button>
-        <button onClick={() => zoomTo(1)} disabled={z <= MIN_ZOOM} {...tip('Show the whole board', 'end')}>
+        <button onClick={() => zoomTo(1)} disabled={zoom <= MIN_ZOOM} {...tip('Show the whole board', 'end')}>
           Fit
         </button>
         <button onClick={() => zoomTo(fillHeight)} {...tip('Fill the height', 'end')}>

@@ -27,18 +27,3 @@ Two tabs on one machine act as two players, which is handy for testing.
 
 Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from [game-icons.net](https://game-icons.net), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 Card data and images from [Scryfall](https://scryfall.com). Font: [Grenze](https://fonts.google.com/specimen/Grenze).
-
-## Relay (TURN) for strict networks
-
-Players connect directly when they can. Behind strict NATs (corporate, some mobile networks) they need a relay.
-Production builds ask `/api/turn` (`api/turn.ts`), a Vercel function that returns short-lived
-[Cloudflare Realtime TURN](https://developers.cloudflare.com/realtime/turn/) credentials. It needs two server-side
-environment variables:
-
-- `CLOUDFLARE_TURN_KEY_ID`
-- `CLOUDFLARE_TURN_KEY_API_TOKEN`
-
-Without them it answers 503 and connections stay direct. Another provider can be used instead with
-`VITE_TURN_CREDENTIALS_URL` (a URL returning an `RTCIceServer[]`) or `VITE_ICE_SERVERS` (JSON).
-
-The top bar shows whether a player is connected `direct` or `via relay`.
