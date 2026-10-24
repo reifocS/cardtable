@@ -191,6 +191,8 @@ kbd {
 }
 .turn {
   font-weight: 600;
+  background: none;
+  border-color: transparent;
 }
 
 .table {
@@ -860,6 +862,10 @@ body.dragging * {
   padding: 8px 10px 2px;
   border-top: 1px solid var(--line);
   margin-top: 4px;
+}
+.menu-heading:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 .menu-heading:empty {
   padding: 0;

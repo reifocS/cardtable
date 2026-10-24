@@ -35,6 +35,8 @@ export type Op =
   | { type: 'mulligan'; n?: number }
   | { type: 'roll'; sides: number }
   | { type: 'passTurn' }
+  /** Hand the turn to a player ('random': the host picks). `restart` starts over at turn 1. */
+  | { type: 'setTurn'; player: PlayerId | 'random'; restart?: boolean }
   | { type: 'arrow'; from: string; to: string }
   | { type: 'clearArrows' }
   | { type: 'rename'; name: string }
@@ -273,6 +275,16 @@ class Mutation {
         s.arrows = [];
         const p = s.turn.player ? s.players[s.turn.player] : null;
         return this.log(`Turn ${s.turn.number}: ${p?.name ?? '?'}`, { kind: 'turn' });
+      }
+      case 'setTurn': {
+        const pid = op.player === 'random' ? s.seats[Math.floor(this.rng() * s.seats.length)] : op.player;
+        const p = pid ? s.players[pid] : undefined;
+        if (!p) return;
+        s.turn.player = p.id;
+        if (op.restart) s.turn.number = 1;
+        s.arrows = [];
+        const how = op.player === 'random' ? ' (picked at random)' : '';
+        return this.log(op.restart ? `${p.name} goes first${how}` : `Turn ${s.turn.number}: ${p.name}`, { kind: 'turn' });
       }
       case 'arrow': {
         if (op.from === op.to || !this.exists(op.from) || !this.exists(op.to)) return;

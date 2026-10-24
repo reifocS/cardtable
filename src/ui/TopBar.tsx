@@ -24,6 +24,22 @@ export function TopBar({ state }: { state: GameState }) {
       { label: 'Roll dN…', action: () => ask('Number of sides', '100', (v) => act({ type: 'roll', sides: parseInt(v, 10) })) },
     ]);
 
+  const turnMenu = (e: React.MouseEvent) =>
+    openMenu(e, [
+      { label: 'Who goes first?', heading: true },
+      { label: 'Random player', action: () => act({ type: 'setTurn', player: 'random', restart: true }) },
+      ...state.seats.map((pid) => ({
+        label: `${state.players[pid].name} goes first`,
+        action: () => act({ type: 'setTurn', player: pid, restart: true }),
+      })),
+      { label: 'Give the turn to', heading: true },
+      ...state.seats.map((pid) => ({
+        label: state.players[pid].name,
+        disabled: pid === state.turn.player,
+        action: () => act({ type: 'setTurn', player: pid }),
+      })),
+    ]);
+
   const deck = (e: React.MouseEvent) =>
     openMenu(e, [
       { label: 'Import deck…', action: () => useStore.setState({ dialog: 'import' }) },
@@ -44,9 +60,9 @@ export function TopBar({ state }: { state: GameState }) {
         {error && ` · ${error}`}
       </span>
       <div className="spacer" />
-      <span className="turn" style={{ color: turnPlayer?.color }}>
-        Turn {state.turn.number} · {turnPlayer?.name}
-      </span>
+      <button className="turn" style={{ color: turnPlayer?.color }} onClick={turnMenu} title="Choose who starts, or whose turn it is">
+        Turn {state.turn.number} · {turnPlayer?.name} ▾
+      </button>
       <button onClick={() => act({ type: 'passTurn' })}>Pass turn</button>
       <button onClick={() => act({ type: 'untapAll' })} title="Untap all (U)">
         Untap

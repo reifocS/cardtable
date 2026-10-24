@@ -99,6 +99,19 @@ describe('ops', () => {
     expect(e.state.zones[zoneId(a, 'sideboard')].cards).toHaveLength(2);
   });
 
+  it('lets anyone choose the starting player, or pick one at random', () => {
+    const { e, a, b } = twoPlayers();
+    e.dispatch(a, { type: 'passTurn' });
+    e.dispatch(a, { type: 'setTurn', player: b, restart: true });
+    expect(e.state.turn).toEqual({ player: b, number: 1 });
+    expect(e.state.log.at(-1)?.text).toBe('Bob goes first');
+    e.dispatch(b, { type: 'setTurn', player: a });
+    expect(e.state.turn).toEqual({ player: a, number: 1 });
+    e.dispatch(a, { type: 'setTurn', player: 'random', restart: true });
+    expect([a, b]).toContain(e.state.turn.player);
+    expect(e.state.log.at(-1)?.text).toMatch(/goes first \(picked at random\)$/);
+  });
+
   it('passes the turn around the table and clears arrows', () => {
     const { e, a, b } = twoPlayers();
     const [c1] = e.state.zones[zoneId(a, 'library')].cards;
