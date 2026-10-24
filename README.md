@@ -23,6 +23,14 @@ npm test
 
 Two tabs on one machine act as two players, which is handy for testing.
 
+### Dev presets
+
+In `npm run dev`, the lobby lists ready-made tables (empty, duel, 4-player Commander, crowded board,
+six players, text-only cards, open library search, zoomed opponent board) to check the UI for visual
+regressions in a click. `?preset=<id>` (e.g. `?preset=commander4`) loads one directly, so a reload
+reopens it. They are built with the real ops from a fixed seed, never saved, and left out of
+production builds. See `src/dev/presets.ts`.
+
 ## Credits
 
 Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from [game-icons.net](https://game-icons.net), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).

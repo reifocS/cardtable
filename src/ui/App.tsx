@@ -1,4 +1,4 @@
-import { Component, useEffect, useState, type ReactNode } from 'react';
+import { Component, Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { ClientSession } from '../net/client';
 import { HostSession, deleteSavedGame, listSavedGames, type SavedGame } from '../net/host';
 import type { Session } from '../net/session';
@@ -8,6 +8,8 @@ import { tip } from './tip';
 import { Table } from './Table';
 
 const NAME_KEY = 'cardtable:name';
+// Dev builds only; the import is dropped from production bundles.
+const DevPresets = import.meta.env.DEV ? lazy(() => import('../dev/DevPresets')) : null;
 /** Effects run twice in dev (StrictMode); only ever auto-join once per page load. */
 let autoJoined = false;
 
@@ -109,6 +111,11 @@ function Lobby() {
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Table code" />
         <button disabled={!code.trim()}>Join</button>
       </form>
+      {DevPresets && (
+        <Suspense fallback={null}>
+          <DevPresets />
+        </Suspense>
+      )}
       <footer className="lobby-footer">
         <GithubLink label="Open source on GitHub" />
       </footer>

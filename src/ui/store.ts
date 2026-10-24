@@ -28,7 +28,7 @@ export interface Prompt {
   submit: (value: string) => void;
 }
 
-interface Store {
+export interface Store {
   session: Session | null;
   state: GameState | null;
   me: PlayerId | null;

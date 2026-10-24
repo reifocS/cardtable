@@ -72,11 +72,15 @@ export class HostSession extends Emitter implements Session {
   private heartbeat = 0;
   private presence = new Presence(() => this.emit());
 
-  constructor(name: string, saved?: SavedGame) {
+  /**
+   * `persist: false` keeps the game out of saved tables; `keepPresence` leaves players' connected
+   * flags as saved (both for dev presets, whose other players are only in the state).
+   */
+  constructor(name: string, saved?: SavedGame, private opts: { persist?: boolean; keepPresence?: boolean } = {}) {
     super();
     this.code = saved?.code ?? makeCode();
     this.engine = new Engine(saved?.state);
-    for (const id of Object.keys(this.engine.state.players)) this.engine.setConnected(id, false, true);
+    if (!opts.keepPresence) for (const id of Object.keys(this.engine.state.players)) this.engine.setConnected(id, false, true);
     this.me = this.engine.join(name, saved?.me);
     this.view = redact(this.engine.state, this.me);
     this.engine.subscribe(() => this.onChange());
@@ -190,6 +194,7 @@ export class HostSession extends Emitter implements Session {
   }
 
   private save() {
+    if (this.opts.persist === false) return;
     try {
       const saved: SavedGame = { code: this.code, me: this.me, state: this.engine.state, savedAt: Date.now() };
       localStorage.setItem(SAVE_PREFIX + this.code, JSON.stringify(saved));
