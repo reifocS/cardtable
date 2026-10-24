@@ -2,7 +2,7 @@
  * GET /api/turn: short-lived TURN credentials from Cloudflare Realtime, as an RTCIceServer[].
  *
  * The API token stays on the server; browsers only ever see credentials that expire after TTL.
- * Needs two environment variables (Vercel → Settings → Environment Variables):
+ * Needs two server-side environment variables:
  *   CLOUDFLARE_TURN_KEY_ID         the TURN key's id
  *   CLOUDFLARE_TURN_KEY_API_TOKEN  the TURN key's API token
  * Without them it answers 503 and the app falls back to direct (STUN-only) connections.

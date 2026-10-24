@@ -2,8 +2,8 @@
  * ICE servers for WebRTC. STUN finds a direct route; when networks block that (strict NATs,
  * corporate or mobile networks), a TURN relay carries the traffic instead.
  *
- * Production builds ask our own /api/turn (Cloudflare credentials, see api/turn.ts). Override with:
- *   VITE_TURN_CREDENTIALS_URL  URL returning an RTCIceServer[] (e.g. Metered's credentials API)
+ * Production builds ask our own /api/turn (see api/turn.ts). Override with:
+ *   VITE_TURN_CREDENTIALS_URL  URL returning an RTCIceServer[] (e.g. a TURN provider's credentials API)
  *   VITE_ICE_SERVERS           RTCIceServer[] as JSON
  * If none answers, connections stay direct (STUN only).
  */
