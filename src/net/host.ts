@@ -19,6 +19,14 @@ export interface SavedGame {
   savedAt: number;
 }
 
+export function deleteSavedGame(code: string) {
+  try {
+    localStorage.removeItem(SAVE_PREFIX + code);
+  } catch {
+    // Storage blocked: nothing to delete anyway.
+  }
+}
+
 /** Hosted games on this browser, newest first. One per table code, so tabs don't overwrite each other. */
 export function listSavedGames(): SavedGame[] {
   try {

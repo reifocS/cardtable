@@ -1,9 +1,10 @@
 import { Component, useEffect, useState, type ReactNode } from 'react';
 import { ClientSession } from '../net/client';
-import { HostSession, listSavedGames } from '../net/host';
+import { HostSession, deleteSavedGame, listSavedGames, type SavedGame } from '../net/host';
 import type { Session } from '../net/session';
 import { GithubLink } from './Icon';
 import { useStore } from './store';
+import { tip } from './tip';
 import { Table } from './Table';
 
 const NAME_KEY = 'cardtable:name';
@@ -18,10 +19,38 @@ function timeAgo(t: number) {
   return h < 24 ? `${h} h ago` : `${Math.round(h / 24)} d ago`;
 }
 
+/** A saved table: click to resume; ✕ then "Delete?" to forget it (two clicks, it can't be undone). */
+function SavedRow({ game, onResume, onDelete }: { game: SavedGame; onResume: () => void; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    if (!confirming) return;
+    const t = setTimeout(() => setConfirming(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirming]);
+  return (
+    <div className="saved-row">
+      <button className="saved-game" onClick={onResume}>
+        <span className="code">{game.code}</span>
+        <span className="muted">{Object.values(game.state.players).map((p) => p.name).join(', ')}</span>
+        <span className="muted">{timeAgo(game.savedAt)}</span>
+      </button>
+      {confirming ? (
+        <button className="danger" onClick={onDelete}>
+          Delete?
+        </button>
+      ) : (
+        <button className="saved-delete" onClick={() => setConfirming(true)} {...tip(`Delete table ${game.code}`, 'end')}>
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Lobby() {
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '');
   const [code, setCode] = useState(() => location.hash.slice(1));
-  const [saved] = useState(listSavedGames);
+  const [saved, setSaved] = useState(listSavedGames);
   const connect = useStore((s) => s.connect);
 
   const start = (make: (n: string) => Session) => {
@@ -57,11 +86,15 @@ function Lobby() {
         <div className="saved">
           <div className="or">or resume one you hosted</div>
           {saved.map((g) => (
-            <button key={g.code} className="saved-game" onClick={() => start((n) => new HostSession(n, g))}>
-              <span className="code">{g.code}</span>
-              <span className="muted">{Object.values(g.state.players).map((p) => p.name).join(', ')}</span>
-              <span className="muted">{timeAgo(g.savedAt)}</span>
-            </button>
+            <SavedRow
+              key={g.code}
+              game={g}
+              onResume={() => start((n) => new HostSession(n, g))}
+              onDelete={() => {
+                deleteSavedGame(g.code);
+                setSaved(listSavedGames());
+              }}
+            />
           ))}
         </div>
       )}

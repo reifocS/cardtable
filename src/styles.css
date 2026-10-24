@@ -1379,3 +1379,21 @@ button.danger:hover:not(:disabled) {
   border: 6px solid transparent;
   border-top-color: var(--accent);
 }
+
+/* ---- saved tables in the lobby ---- */
+
+.saved-row {
+  display: flex;
+  gap: 6px;
+}
+.saved-row .saved-game {
+  flex: 1;
+  min-width: 0;
+}
+.saved-delete {
+  color: var(--muted);
+  padding: 0 12px;
+}
+.saved-delete:hover:not(:disabled) {
+  color: #ff8a8a;
+}
