@@ -1,0 +1,256 @@
+import type React from 'react';
+import { zoneId } from '../core/state';
+import type { Card, CardId, Zone } from '../core/types';
+import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
+
+const DEFAULT_COUNTER = '+1/+1';
+
+/** Moves cards to a zone role of each card's owner (graveyard, hand…), the way real cards go home. */
+export function sendToOwners(ids: CardId[], role: string, index?: number) {
+  const { state } = useStore.getState();
+  if (!state) return;
+  const byOwner = new Map<string, CardId[]>();
+  for (const id of ids) {
+    const c = state.cards[id];
+    if (c) byOwner.set(c.owner, [...(byOwner.get(c.owner) ?? []), id]);
+  }
+  for (const [owner, cards] of byOwner) {
+    const to = state.zones[zoneId(owner, role)];
+    if (to) act({ type: 'move', cards, to: to.id, index });
+  }
+}
+
+export function toMyBattlefield(ids: CardId[], faceDown = false) {
+  const bf = myZone('battlefield');
+  if (bf && ids.length) act({ type: 'move', cards: ids, to: bf.id, faceDown });
+}
+
+export function draw(n = 1) {
+  const lib = myZone('library');
+  const hand = myZone('hand');
+  if (lib && hand) act({ type: 'moveTop', from: lib.id, to: hand.id, n });
+}
+
+export function shuffleLibrary() {
+  const lib = myZone('library');
+  if (lib) act({ type: 'shuffle', zone: lib.id });
+}
+
+export function openViewer(zone: Zone, n?: number) {
+  const { me, state } = useStore.getState();
+  if (!state) return;
+  const hiddenToMe = zone.visibility === 'hidden' || (zone.visibility === 'owner' && zone.owner !== me);
+  if (hiddenToMe) act({ type: 'peek', zone: zone.id, n });
+  useStore.setState({
+    viewer: { zone: zone.id, ids: n === undefined ? undefined : zone.cards.slice(0, n), peeked: hiddenToMe },
+    menu: null,
+  });
+}
+
+export function closeViewer() {
+  const { viewer } = useStore.getState();
+  if (viewer?.peeked) act({ type: 'unpeek', zone: viewer.zone });
+  useStore.setState({ viewer: null });
+}
+
+export function startTargeting(from: string) {
+  useStore.setState({ targeting: from, menu: null });
+}
+
+function addCounterPrompt(ids: CardId[]) {
+  ask('Counter name', DEFAULT_COUNTER, (key) => key.trim() && act({ type: 'counter', cards: ids, key: key.trim(), delta: 1 }));
+}
+
+export function duplicate(ids: CardId[]) {
+  const { state } = useStore.getState();
+  const bf = myZone('battlefield');
+  if (!state || !bf) return;
+  const cards = ids.map((id) => state.cards[id]).filter((c) => c?.faces.length);
+  if (!cards.length) return;
+  act({
+    type: 'create',
+    zone: bf.id,
+    token: true,
+    cards: cards.map((c) => c.faces),
+    positions: cards.map((c) => [c.x + 24, c.y + 24]),
+  });
+}
+
+export function openMenu(e: React.MouseEvent, items: MenuItem[]) {
+  e.preventDefault();
+  e.stopPropagation();
+  useStore.setState({ menu: { x: e.clientX, y: e.clientY, items } });
+}
+
+export function cardMenu(card: Card, zone: Zone): MenuItem[] {
+  const { state, me, selection } = useStore.getState();
+  if (!state || !me) return [];
+  const ids = targetCards(card.id);
+  if (!selection.includes(card.id)) useStore.setState({ selection: [card.id] });
+  const many = ids.length > 1 ? ` (${ids.length})` : '';
+  const onBoard = zone.kind === 'free';
+  const items: MenuItem[] = [];
+
+  if (onBoard) {
+    items.push(
+      { label: card.rotation ? `Untap${many}` : `Tap${many}`, hint: 'T', action: () => act({ type: 'tap', cards: ids }) },
+      { label: card.faceDown ? 'Turn face up' : 'Turn face down', hint: 'F', action: () => act({ type: 'flip', cards: ids }) },
+    );
+    if (card.faces.length > 1) items.push({ label: 'Transform', hint: 'X', action: () => act({ type: 'transform', cards: ids }) });
+    items.push(
+      { label: `Add ${DEFAULT_COUNTER} counter`, hint: '+', action: () => act({ type: 'counter', cards: ids, key: DEFAULT_COUNTER, delta: 1 }) },
+      { label: 'Add counter…', action: () => addCounterPrompt(ids) },
+      { label: 'Target…', hint: 'A', action: () => startTargeting(card.id) },
+      { label: 'Duplicate as token', action: () => duplicate(ids) },
+    );
+  }
+  if (card.home === 'command') {
+    items.push(
+      { label: `Commander tax +2 (now ${card.tax ?? 0})`, action: () => act({ type: 'commanderTax', cards: [card.id], delta: 2 }) },
+      { label: 'Commander tax −2', disabled: !card.tax, action: () => act({ type: 'commanderTax', cards: [card.id], delta: -2 }) },
+    );
+  }
+  if (zone.visibility !== 'public' && zone.owner === me) {
+    items.push({ label: `Reveal to everyone${many}`, hint: 'R', action: () => act({ type: 'reveal', cards: ids, to: '*' }) });
+  }
+  if (card.revealedTo.length) items.push({ label: 'Stop revealing', action: () => act({ type: 'hide', cards: ids }) });
+
+  items.push({ label: 'Move to', heading: true });
+  if (!(onBoard && zone.owner === me)) {
+    items.push({ label: 'Battlefield', hint: 'B', action: () => toMyBattlefield(ids) });
+    items.push({ label: 'Battlefield, face down', action: () => toMyBattlefield(ids, true) });
+  }
+  const dest: [string, string, string?, number?][] = [
+    ['hand', 'Hand', 'H'],
+    ['library', 'Top of library', 'L'],
+    ['library', 'Bottom of library', undefined, -1],
+    ['graveyard', 'Graveyard', 'G'],
+    ['exile', 'Exile', 'E'],
+    ['command', 'Command zone'],
+  ];
+  for (const [role, label, hint, index] of dest) {
+    if (role === zone.role && index === undefined && zone.owner === card.owner) continue;
+    items.push({ label, hint, action: () => sendToOwners(ids, role, index) });
+  }
+  for (const pid of state.seats) {
+    if (pid === zone.owner) continue;
+    const bf = state.zones[zoneId(pid, 'battlefield')];
+    if (bf && onBoard) items.push({ label: `${state.players[pid].name}'s battlefield`, action: () => act({ type: 'move', cards: ids, to: bf.id }) });
+  }
+  if (ids.every((id) => state.cards[id]?.token)) {
+    items.push({ label: '', heading: true }, { label: `Delete token${many}`, hint: 'Del', action: () => act({ type: 'delete', cards: ids }) });
+  }
+  return items;
+}
+
+export function zoneMenu(zone: Zone): MenuItem[] {
+  const { me, state } = useStore.getState();
+  if (!state) return [];
+  const mine = zone.owner === me;
+  const items: MenuItem[] = [];
+  if (zone.role === 'library' && mine) {
+    const gy = myZone('graveyard')!;
+    const exile = myZone('exile')!;
+    items.push(
+      { label: 'Draw', hint: 'D', action: () => draw() },
+      { label: 'Draw…', action: () => askNumber('Draw how many?', 2, draw) },
+      { label: 'Shuffle', hint: 'S', action: () => shuffleLibrary() },
+      { label: 'Look at top…', action: () => askNumber('Look at how many?', 3, (n) => openViewer(zone, n)) },
+      { label: 'Search library', action: () => openViewer(zone) },
+      { label: 'Reveal top card', action: () => zone.cards[0] && act({ type: 'reveal', cards: [zone.cards[0]], to: '*' }) },
+      { label: 'Mill…', action: () => askNumber('Mill how many?', 1, (n) => act({ type: 'moveTop', from: zone.id, to: gy.id, n })) },
+      { label: 'Exile top card', action: () => act({ type: 'moveTop', from: zone.id, to: exile.id, n: 1 }) },
+      { label: 'Play top card face down', action: () => act({ type: 'moveTop', from: zone.id, to: myZone('battlefield')!.id, n: 1, faceDown: true }) },
+      { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
+    );
+  } else if (zone.kind === 'pile') {
+    items.push({ label: 'View', action: () => openViewer(zone) });
+    if (mine && zone.cards.length) {
+      const lib = myZone('library')!;
+      items.push(
+        { label: 'Shuffle', action: () => act({ type: 'shuffle', zone: zone.id }) },
+        {
+          label: 'Shuffle all into library',
+          action: () => {
+            act({ type: 'move', cards: [...zone.cards], to: lib.id });
+            act({ type: 'shuffle', zone: lib.id });
+          },
+        },
+      );
+    }
+  } else if (zone.role === 'hand' && mine) {
+    items.push(
+      { label: 'Reveal hand', action: () => act({ type: 'reveal', cards: [...zone.cards], to: '*' }) },
+      { label: 'Stop revealing hand', action: () => act({ type: 'hide', cards: [...zone.cards] }) },
+      { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
+    );
+  } else if (zone.kind === 'free') {
+    if (mine) items.push({ label: 'Untap all', hint: 'U', action: () => act({ type: 'untapAll' }) });
+    items.push({ label: 'Create card / token…', hint: 'C', action: () => useStore.setState({ dialog: 'create', menu: null }) });
+    if (state.arrows.length) items.push({ label: 'Clear arrows', action: () => act({ type: 'clearArrows' }) });
+  }
+  return items;
+}
+
+const isTyping = (e: KeyboardEvent) => {
+  const t = e.target as HTMLElement;
+  return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+};
+
+export function onKeyDown(e: KeyboardEvent) {
+  const store = useStore.getState();
+  if (isTyping(e) || store.prompt) return;
+  const key = e.key.toLowerCase();
+
+  if ((e.metaKey || e.ctrlKey) && key === 'z') {
+    e.preventDefault();
+    act({ type: 'undo' });
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (key === 'escape') {
+    if (store.targeting || store.menu || store.dialog) useStore.setState({ targeting: null, menu: null, dialog: null });
+    else if (store.viewer) closeViewer();
+    else useStore.setState({ selection: [] });
+    return;
+  }
+  if (store.dialog) return;
+
+  const ids = targetCards();
+  const run: Record<string, () => void> = {
+    t: () => act({ type: 'tap', cards: ids }),
+    f: () => act({ type: 'flip', cards: ids }),
+    x: () => act({ type: 'transform', cards: ids }),
+    r: () => act({ type: 'reveal', cards: ids, to: '*' }),
+    '+': () => act({ type: 'counter', cards: ids, key: DEFAULT_COUNTER, delta: 1 }),
+    '=': () => act({ type: 'counter', cards: ids, key: DEFAULT_COUNTER, delta: 1 }),
+    '-': () => act({ type: 'counter', cards: ids, key: DEFAULT_COUNTER, delta: -1 }),
+    g: () => sendToOwners(ids, 'graveyard'),
+    e: () => sendToOwners(ids, 'exile'),
+    h: () => sendToOwners(ids, 'hand'),
+    l: () => sendToOwners(ids, 'library'),
+    b: () => toMyBattlefield(ids),
+    a: () => ids[0] && startTargeting(ids[0]),
+    delete: () => act({ type: 'delete', cards: ids.filter((id) => store.state?.cards[id]?.token) }),
+    backspace: () => act({ type: 'delete', cards: ids.filter((id) => store.state?.cards[id]?.token) }),
+  };
+  const global: Record<string, () => void> = {
+    d: () => draw(),
+    s: () => shuffleLibrary(),
+    u: () => act({ type: 'untapAll' }),
+    m: () => act({ type: 'mulligan' }),
+    c: () => useStore.setState({ dialog: 'create' }),
+    '?': () => useStore.setState({ dialog: 'help' }),
+    z: () => useStore.setState({ zoom: true }),
+  };
+
+  const fn = (ids.length ? run[key] : undefined) ?? global[e.key] ?? global[key];
+  if (fn) {
+    e.preventDefault();
+    fn();
+  }
+}
+
+export function onKeyUp(e: KeyboardEvent) {
+  if (e.key.toLowerCase() === 'z') useStore.setState({ zoom: false });
+}

@@ -1,0 +1,114 @@
+import { create } from 'zustand';
+import type { Op } from '../core/ops';
+import { zoneOf } from '../core/state';
+import type { CardId, GameState, PlayerId, Zone, ZoneId } from '../core/types';
+import type { Session, Status } from '../net/session';
+
+export interface MenuItem {
+  label: string;
+  hint?: string;
+  action?: () => void;
+  /** Section heading, not clickable. */
+  heading?: boolean;
+  disabled?: boolean;
+}
+
+export interface Prompt {
+  title: string;
+  value: string;
+  submit: (value: string) => void;
+}
+
+interface Store {
+  session: Session | null;
+  state: GameState | null;
+  me: PlayerId | null;
+  status: Status;
+  error: string | null;
+
+  selection: CardId[];
+  hovered: CardId | null;
+  /** Last card worth showing in the preview panel; sticks after the pointer leaves. */
+  previewId: CardId | null;
+  zoom: boolean;
+  menu: { x: number; y: number; items: MenuItem[] } | null;
+  /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
+  viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
+  dialog: 'import' | 'create' | 'help' | null;
+  prompt: Prompt | null;
+  /** Source id while the player is picking the target of an arrow. */
+  targeting: string | null;
+
+  connect(session: Session): void;
+  leave(): void;
+}
+
+export const useStore = create<Store>((set, get) => ({
+  session: null,
+  state: null,
+  me: null,
+  status: 'connecting',
+  error: null,
+  selection: [],
+  hovered: null,
+  previewId: null,
+  zoom: false,
+  menu: null,
+  viewer: null,
+  dialog: null,
+  prompt: null,
+  targeting: null,
+
+  connect(session) {
+    const sync = () => {
+      const state = session.getState();
+      const selection = state ? get().selection.filter((id) => state.cards[id]) : [];
+      set({ state, me: session.me, status: session.status, error: session.error, selection });
+    };
+    session.subscribe(sync);
+    set({ session });
+    sync();
+  },
+
+  leave() {
+    get().session?.close();
+    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null });
+    history.replaceState(null, '', location.pathname);
+  },
+}));
+
+export const act = (op: Op) => useStore.getState().session?.dispatch(op);
+
+/** Zone `role` of `player`, defaulting to me. */
+export function myZone(role: string, player?: PlayerId): Zone | undefined {
+  const { state, me } = useStore.getState();
+  const owner = player ?? me;
+  return state && owner ? zoneOf(state, owner, role) : undefined;
+}
+
+export function setSelection(ids: CardId[]) {
+  useStore.setState({ selection: ids });
+}
+
+/** Cards a shortcut or menu acts on: the selection if the hovered card is in it, else the hovered card. */
+export function targetCards(hint?: CardId): CardId[] {
+  const { selection, hovered } = useStore.getState();
+  const focus = hint ?? hovered;
+  if (focus) return selection.includes(focus) ? selection : [focus];
+  return selection;
+}
+
+export function ask(title: string, value: string, submit: (v: string) => void) {
+  useStore.setState({ prompt: { title, value, submit } });
+}
+
+export function askNumber(title: string, value: number, submit: (n: number) => void) {
+  ask(title, String(value), (v) => {
+    const n = parseInt(v, 10);
+    if (Number.isFinite(n) && n > 0) submit(n);
+  });
+}
+
+// Dev only: when hot reload swaps this module out, close the session it holds. Otherwise the old
+// one keeps running invisibly, holds the table code, and keeps answering peers.
+import.meta.hot?.dispose(() => useStore.getState().session?.close());

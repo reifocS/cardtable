@@ -1,0 +1,180 @@
+import Peer, { type DataConnection } from 'peerjs';
+import { diffState } from '../core/diff';
+import { Engine } from '../core/engine';
+import type { Op } from '../core/ops';
+import type { GameState, PlayerId } from '../core/types';
+import { redact } from '../core/visibility';
+import { Emitter, HEARTBEAT_MS, PEER_PREFIX, makeCode, wire, type Session, type Status, type ToClient, type ToHost } from './session';
+
+const SAVE_PREFIX = 'cardtable:hosted:';
+const LEGACY_SAVE_KEY = 'cardtable:hosted';
+const MAX_SAVES = 8;
+
+export interface SavedGame {
+  code: string;
+  me: PlayerId;
+  state: GameState;
+  savedAt: number;
+}
+
+/** Hosted games on this browser, newest first. One per table code, so tabs don't overwrite each other. */
+export function listSavedGames(): SavedGame[] {
+  try {
+    const legacy = localStorage.getItem(LEGACY_SAVE_KEY);
+    if (legacy) {
+      const g = JSON.parse(legacy) as SavedGame;
+      localStorage.setItem(SAVE_PREFIX + g.code, JSON.stringify({ ...g, savedAt: g.savedAt ?? Date.now() }));
+      localStorage.removeItem(LEGACY_SAVE_KEY);
+    }
+    const games: SavedGame[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(SAVE_PREFIX)) games.push(JSON.parse(localStorage.getItem(key)!));
+    }
+    games.sort((a, b) => b.savedAt - a.savedAt);
+    for (const old of games.slice(MAX_SAVES)) localStorage.removeItem(SAVE_PREFIX + old.code);
+    return games.slice(0, MAX_SAVES);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * This tab holds the authoritative game. Peers connect to it by table code;
+ * each one only ever receives the state redacted for its own player.
+ */
+export class HostSession extends Emitter implements Session {
+  readonly role = 'host';
+  readonly code: string;
+  readonly me: PlayerId;
+  status: Status = 'connecting';
+  error: string | null = null;
+
+  private engine: Engine;
+  private peer: Peer | null = null;
+  private conns = new Map<DataConnection, PlayerId | null>();
+  /** Last view sent on each connection, so later updates only carry what changed. */
+  private sent = new Map<DataConnection, GameState>();
+  private view: GameState;
+  private closed = false;
+  private saveTimer = 0;
+  private heartbeat = 0;
+
+  constructor(name: string, saved?: SavedGame) {
+    super();
+    this.code = saved?.code ?? makeCode();
+    this.engine = new Engine(saved?.state);
+    for (const id of Object.keys(this.engine.state.players)) this.engine.setConnected(id, false, true);
+    this.me = this.engine.join(name, saved?.me);
+    this.view = redact(this.engine.state, this.me);
+    this.engine.subscribe(() => this.onChange());
+    this.save();
+    this.openPeer(0);
+    this.heartbeat = window.setInterval(() => {
+      for (const conn of this.conns.keys()) this.send(conn, { t: 'ping' });
+    }, HEARTBEAT_MS);
+  }
+
+  private openPeer(attempt: number) {
+    if (this.closed) return;
+    const peer = new Peer(PEER_PREFIX + this.code, { debug: 1 });
+    this.peer = peer;
+    peer.on('open', () => {
+      this.status = 'connected';
+      this.error = null;
+      this.emit();
+    });
+    peer.on('connection', (conn) => this.accept(conn));
+    peer.on('disconnected', () => {
+      if (!this.closed && !peer.destroyed) peer.reconnect();
+    });
+    peer.on('error', (err) => {
+      // After a reload the signaling server holds our old id for a few seconds.
+      if (err.type === 'unavailable-id' && attempt < 15) {
+        peer.destroy();
+        this.error = 'Reclaiming table code…';
+        this.emit();
+        setTimeout(() => this.openPeer(attempt + 1), 2000);
+        return;
+      }
+      this.error = err.message || String(err.type);
+      this.emit();
+    });
+  }
+
+  private accept(conn: DataConnection) {
+    this.conns.set(conn, null);
+    conn.on('data', (raw) => this.receive(conn, raw as ToHost));
+    const drop = () => {
+      const pid = this.conns.get(conn);
+      this.conns.delete(conn);
+      this.sent.delete(conn);
+      if (pid && ![...this.conns.values()].includes(pid)) this.engine.setConnected(pid, false);
+    };
+    conn.on('close', drop);
+    conn.on('error', drop);
+  }
+
+  private send(conn: DataConnection, msg: ToClient) {
+    if (!conn.open) return;
+    try {
+      conn.send(wire(msg));
+    } catch (e) {
+      console.warn('Send failed', e);
+    }
+  }
+
+  private sync(conn: DataConnection, pid: PlayerId) {
+    const view = redact(this.engine.state, pid);
+    const prev = this.sent.get(conn);
+    this.send(conn, prev ? { t: 'patch', patch: diffState(prev, view) } : { t: 'state', state: view });
+    this.sent.set(conn, view);
+  }
+
+  private receive(conn: DataConnection, msg: ToHost) {
+    if (msg?.t === 'hello') {
+      const want = msg.playerId && msg.playerId !== this.me ? msg.playerId : undefined;
+      const pid = this.engine.join(String(msg.name || 'Player').slice(0, 32), want);
+      this.conns.set(conn, pid);
+      this.sent.delete(conn);
+      this.send(conn, { t: 'welcome', playerId: pid });
+      this.sync(conn, pid);
+    } else if (msg?.t === 'op') {
+      const pid = this.conns.get(conn);
+      if (pid) this.engine.dispatch(pid, msg.op);
+    }
+  }
+
+  private onChange() {
+    const s = this.engine.state;
+    this.view = redact(s, this.me);
+    for (const [conn, pid] of this.conns) if (pid) this.sync(conn, pid);
+    clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => this.save(), 500);
+    this.emit();
+  }
+
+  private save() {
+    try {
+      const saved: SavedGame = { code: this.code, me: this.me, state: this.engine.state, savedAt: Date.now() };
+      localStorage.setItem(SAVE_PREFIX + this.code, JSON.stringify(saved));
+    } catch {
+      // Storage full or blocked: the game still works, it just won't survive a reload.
+    }
+  }
+
+  getState() {
+    return this.view;
+  }
+
+  dispatch(op: Op) {
+    this.engine.dispatch(this.me, op);
+  }
+
+  close() {
+    this.closed = true;
+    clearInterval(this.heartbeat);
+    this.save();
+    this.peer?.destroy();
+  }
+}
