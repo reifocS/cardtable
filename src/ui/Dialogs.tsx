@@ -71,6 +71,32 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
 
 const closeDialog = () => useStore.setState({ dialog: null });
 
+export function ConfirmDialog() {
+  const confirm = useStore((s) => s.confirm);
+  if (!confirm) return null;
+  const close = () => useStore.setState({ confirm: null });
+  return (
+    <Modal title={confirm.title} onClose={close}>
+      <p className="confirm-message">{confirm.message}</p>
+      <div className="modal-actions end">
+        {/* Focus starts on Cancel: Enter shouldn't leave by accident. */}
+        <button autoFocus onClick={close}>
+          Cancel
+        </button>
+        <button
+          className="danger"
+          onClick={() => {
+            close();
+            confirm.onConfirm();
+          }}
+        >
+          {confirm.label}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export function PromptDialog() {
   const prompt = useStore((s) => s.prompt);
   const [value, setValue] = useState('');

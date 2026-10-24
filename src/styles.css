@@ -1125,3 +1125,123 @@ body.dragging * {
 .credits a {
   color: var(--muted);
 }
+
+/* ---- zoomable board ---- */
+
+.zoom-board {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+.zoom-scroll {
+  flex: 1;
+  /* Without these, the flex item grows to its content instead of scrolling. */
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+}
+.zoom-sizer {
+  position: relative;
+  /* Centered while it fits, scrollable once zoomed past the view. */
+  margin: auto;
+}
+.zoom-sizer > .board {
+  position: absolute;
+  transform-origin: 0 0;
+}
+.zoom-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px #0008;
+}
+.zoom-controls button {
+  min-width: 34px;
+  background: none;
+  border-color: transparent;
+}
+.zoom-level {
+  min-width: 46px;
+  text-align: center;
+  align-self: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* ---- tooltips ([data-tip], see ui/tip.ts) ---- */
+
+[data-tip] {
+  position: relative;
+}
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 1200;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0b0e12;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px #000a;
+  animation: tip-in 0.12s ease 0.25s both;
+}
+/* Near the top of the screen, show them below. */
+.topbar [data-tip]:hover::after,
+.topbar [data-tip]:focus-visible::after,
+.opponent > .player-header [data-tip]:hover::after,
+.opponent > .player-header [data-tip]:focus-visible::after {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+[data-tip-align='end']:hover::after,
+[data-tip-align='end']:focus-visible::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- confirm ---- */
+
+.confirm-message {
+  margin: 0;
+  line-height: 1.45;
+}
+.modal-actions.end {
+  justify-content: flex-end;
+}
+button.danger {
+  background: #b23b3b;
+  border-color: #b23b3b;
+  color: #fff;
+  font-weight: 600;
+}
+button.danger:hover:not(:disabled) {
+  background: #c94a4a;
+}

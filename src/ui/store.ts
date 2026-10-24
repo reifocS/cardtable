@@ -13,6 +13,14 @@ export interface MenuItem {
   disabled?: boolean;
 }
 
+/** A yes/no question before something hard to undo. */
+export interface Confirm {
+  title: string;
+  message: string;
+  label: string;
+  onConfirm: () => void;
+}
+
 export interface Prompt {
   title: string;
   value: string;
@@ -39,6 +47,7 @@ interface Store {
   /** Opponent whose battlefield is shown big over the table. */
   focus: PlayerId | null;
   prompt: Prompt | null;
+  confirm: Confirm | null;
   /** Source id while the player is picking a target: for an arrow, or a host to attach to. */
   targeting: string | null;
   targetMode: 'arrow' | 'attach';
@@ -65,6 +74,7 @@ export const useStore = create<Store>((set, get) => ({
   dialog: null,
   focus: null,
   prompt: null,
+  confirm: null,
   targeting: null,
   targetMode: 'arrow',
   attachCards: [],

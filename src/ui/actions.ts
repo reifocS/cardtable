@@ -232,7 +232,12 @@ const isTyping = (e: KeyboardEvent) => {
 
 export function onKeyDown(e: KeyboardEvent) {
   const store = useStore.getState();
-  if (isTyping(e) || store.prompt) return;
+  // Dialogs close on Esc, even with focus in their input.
+  if (e.key === 'Escape' && (store.prompt || store.confirm)) {
+    useStore.setState({ prompt: null, confirm: null });
+    return;
+  }
+  if (isTyping(e) || store.prompt || store.confirm) return;
   const key = e.key.toLowerCase();
 
   if ((e.metaKey || e.ctrlKey) && key === 'z') {

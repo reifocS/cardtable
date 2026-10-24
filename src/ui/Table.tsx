@@ -5,14 +5,15 @@ import type { Card, GameState, Player, PlayerId } from '../core/types';
 import { onKeyDown, onKeyUp, openMenu } from './actions';
 import { ActionBar } from './ActionBar';
 import { Arrows } from './Arrows';
-import { ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
+import { ConfirmDialog, ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
 import { finishTargeting } from './drag';
 import { Icon } from './Icon';
 import { SidePanel, ZoomOverlay } from './SidePanel';
 import { act, ask, useStore } from './store';
+import { tip } from './tip';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
-import { Board, Hand, Pile } from './Zones';
+import { Board, Hand, Pile, ZoomBoard } from './Zones';
 
 const SIDE_PILES = ['graveyard', 'exile', 'command'];
 
@@ -33,7 +34,7 @@ function CommanderDamage({ state, player }: { state: GameState; player: Player }
             key={c.id}
             className={`cmd-chip${n >= 21 ? ' lethal' : ''}`}
             style={{ '--src': state.players[c.owner]?.color } as React.CSSProperties}
-            title={`Commander damage from ${name} (also lowers Life). Click +1, right-click −1, shift ±5`}
+            {...tip(`Commander damage from ${name} (also lowers Life) · click +1, right-click −1, shift ±5`)}
             onClick={(e) => hit(c, e.shiftKey ? 5 : 1)}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -68,7 +69,7 @@ function Trackers({ player, editable }: { player: Player; editable: boolean }) {
         <div
           key={key}
           className={`tracker${key === 'Life' ? ' life' : ''}${LETHAL[key]?.(v) ? ' lethal' : ''}`}
-          title={`${key} · shift-click for ±5${key === 'Life' ? '' : ' · right-click to remove'}`}
+          {...tip(`${key} · shift-click for ±5${key === 'Life' ? '' : ' · right-click to remove'}`)}
           onContextMenu={(e) =>
             key !== 'Life' && openMenu(e, [{ label: `Remove ${key}`, action: () => act({ type: 'setTracker', player: player.id, key, value: null }) }])
           }
@@ -80,7 +81,7 @@ function Trackers({ player, editable }: { player: Player; editable: boolean }) {
         </div>
       ))}
       {editable && (
-        <button className="tracker-add" title="Add a counter (poison, energy…)" onClick={addMenu}>
+        <button className="tracker-add" {...tip('Add a counter (poison, energy…)')} onClick={addMenu}>
           +◆
         </button>
       )}
@@ -126,7 +127,7 @@ function OpponentArea({ state, pid }: { state: GameState; pid: PlayerId }) {
         </div>
         <button
           className="icon-btn"
-          title={`See ${state.players[pid].name}'s battlefield in big`}
+          {...tip(`See ${state.players[pid].name}'s battlefield in big`, 'end')}
           onClick={(e) => {
             e.stopPropagation();
             useStore.setState({ focus: pid });
@@ -187,14 +188,11 @@ function FocusBoard({ state }: { state: GameState }) {
     <div className="board-focus">
       <div className="board-focus-head">
         <b style={{ color: state.players[focus].color }}>{state.players[focus].name}'s battlefield</b>
-        <span className="muted">You can play on it as usual · Esc to close</span>
+        <span className="muted">Pinch or Ctrl/⌘ + wheel to zoom · scroll to move · Esc to close</span>
         <div className="spacer" />
         <button onClick={() => useStore.setState({ focus: null })}>Close</button>
       </div>
-      <div className="area-body">
-        {/* Let cards grow well past the usual cap: reading a busy board is the point. */}
-        <Board zone={bf} state={state} flipped maxScale={3.5} />
-      </div>
+      <ZoomBoard key={focus} zone={bf} state={state} flipped />
     </div>
   );
 }
@@ -244,6 +242,7 @@ export function Table() {
       <ZoomOverlay state={state} />
       <ContextMenu />
       <PromptDialog />
+      <ConfirmDialog />
       <ImportDialog />
       <CreateDialog />
       <HelpDialog />
