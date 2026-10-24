@@ -258,6 +258,10 @@ kbd {
 .player-name {
   font-weight: 600;
   color: var(--player);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dot {
   width: 8px;
@@ -322,6 +326,8 @@ kbd {
   flex: 1;
   min-width: 0;
   min-height: 0;
+  /* Cards near an edge (tapped ones are wider) never spill onto the neighbouring board. */
+  overflow: hidden;
 }
 .board {
   position: absolute;
@@ -1069,14 +1075,23 @@ body.dragging * {
 }
 .opponent > .player-header {
   padding: 3px 8px;
+  /* When several opponents share the width, piles and hand drop to a second line. */
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.opponent > .player-header > * {
+  flex-shrink: 0;
 }
 .opp-zones {
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-left: 6px;
+  overflow: hidden;
+}
+.opponent > .player-header > .icon-btn:last-child {
+  margin-left: auto;
 }
 
 /* ---- big opponent board ---- */
@@ -1244,4 +1259,28 @@ button.danger {
 }
 button.danger:hover:not(:disabled) {
   background: #c94a4a;
+}
+
+/* ---- GitHub link ---- */
+
+.github-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.github-link:hover {
+  color: var(--text);
+}
+.lobby-footer {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: center;
+}
+.lobby-footer .github-link {
+  align-self: center;
 }

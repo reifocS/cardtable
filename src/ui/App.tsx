@@ -2,6 +2,7 @@ import { Component, useEffect, useState, type ReactNode } from 'react';
 import { ClientSession } from '../net/client';
 import { HostSession, listSavedGames } from '../net/host';
 import type { Session } from '../net/session';
+import { GithubLink } from './Icon';
 import { useStore } from './store';
 import { Table } from './Table';
 
@@ -75,6 +76,9 @@ function Lobby() {
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Table code" />
         <button disabled={!code.trim()}>Join</button>
       </form>
+      <footer className="lobby-footer">
+        <GithubLink label="Open source on GitHub" />
+      </footer>
     </div>
   );
 }

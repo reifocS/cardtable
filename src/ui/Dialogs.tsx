@@ -4,6 +4,7 @@ import { deleteDeck, guessDeckName, listDecks, saveDeck } from '../cards/decks';
 import { lookupKey, resolveCards, searchCards } from '../cards/scryfall';
 import type { CardFace } from '../core/types';
 import { CardImage } from './Zones';
+import { GithubLink } from './Icon';
 import { act, myZone, useStore } from './store';
 
 const DECK_KEY = 'cardtable:lastDeck';
@@ -344,6 +345,7 @@ export function HelpDialog() {
         </tbody>
       </table>
       <p className="muted">No rules are enforced: do what you would do at a real table, and the log keeps everyone honest.</p>
+      <GithubLink />
       <p className="muted credits">
         Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from{' '}
         <a href="https://game-icons.net" target="_blank" rel="noreferrer">

@@ -16,6 +16,11 @@ import { Viewer } from './Viewer';
 import { Board, Hand, Pile, ZoomBoard } from './Zones';
 
 const SIDE_PILES = ['graveyard', 'exile', 'command'];
+/**
+ * Share of the table height for opponents, by how many there are. With several side by side their
+ * boards are narrow, so their cards are small and need less height: give it back to my board.
+ */
+const OPPONENTS_SHARE = [0, 42, 36, 30];
 
 const commandersOf = (state: GameState) => Object.values(state.cards).filter((c) => c.home === 'command' && !c.token);
 
@@ -226,7 +231,7 @@ export function Table() {
       <TopBar state={state} />
       <main className="table">
         {opponents.length > 0 && (
-          <div className="opponents">
+          <div className="opponents" style={{ flexBasis: `${OPPONENTS_SHARE[Math.min(opponents.length, 3)]}%` }}>
             {opponents.map((pid) => (
               <OpponentArea key={pid} state={state} pid={pid} />
             ))}
