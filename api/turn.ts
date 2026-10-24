@@ -5,7 +5,7 @@
  * Needs two server-side environment variables:
  *   CLOUDFLARE_TURN_KEY_ID         the TURN key's id
  *   CLOUDFLARE_TURN_KEY_API_TOKEN  the TURN key's API token
- * Without them it answers 503 and the app falls back to direct (STUN-only) connections.
+ * Without them it answers an empty list: no relay, connections stay direct (STUN only).
  */
 
 /** Long enough for a game night. */
@@ -42,7 +42,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const keyId = process.env.CLOUDFLARE_TURN_KEY_ID;
   const token = process.env.CLOUDFLARE_TURN_KEY_API_TOKEN;
-  if (!keyId || !token) return json({ error: 'TURN is not configured' }, 503);
+  // Not an error: the relay is optional. An empty list keeps browser consoles clean.
+  if (!keyId || !token) return json([]);
 
   const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`, {
     method: 'POST',

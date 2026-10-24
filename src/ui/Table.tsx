@@ -202,6 +202,23 @@ function FocusBoard({ state }: { state: GameState }) {
   );
 }
 
+/** Before the host has answered: say what's happening, and offer a way out. */
+function Joining() {
+  const code = useStore((s) => s.session?.code);
+  const error = useStore((s) => s.error);
+  const status = useStore((s) => s.status);
+  return (
+    <div className="connecting">
+      <h2>Joining table {code}…</h2>
+      <p className={error ? 'problem' : 'muted'}>
+        {error ?? (status === 'reconnecting' ? 'Reconnecting to the host…' : 'Connecting to the host…')}
+      </p>
+      <p className="muted">It keeps trying on its own: once the host opens the table, you'll be in.</p>
+      <button onClick={() => useStore.getState().leave()}>Back to the lobby</button>
+    </div>
+  );
+}
+
 export function Table() {
   const state = useStore((s) => s.state);
   const me = useStore((s) => s.me);
@@ -221,9 +238,7 @@ export function Table() {
     };
   }, []);
 
-  if (!state || !me || !state.players[me]) {
-    return <div className="connecting">Joining table…</div>;
-  }
+  if (!state || !me || !state.players[me]) return <Joining />;
 
   const opponents = state.seats.filter((id) => id !== me);
   return (

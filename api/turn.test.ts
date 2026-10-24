@@ -20,9 +20,11 @@ describe('/api/turn', () => {
     expect((await GET(req())).status).toBe(403);
   });
 
-  it('answers 503 when not configured', async () => {
+  it('answers an empty list when not configured', async () => {
     delete process.env.CLOUDFLARE_TURN_KEY_ID;
-    expect((await GET(req('https://cardtable.example'))).status).toBe(503);
+    const res = await GET(req('https://cardtable.example'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
   });
 
   it('asks Cloudflare with the secret and returns ice servers without port 53', async () => {
