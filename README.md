@@ -27,3 +27,7 @@ Two tabs on one machine act as two players, which is handy for testing.
 
 Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from [game-icons.net](https://game-icons.net), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 Card data and images from [Scryfall](https://scryfall.com). Font: [Grenze](https://fonts.google.com/specimen/Grenze).
+
+## License
+
+[MIT](LICENSE). Icons and fonts keep their own licenses (see Credits).
