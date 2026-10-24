@@ -30,10 +30,15 @@ Card data and images from [Scryfall](https://scryfall.com). Font: [Grenze](https
 
 ## Relay (TURN) for strict networks
 
-Players connect directly when they can. Behind strict NATs they need a relay. Set one of these at build time
-(e.g. `vercel env add VITE_TURN_CREDENTIALS_URL production`, then redeploy):
+Players connect directly when they can. Behind strict NATs (corporate, some mobile networks) they need a relay.
+Production builds ask `/api/turn` (`api/turn.ts`), a Vercel function that returns short-lived
+[Cloudflare Realtime TURN](https://developers.cloudflare.com/realtime/turn/) credentials. It needs two server-side
+environment variables:
 
-- `VITE_TURN_CREDENTIALS_URL`: a URL returning an `RTCIceServer[]` (Metered's credentials API works as is)
-- `VITE_ICE_SERVERS`: an `RTCIceServer[]` as JSON
+- `CLOUDFLARE_TURN_KEY_ID`
+- `CLOUDFLARE_TURN_KEY_API_TOKEN`
+
+Without them it answers 503 and connections stay direct. Another provider can be used instead with
+`VITE_TURN_CREDENTIALS_URL` (a URL returning an `RTCIceServer[]`) or `VITE_ICE_SERVERS` (JSON).
 
 The top bar shows whether a player is connected `direct` or `via relay`.
