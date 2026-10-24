@@ -88,9 +88,14 @@ kbd {
 
 /* ---- lobby ---- */
 
+/* The page never scrolls (the table must not move), except the lobby, which can outgrow the screen. */
+#root:has(> .lobby) {
+  overflow-y: auto;
+}
 .lobby {
   max-width: 420px;
   margin: 12vh auto 0;
+  padding-bottom: 40px;
   padding: 0 16px;
   display: flex;
   flex-direction: column;
@@ -215,7 +220,7 @@ kbd {
 }
 .opponents {
   flex: 0 0 42%;
-  display: flex;
+  display: grid;
   gap: 1px;
   min-height: 0;
   /* The opponent's half of the table: a touch darker, with a clear line down the middle. */
@@ -601,10 +606,10 @@ body.dragging * {
   color: var(--muted);
 }
 .pile.small .pile-slot {
-  width: 30px;
+  width: 40px;
 }
 .pile.small .pile-count {
-  font-size: 9px;
+  font-size: 10px;
   padding: 0 3px;
   bottom: 1px;
   right: 1px;
@@ -645,9 +650,9 @@ body.dragging * {
   transform: translateY(-8px);
 }
 .hand.compact {
-  --hand-card-h: 40px;
+  --hand-card-h: 56px;
   padding: 0 6px;
-  min-height: 44px;
+  min-height: 60px;
 }
 .hand.compact .card:hover {
   transform: none;
@@ -707,11 +712,20 @@ body.dragging * {
   margin-top: 6px;
 }
 .tag {
-  font-size: 11px;
+  font-size: 12.5px;
+  color: var(--text);
   background: var(--panel-2);
   border: 1px solid var(--line);
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+/* Same look as the counter badges on the card itself. */
+.tag.counter-tag {
+  font-weight: 700;
+  font-size: 14px;
+  background: #111d;
+  border-color: var(--accent);
+  border-radius: 10px;
 }
 .preview-faces button {
   font-size: 12px;
@@ -1102,8 +1116,10 @@ body.dragging * {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   overflow: hidden;
+  /* Room inside the clip for selection outlines and hover rings. */
+  padding: 5px;
 }
 .opponent > .player-header > .icon-btn:last-child {
   margin-left: auto;
@@ -1419,4 +1435,40 @@ button.danger:hover:not(:disabled) {
 }
 .dev-preset .muted {
   font-size: 12px;
+}
+
+/* Opponents sit in a grid: each one spans a header row and a board row (subgrid), so the headers
+   of a row share one height and all its boards start on the same line. */
+.opponents > .area.opponent {
+  display: grid;
+  grid-template-rows: subgrid;
+  /* One column exactly as wide as the cell: without it the column grows to the header's content
+     and spills over the neighbouring opponent. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Compact counters in opponent headers: one chip each. */
+.tracker-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 1px 6px;
+}
+.trackers.compact {
+  gap: 4px;
+}
+.trackers.compact .tracker.life .tracker-value {
+  font-size: 17px;
+}
+
+.cmd-add {
+  padding: 0 7px;
+  line-height: 20px;
+  color: var(--muted);
+  background: none;
+}
+.opponent .player-name {
+  max-width: 110px;
 }

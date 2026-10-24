@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState } from '../core/types';
 import { FaceView } from './CardView';
+import { formatCounter } from './counters';
 import { act, useStore } from './store';
 
 function Preview({ state }: { state: GameState }) {
@@ -32,8 +33,8 @@ function Preview({ state }: { state: GameState }) {
         {card.token && <span className="tag">Token</span>}
         {!!card.tax && <span className="tag">Commander tax: +{card.tax}</span>}
         {counters.map(([k, n]) => (
-          <span key={k} className="tag">
-            {k}: {n}
+          <span key={k} className="tag counter-tag">
+            {formatCounter(k, n)}
           </span>
         ))}
       </div>

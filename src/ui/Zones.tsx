@@ -101,51 +101,107 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
   );
 }
 
-const MIN_ZOOM = 1;
-const MAX_ZOOM = 5;
+/** Largest zoom, as a multiple of whatever fits. */
+const ZOOM_RANGE = 4;
+/** Room around the cards when fitting to them, in board units. */
+const FIT_MARGIN = 20;
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/** The area the cards cover on a board laid out `width` units wide (the whole board if empty). */
+function cardsBox(zone: Zone, state: GameState, width: number, flipped?: boolean): Box {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const id of zone.cards) {
+    const c = state.cards[id];
+    if (!c) continue;
+    const x = viewX(c.x, width);
+    const y = viewY(flipped ? mirrorY(c.y) : c.y);
+    // A tapped card is turned a quarter: wider than it is tall.
+    const pad = c.rotation % 180 ? (CARD_H - CARD_W) / 2 : 0;
+    minX = Math.min(minX, x - pad);
+    maxX = Math.max(maxX, x + CARD_W + pad);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y + CARD_H);
+  }
+  if (minX === Infinity) return { x: 0, y: 0, w: width, h: VIEW_H };
+  const x = Math.max(0, minX - FIT_MARGIN);
+  const y = Math.max(0, minY - FIT_MARGIN);
+  return { x, y, w: Math.min(width, maxX + FIT_MARGIN) - x, h: Math.min(VIEW_H, maxY + FIT_MARGIN) - y };
+}
 
 /**
- * A battlefield blown up: the same arrangement as on the table. Opens with the whole board fitted
- * (zoom 1); zoom with pinch, Ctrl/⌘ + wheel or the buttons, and scroll once zoomed in.
+ * A battlefield blown up: the same arrangement as on the table. Opens zoomed onto its cards, so
+ * they fill the view; "Board" shows the whole board. Zoom with pinch, Ctrl/⌘ + wheel or the
+ * buttons, and scroll once zoomed in.
  */
 export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameState; flipped?: boolean }) {
   const [wrap, size] = useSize<HTMLDivElement>();
-  const [zoom, setZoom] = useState(1);
-  // Content point to keep under the cursor across a zoom change.
-  const anchor = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  // Pixels per board unit; null until measured, then it starts fitted to the cards.
+  const [chosen, setChosen] = useState<number | null>(null);
+  // Scroll position to apply after the next render (a fit, or keeping a point under the cursor).
+  const pending = useRef<{ left: number; top: number } | null>(null);
+  const [renders, setRenders] = useState(0);
 
   const width = laidOutWidth.get(zone.id) ?? 1000;
-  const fit = size.w && size.h ? Math.min(size.w / width, size.h / VIEW_H) : 1;
-  const fillHeight = size.h ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, size.h / VIEW_H / fit)) : 1;
-  const scale = fit * zoom;
+  const box = cardsBox(zone, state, width, flipped);
+  const measured = size.w > 0 && size.h > 0;
+  const fitBoardScale = measured ? Math.min(size.w / width, size.h / VIEW_H) : 1;
+  const fitCardsScale = measured ? Math.min(size.w / box.w, size.h / box.h) : 1;
+  const minScale = Math.min(fitBoardScale, fitCardsScale);
+  const maxScale = Math.max(fitBoardScale, fitCardsScale) * ZOOM_RANGE;
+  const scale = chosen ?? fitCardsScale;
+
+  /** Zoom so `target` fills the view, centered on it. */
+  const fitTo = (target: Box) => {
+    const s = Math.min(size.w / target.w, size.h / target.h);
+    // While the board is smaller than the view in a direction, it's centered and doesn't scroll.
+    pending.current = {
+      left: target.x * s - Math.max(0, (size.w - target.w * s) / 2),
+      top: target.y * s - Math.max(0, (size.h - target.h * s) / 2),
+    };
+    setChosen(s);
+    setRenders((n) => n + 1);
+  };
 
   const zoomTo = (next: number, px = size.w / 2, py = size.h / 2) => {
     const el = wrap.current;
     if (!el) return;
-    // Where the cursor is, in content units, before the change.
-    anchor.current = { x: (el.scrollLeft + px) / scale, y: (el.scrollTop + py) / scale, px, py };
-    setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)));
+    const s = Math.min(maxScale, Math.max(minScale, next));
+    // Keep the point under the cursor where it is.
+    const x = (el.scrollLeft + px) / scale;
+    const y = (el.scrollTop + py) / scale;
+    pending.current = { left: x * s - px, top: y * s - py };
+    setChosen(s);
+    setRenders((n) => n + 1);
   };
+
+  // Once the area is measured, open fitted to the cards (later card moves don't refit).
+  useLayoutEffect(() => {
+    if (measured && chosen === null) fitTo(box);
+  }, [measured]);
 
   useLayoutEffect(() => {
     const el = wrap.current;
-    const a = anchor.current;
-    if (!el || !a) return;
-    el.scrollLeft = a.x * scale - a.px;
-    el.scrollTop = a.y * scale - a.py;
-    anchor.current = null;
-  }, [scale, wrap]);
+    const p = pending.current;
+    if (!el || !p) return;
+    el.scrollLeft = p.left;
+    el.scrollTop = p.top;
+    pending.current = null;
+  }, [renders, wrap]);
 
   // Pinch on a trackpad arrives as Ctrl + wheel; it must be non-passive to stop the page zooming.
-  const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
   useEffect(() => {
     const el = wrap.current!;
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      zoomTo(zoomRef.current * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+      zoomTo(scaleRef.current * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -159,18 +215,18 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
         </div>
       </div>
       <div className="zoom-controls">
-        <button onClick={() => zoomTo(zoom / 1.25)} disabled={zoom <= MIN_ZOOM} {...tip('Zoom out')}>
+        <button onClick={() => zoomTo(scale / 1.25)} disabled={scale <= minScale + 1e-6} {...tip('Zoom out')}>
           −
         </button>
         <span className="zoom-level">{Math.round(scale * 100)}%</span>
-        <button onClick={() => zoomTo(zoom * 1.25)} disabled={zoom >= MAX_ZOOM} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
+        <button onClick={() => zoomTo(scale * 1.25)} disabled={scale >= maxScale - 1e-6} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
           +
         </button>
-        <button onClick={() => zoomTo(1)} disabled={zoom <= MIN_ZOOM} {...tip('Show the whole board', 'end')}>
+        <button onClick={() => fitTo(box)} {...tip('Fit the cards', 'end')}>
           Fit
         </button>
-        <button onClick={() => zoomTo(fillHeight)} {...tip('Fill the height', 'end')}>
-          Fill
+        <button onClick={() => fitTo({ x: 0, y: 0, w: width, h: VIEW_H })} {...tip('Show the whole board', 'end')}>
+          Board
         </button>
       </div>
     </div>
@@ -197,7 +253,10 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
   }, [zone.cards.length, isMyLibrary]);
 
   return (
-    <div className={`pile${small ? ' small' : ''}`} title={isMyLibrary ? 'Click to draw · right-click for more' : 'Click to view'}>
+    <div
+      className={`pile${small ? ' small' : ''}`}
+      title={`${zone.name} (${zone.cards.length}) · ${isMyLibrary ? 'click to draw, right-click for more' : 'click to view'}`}
+    >
       <div
         className={`pile-slot${attention ? ' attention' : ''}`}
         data-drop-zone={zone.id}

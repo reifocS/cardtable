@@ -5,8 +5,10 @@ import { act, useStore } from './store';
 /** `from`/`to` are set for real arrows; the line being drawn while targeting has neither. */
 type Line = { x1: number; y1: number; x2: number; y2: number; color: string; from?: string; to?: string };
 
+/** Center of a card or player on screen, preferring the zoomed board when it's open (it covers the table). */
 function center(id: string): { x: number; y: number } | null {
-  const el = document.querySelector(`[data-card-id="${id}"]`) ?? document.querySelector(`[data-player-id="${id}"]`);
+  const sel = `[data-card-id="${id}"], [data-player-id="${id}"]`;
+  const el = document.querySelector(`.board-focus ${sel.replace(', ', ', .board-focus ')}`) ?? document.querySelector(sel);
   if (!el) return null;
   const r = el.getBoundingClientRect();
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -16,8 +18,11 @@ function center(id: string): { x: number; y: number } | null {
 export function Arrows({ state }: { state: GameState }) {
   const targeting = useStore((s) => s.targeting);
   const me = useStore((s) => s.me);
+  // The zoomed board covers the table, where arrows would point at hidden cards.
+  const focus = useStore((s) => s.focus);
   const [lines, setLines] = useState<Line[]>([]);
-  const active = state.arrows.length > 0 || !!targeting;
+  const arrows = focus ? [] : state.arrows;
+  const active = arrows.length > 0 || !!targeting;
 
   useEffect(() => {
     if (!active) {
@@ -30,7 +35,7 @@ export function Arrows({ state }: { state: GameState }) {
     let raf = 0;
     const tick = () => {
       const next: Line[] = [];
-      for (const a of state.arrows) {
+      for (const a of arrows) {
         const p = center(a.from);
         const q = center(a.to);
         if (p && q) next.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, color: state.players[a.by]?.color ?? '#fff', from: a.from, to: a.to });
@@ -45,7 +50,7 @@ export function Arrows({ state }: { state: GameState }) {
       cancelAnimationFrame(raf);
       window.removeEventListener('pointermove', onMove);
     };
-  }, [active, state, targeting, me]);
+  }, [active, state, targeting, me, focus]);
 
   if (!lines.length) return null;
   return (

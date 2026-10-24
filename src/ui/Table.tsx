@@ -7,6 +7,7 @@ import { ActionBar } from './ActionBar';
 import { Arrows } from './Arrows';
 import { ConfirmDialog, ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
 import { finishTargeting } from './drag';
+import { opponentLayout } from './fit';
 import { Icon } from './Icon';
 import { SidePanel, ZoomOverlay } from './SidePanel';
 import { act, ask, useStore } from './store';
@@ -16,24 +17,42 @@ import { Viewer } from './Viewer';
 import { Board, Hand, Pile, ZoomBoard } from './Zones';
 
 const SIDE_PILES = ['graveyard', 'exile', 'command'];
-/**
- * Share of the table height for opponents, by how many there are. With several side by side their
- * boards are narrow, so their cards are small and need less height: give it back to my board.
- */
-const OPPONENTS_SHARE = [0, 42, 36, 30];
+/** CSS grid placement for opponent `i`: columns are shared by both rows, so each row fills the width. */
+function opponentCell(rows: number[], i: number): React.CSSProperties {
+  const cols = rows.length === 1 ? rows[0] : rows[0] * rows[1];
+  const row = i < rows[0] ? 0 : 1;
+  // Each opponent spans two grid rows (header, board) and lays its own out on them (subgrid).
+  return { gridRow: `${row * 2 + 1} / span 2`, gridColumn: `span ${cols / rows[row]}` };
+}
 
 const commandersOf = (state: GameState) => Object.values(state.cards).filter((c) => c.home === 'command' && !c.token);
 
-/** Damage `player` has taken from each enemy commander. Click +1, right-click −1, shift ±5. */
+/**
+ * Damage `player` has taken from each enemy commander. Only commanders that have dealt some get a
+ * chip (click +1, right-click −1, shift ±5); the ⚔ button adds damage from any of them.
+ */
 function CommanderDamage({ state, player }: { state: GameState; player: Player }) {
   const sources = commandersOf(state).filter((c) => c.owner !== player.id);
   if (!sources.length) return null;
   const hit = (c: Card, delta: number) => act({ type: 'commanderDamage', player: player.id, from: c.id, delta });
+  const nameOf = (c: Card) => (c.faces.length ? cardName(c) : 'Commander');
+  const dealt = sources.filter((c) => (player.commanderDamage?.[c.id] ?? 0) > 0);
+  const addMenu = (e: React.MouseEvent) =>
+    openMenu(e, [
+      { label: `Commander damage to ${player.name}`, heading: true },
+      ...sources.map((c) => ({
+        label: `+1 from ${nameOf(c)} (${player.commanderDamage?.[c.id] ?? 0})`,
+        action: () => hit(c, 1),
+      })),
+    ]);
   return (
     <div className="cmd-damage">
-      {sources.map((c) => {
+      <button className="cmd-add" onClick={addMenu} {...tip('Commander damage (also lowers Life)')}>
+        ⚔
+      </button>
+      {dealt.map((c) => {
         const n = player.commanderDamage?.[c.id] ?? 0;
-        const name = c.faces.length ? cardName(c) : 'Commander';
+        const name = nameOf(c);
         return (
           <button
             key={c.id}
@@ -59,42 +78,77 @@ function CommanderDamage({ state, player }: { state: GameState; player: Player }
 const LETHAL: Record<string, (v: number) => boolean> = { Life: (v) => v <= 0, Poison: (v) => v >= 10 };
 const COMMON_COUNTERS = ['Poison', 'Energy', 'Experience', 'Rad', 'Tickets'];
 
-function Trackers({ player, editable }: { player: Player; editable: boolean }) {
+/**
+ * A player's counters. Full (− value +) in my own bar; compact chips in opponent headers, where
+ * space is short: click +1, right-click −1, shift for ±5. Counters other than Life are removed
+ * from the +◆ menu (or right-click in the full version).
+ */
+function Trackers({ player, compact }: { player: Player; compact?: boolean }) {
   const bump = (key: string, delta: number) => act({ type: 'tracker', player: player.id, key, delta });
   const add = (key: string) => act({ type: 'setTracker', player: player.id, key, value: player.trackers[key] ?? 0 });
+  const remove = (key: string) => act({ type: 'setTracker', player: player.id, key, value: null });
+  const removable = Object.keys(player.trackers).filter((k) => k !== 'Life');
   const addMenu = (e: React.MouseEvent) =>
     openMenu(e, [
       { label: 'Add a counter', heading: true },
       ...COMMON_COUNTERS.filter((k) => !(k in player.trackers)).map((k) => ({ label: k, action: () => add(k) })),
       { label: 'Other…', action: () => ask('Counter name', '', (k) => k.trim() && add(k.trim().slice(0, 20))) },
+      ...(removable.length ? [{ label: 'Remove', heading: true }, ...removable.map((k) => ({ label: k, action: () => remove(k) }))] : []),
     ]);
   return (
-    <div className="trackers">
-      {Object.entries(player.trackers).map(([key, v]) => (
-        <div
-          key={key}
-          className={`tracker${key === 'Life' ? ' life' : ''}${LETHAL[key]?.(v) ? ' lethal' : ''}`}
-          {...tip(`${key} · shift-click for ±5${key === 'Life' ? '' : ' · right-click to remove'}`)}
-          onContextMenu={(e) =>
-            key !== 'Life' && openMenu(e, [{ label: `Remove ${key}`, action: () => act({ type: 'setTracker', player: player.id, key, value: null }) }])
-          }
-        >
-          {editable && <button onClick={(e) => bump(key, e.shiftKey ? -5 : -1)}>−</button>}
-          <span className="tracker-value">{v}</span>
-          <span className="tracker-key">{key}</span>
-          {editable && <button onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}>+</button>}
-        </div>
-      ))}
-      {editable && (
-        <button className="tracker-add" {...tip('Add a counter (poison, energy…)')} onClick={addMenu}>
-          +◆
-        </button>
-      )}
+    <div className={`trackers${compact ? ' compact' : ''}`}>
+      {Object.entries(player.trackers).map(([key, v]) => {
+        const cls = `tracker${key === 'Life' ? ' life' : ''}${LETHAL[key]?.(v) ? ' lethal' : ''}`;
+        if (compact) {
+          return (
+            <button
+              key={key}
+              className={`${cls} tracker-chip`}
+              {...tip(`${key} · click +1, right-click −1, shift ±5`)}
+              onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                bump(key, e.shiftKey ? -5 : -1);
+              }}
+            >
+              <span className="tracker-value">{v}</span>
+              {/* Short labels: the tooltip has the full name. */}
+              <span className="tracker-key">{key === 'Life' ? '♥' : key.slice(0, 3)}</span>
+            </button>
+          );
+        }
+        return (
+          <div
+            key={key}
+            className={cls}
+            {...tip(`${key} · shift-click for ±5${key === 'Life' ? '' : ' · right-click to remove'}`)}
+            onContextMenu={(e) => key !== 'Life' && openMenu(e, [{ label: `Remove ${key}`, action: () => remove(key) }])}
+          >
+            <button onClick={(e) => bump(key, e.shiftKey ? -5 : -1)}>−</button>
+            <span className="tracker-value">{v}</span>
+            <span className="tracker-key">{key}</span>
+            <button onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}>+</button>
+          </div>
+        );
+      })}
+      <button className="tracker-add" {...tip('Add or remove a counter (poison, energy…)')} onClick={addMenu}>
+        +◆
+      </button>
     </div>
   );
 }
 
-function PlayerHeader({ state, pid, children }: { state: GameState; pid: PlayerId; children?: React.ReactNode }) {
+function PlayerHeader({
+  state,
+  pid,
+  opponent,
+  children,
+}: {
+  state: GameState;
+  pid: PlayerId;
+  opponent?: boolean;
+  children?: React.ReactNode;
+}) {
   const player = state.players[pid];
   const targeting = useStore((s) => s.targeting);
   const active = state.turn.player === pid;
@@ -107,22 +161,23 @@ function PlayerHeader({ state, pid, children }: { state: GameState; pid: PlayerI
     >
       <span className={`dot${player.connected ? '' : ' off'}`} title={player.connected ? 'Connected' : 'Disconnected'} />
       <span className="player-name">{player.name}</span>
-      {active && <span className="turn-badge">turn</span>}
+      {/* Opponents' headers are tinted on their turn; the badge would only cost room. */}
+      {active && !opponent && <span className="turn-badge">turn</span>}
       {/* Anyone can adjust anyone's life: at a real table you'd just say it. */}
-      <Trackers player={player} editable />
+      <Trackers player={player} compact={!!opponent} />
       <CommanderDamage state={state} player={player} />
       {children}
     </div>
   );
 }
 
-function OpponentArea({ state, pid }: { state: GameState; pid: PlayerId }) {
+function OpponentArea({ state, pid, style }: { state: GameState; pid: PlayerId; style?: React.CSSProperties }) {
   const bf = zoneOf(state, pid, 'battlefield');
   const hand = zoneOf(state, pid, 'hand');
   return (
-    <section className="area opponent">
+    <section className="area opponent" style={style}>
       {/* Laid out like a player sitting across: hand and piles far side, battlefield toward the middle. */}
-      <PlayerHeader state={state} pid={pid}>
+      <PlayerHeader state={state} pid={pid} opponent>
         <div className="opp-zones">
           {['library', ...SIDE_PILES].map((role) => {
             const z = zoneOf(state, pid, role);
@@ -241,14 +296,23 @@ export function Table() {
   if (!state || !me || !state.players[me]) return <Joining />;
 
   const opponents = state.seats.filter((id) => id !== me);
+  const layout = opponentLayout(opponents.length);
   return (
     <div className={`app${targeting ? ' is-targeting' : ''}`}>
       <TopBar state={state} />
       <main className="table">
         {opponents.length > 0 && (
-          <div className="opponents" style={{ flexBasis: `${OPPONENTS_SHARE[Math.min(opponents.length, 3)]}%` }}>
-            {opponents.map((pid) => (
-              <OpponentArea key={pid} state={state} pid={pid} />
+          <div
+            className="opponents"
+            style={{
+              flexBasis: `${layout.share}%`,
+              gridTemplateColumns: `repeat(${layout.rows.length === 1 ? layout.rows[0] : layout.rows[0] * layout.rows[1]}, minmax(0, 1fr))`,
+              // Per row of opponents: headers (as tall as the tallest one), then boards.
+              gridTemplateRows: `repeat(${layout.rows.length}, auto minmax(0, 1fr))`,
+            }}
+          >
+            {opponents.map((pid, i) => (
+              <OpponentArea key={pid} state={state} pid={pid} style={opponentCell(layout.rows, i)} />
             ))}
           </div>
         )}

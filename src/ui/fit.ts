@@ -40,3 +40,14 @@ export const viewY = (y: number) => (y / Y_SPAN) * (VIEW_H - CARD_H);
 export const storeY = (y: number) => (y / (VIEW_H - CARD_H)) * Y_SPAN;
 /** Stored y as seen by someone across the table. */
 export const mirrorY = (y: number) => Y_SPAN - y;
+
+/**
+ * How opponents sit: up to 3 on one row, then two rows (the second may hold one fewer, its boards
+ * widening to fill the row). `share` is their part of the table height: on one row, more opponents
+ * means narrower boards and smaller cards, which need less height.
+ */
+export function opponentLayout(n: number) {
+  if (n <= 3) return { rows: [n], share: [0, 42, 36, 30][n] };
+  const top = Math.ceil(n / 2);
+  return { rows: [top, n - top], share: 48 };
+}

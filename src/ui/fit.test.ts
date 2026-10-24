@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOARD_W, CARD_W } from '../core/state';
-import { MIN_VIEW_W, VIEW_H, fitBoard, storeX, storeY, viewX, viewY } from './fit';
+import { MIN_VIEW_W, VIEW_H, fitBoard, opponentLayout, storeX, storeY, viewX, viewY } from './fit';
 
 describe('fitBoard', () => {
   it('sizes cards from the height on a wide board', () => {
@@ -43,5 +43,14 @@ describe('proportional x', () => {
     expect(VIEW_H * f.scale).toBeCloseTo(400);
     expect(viewY(storeY(37))).toBeCloseTo(37);
     expect(viewY(240) + 100).toBeCloseTo(VIEW_H); // bottom stored row sits on the bottom edge
+  });
+});
+
+describe('opponent layout', () => {
+  it('uses one row up to three opponents, then two rows', () => {
+    expect([1, 2, 3].map((n) => opponentLayout(n).rows)).toEqual([[1], [2], [3]]);
+    expect(opponentLayout(4).rows).toEqual([2, 2]);
+    expect(opponentLayout(5).rows).toEqual([3, 2]);
+    expect(opponentLayout(6).rows).toEqual([3, 3]);
   });
 });

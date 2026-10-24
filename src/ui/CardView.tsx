@@ -2,6 +2,7 @@ import { memo, type CSSProperties } from 'react';
 import type { Card, CardFace, Zone } from '../core/types';
 import { isPublic } from '../core/visibility';
 import { cardMenu, openMenu, toMyBattlefield } from './actions';
+import { formatCounter } from './counters';
 import { onCardPointerDown } from './drag';
 import { act, useStore } from './store';
 
@@ -96,7 +97,7 @@ export const CardView = memo(function CardView({ card, zone, style, pileTop }: P
                 act({ type: 'counter', cards: [card.id], key, delta: -1 });
               }}
             >
-              {key === '+1/+1' ? `+${n}/+${n}` : `${key} ${n}`}
+              {formatCounter(key, n)}
             </button>
           ))}
         </div>
