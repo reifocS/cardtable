@@ -334,10 +334,13 @@ kbd {
   transform-origin: 0 0;
   border-radius: 8px;
   background: #ffffff06;
+  /* Drawn inside the edge: the board fills its area, which clips anything outside. */
   outline: 1px solid #ffffff10;
+  outline-offset: -1px;
 }
 .board.drop-hover {
-  outline: 2px solid var(--accent);
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
 }
 .board > .card {
   position: absolute;
@@ -1283,4 +1286,84 @@ button.danger:hover:not(:disabled) {
 }
 .lobby-footer .github-link {
   align-self: center;
+}
+
+/* ---- presence: who looks at what, pings ---- */
+
+.card.watched {
+  box-shadow:
+    0 0 0 2px var(--watch),
+    0 0 14px var(--watch);
+}
+.ping-ring {
+  position: absolute;
+  inset: -7px;
+  border: 3px solid var(--c);
+  border-radius: 10px;
+  pointer-events: none;
+  animation: ping 1s ease-out 2;
+}
+.board-ping {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  margin: -35px 0 0 -35px;
+  border: 5px solid var(--c);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: ping 1s ease-out 2;
+}
+@keyframes ping {
+  from {
+    transform: scale(0.75);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+/* ---- freshly loaded library ---- */
+
+.pile-slot.attention {
+  animation: attention 0.8s ease-in-out 4;
+}
+@keyframes attention {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    transform: translateY(-6px);
+    box-shadow:
+      0 0 0 3px var(--accent),
+      0 0 24px var(--accent);
+  }
+}
+.pile-bubble {
+  position: absolute;
+  /* Left-aligned: the library sits against the left edge of the screen. */
+  left: 0;
+  bottom: calc(100% + 12px);
+  z-index: 5;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #1b1307;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: tip-in 0.2s ease both;
+}
+.pile-bubble::after {
+  content: '';
+  position: absolute;
+  left: 36px;
+  top: 100%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--accent);
 }

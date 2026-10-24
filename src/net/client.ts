@@ -3,6 +3,7 @@ import { applyPatch } from '../core/diff';
 import { apply, OPTIMISTIC, type Op } from '../core/ops';
 import type { GameState, PlayerId } from '../core/types';
 import { iceServers, routeOf } from './ice';
+import { Presence, type PointTarget } from './presence';
 import { Emitter, HEARTBEAT_TIMEOUT_MS, PEER_PREFIX, wire, type Route, type Session, type Status, type ToClient, type ToHost } from './session';
 
 const RETRY_MS = 2000;
@@ -30,6 +31,8 @@ export class ClientSession extends Emitter implements Session {
   private lastHeard = 0;
   // sessionStorage, not localStorage: two tabs on one machine stay two players.
   private seatKey: string;
+  private presence = new Presence(() => this.emit());
+  private lastHover: string | null = null;
 
   constructor(
     private name: string,
@@ -103,6 +106,10 @@ export class ClientSession extends Emitter implements Session {
         this.confirmed = this.view = applyPatch(this.confirmed, msg.patch);
         this.version = msg.v;
         break;
+      case 'hover':
+        return this.presence.setHover(msg.by, msg.card);
+      case 'point':
+        return this.presence.addPing(msg.by, msg.target);
       case 'ping':
         // The host is ahead of us: a patch went missing.
         if (msg.v !== this.version && !this.resyncing) this.resync();
@@ -140,6 +147,27 @@ export class ClientSession extends Emitter implements Session {
       if (this.peer.disconnected) this.peer.reconnect();
       this.connect();
     }, RETRY_MS);
+  }
+
+  get hovers() {
+    return this.presence.hovers;
+  }
+
+  get pings() {
+    return this.presence.pings;
+  }
+
+  hover(card: string | null) {
+    if (card === this.lastHover || this.status !== 'connected') return;
+    this.lastHover = card;
+    this.send({ t: 'hover', card });
+  }
+
+  point(target: PointTarget) {
+    if (this.status !== 'connected' || !this.me) return;
+    // Show my own ping right away; the host relays it to the others.
+    this.presence.addPing(this.me, target);
+    this.send({ t: 'point', target });
   }
 
   getState() {

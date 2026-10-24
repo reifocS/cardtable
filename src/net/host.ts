@@ -5,6 +5,7 @@ import type { Op } from '../core/ops';
 import type { GameState, PlayerId } from '../core/types';
 import { redact } from '../core/visibility';
 import { iceServers } from './ice';
+import { Presence, type PointTarget } from './presence';
 import { Emitter, HEARTBEAT_MS, PEER_PREFIX, makeCode, wire, type Session, type Status, type ToClient, type ToHost } from './session';
 
 const SAVE_PREFIX = 'cardtable:hosted:';
@@ -61,6 +62,7 @@ export class HostSession extends Emitter implements Session {
   private closed = false;
   private saveTimer = 0;
   private heartbeat = 0;
+  private presence = new Presence(() => this.emit());
 
   constructor(name: string, saved?: SavedGame) {
     super();
@@ -99,7 +101,10 @@ export class HostSession extends Emitter implements Session {
         setTimeout(() => this.openPeer(attempt + 1), 2000);
         return;
       }
-      this.error = err.message || String(err.type);
+      this.error =
+        err.type === 'unavailable-id'
+          ? 'This table is already open in another tab or window: close it there, then resume here.'
+          : err.message || String(err.type);
       this.emit();
     });
   }
@@ -111,7 +116,10 @@ export class HostSession extends Emitter implements Session {
       const pid = this.conns.get(conn);
       this.conns.delete(conn);
       this.sent.delete(conn);
-      if (pid && ![...this.conns.values()].includes(pid)) this.engine.setConnected(pid, false);
+      if (pid && ![...this.conns.values()].includes(pid)) {
+        this.engine.setConnected(pid, false);
+        this.relayHover(pid, null);
+      }
     };
     conn.on('close', drop);
     conn.on('error', drop);
@@ -142,9 +150,16 @@ export class HostSession extends Emitter implements Session {
       this.sent.delete(conn);
       this.send(conn, { t: 'welcome', playerId: pid });
       this.sync(conn, pid);
+      for (const [by, card] of Object.entries(this.presence.hovers)) if (by !== pid) this.send(conn, { t: 'hover', by, card });
     } else if (msg?.t === 'op') {
       const pid = this.conns.get(conn);
       if (pid) this.engine.dispatch(pid, msg.op);
+    } else if (msg?.t === 'hover') {
+      const pid = this.conns.get(conn);
+      if (pid) this.relayHover(pid, typeof msg.card === 'string' ? msg.card : null);
+    } else if (msg?.t === 'point') {
+      const pid = this.conns.get(conn);
+      if (pid && msg.target) this.relayPoint(pid, msg.target);
     } else if (msg?.t === 'resync') {
       const pid = this.conns.get(conn);
       if (!pid) return;
@@ -173,6 +188,32 @@ export class HostSession extends Emitter implements Session {
     } catch {
       // Storage full or blocked: the game still works, it just won't survive a reload.
     }
+  }
+
+  private relayHover(by: PlayerId, card: string | null) {
+    this.presence.setHover(by, card);
+    for (const [conn, pid] of this.conns) if (pid && pid !== by) this.send(conn, { t: 'hover', by, card });
+  }
+
+  private relayPoint(by: PlayerId, target: PointTarget) {
+    this.presence.addPing(by, target);
+    for (const [conn, pid] of this.conns) if (pid && pid !== by) this.send(conn, { t: 'point', by, target });
+  }
+
+  get hovers() {
+    return this.presence.hovers;
+  }
+
+  get pings() {
+    return this.presence.pings;
+  }
+
+  hover(card: string | null) {
+    this.relayHover(this.me, card);
+  }
+
+  point(target: PointTarget) {
+    this.relayPoint(this.me, target);
   }
 
   getState() {

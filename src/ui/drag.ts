@@ -82,6 +82,11 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     window.removeEventListener('pointerup', up);
     window.removeEventListener('pointercancel', up);
     if (!ghost) {
+      // Alt+click (no drag) pings the card for everyone; Alt+drag still plays face down.
+      if (ev.altKey) {
+        useStore.getState().session?.point({ card: card.id });
+        return;
+      }
       if (additive) {
         const sel = useStore.getState().selection;
         setSelection(sel.includes(card.id) ? sel.filter((id) => id !== card.id) : [...sel, card.id]);
@@ -151,11 +156,26 @@ function drop(ev: PointerEvent, ids: CardId[], primary: Card, fx: number, fy: nu
   }
 }
 
+/** Pings a spot on a battlefield, in stored coordinates so every screen shows it in the same place. */
+function pingSpot(board: HTMLElement, clientX: number, clientY: number) {
+  const zone = board.dataset.dropZone;
+  if (!zone) return;
+  const r = board.getBoundingClientRect();
+  const scale = r.height / VIEW_H;
+  const x = storeX((clientX - r.left) / scale - CARD_W / 2, r.width / scale);
+  const y = storeY((clientY - r.top) / scale - CARD_H / 2);
+  useStore.getState().session?.point({ zone, x, y: board.dataset.flipped ? mirrorY(y) : y });
+}
+
 /** Rubber-band selection on an empty battlefield. A plain click clears the selection. */
 export function onBoardPointerDown(e: React.PointerEvent<HTMLElement>) {
   if (e.button !== 0 || e.target !== e.currentTarget) return;
   if (useStore.getState().targeting) return;
   const board = e.currentTarget;
+  if (e.altKey) {
+    pingSpot(board, e.clientX, e.clientY);
+    return;
+  }
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
   const sx = e.clientX;
   const sy = e.clientY;

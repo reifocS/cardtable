@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Op } from '../core/ops';
 import { zoneOf } from '../core/state';
 import type { CardId, GameState, PlayerId, Zone, ZoneId } from '../core/types';
+import type { Ping } from '../net/presence';
 import type { Route, Session, Status } from '../net/session';
 
 export interface MenuItem {
@@ -34,6 +35,9 @@ interface Store {
   status: Status;
   error: string | null;
   route: Route;
+  /** Card each other player is hovering, and live pings (ephemeral, see net/presence). */
+  hovers: Record<PlayerId, CardId>;
+  pings: Ping[];
 
   selection: CardId[];
   hovered: CardId | null;
@@ -65,6 +69,8 @@ export const useStore = create<Store>((set, get) => ({
   status: 'connecting',
   error: null,
   route: null,
+  hovers: {},
+  pings: [],
   selection: [],
   hovered: null,
   previewId: null,
@@ -83,7 +89,16 @@ export const useStore = create<Store>((set, get) => ({
     const sync = () => {
       const state = session.getState();
       const selection = state ? get().selection.filter((id) => state.cards[id]) : [];
-      set({ state, me: session.me, status: session.status, error: session.error, route: session.route, selection });
+      set({
+        state,
+        me: session.me,
+        status: session.status,
+        error: session.error,
+        route: session.route,
+        hovers: session.hovers,
+        pings: session.pings,
+        selection,
+      });
     };
     session.subscribe(sync);
     set({ session });

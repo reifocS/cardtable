@@ -316,6 +316,7 @@ const SHORTCUTS: [string, string][] = [
   ['A', 'Target with an arrow (click an arrow to remove it)'],
   ['Right-click → Attach to…', 'Attach an aura or equipment; it moves with the card'],
   ['R', 'Reveal to everyone'],
+  ['P / Alt-click', 'Ping a card (or a spot on a battlefield) for everyone'],
   ['B / H / G / E / L', 'To battlefield / hand / graveyard / exile / library'],
   ['D', 'Draw'],
   ['S', 'Shuffle library'],

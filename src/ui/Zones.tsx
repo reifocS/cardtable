@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CARD_H, CARD_W } from '../core/state';
 import type { GameState, Zone } from '../core/types';
 import { draw, openMenu, openViewer, zoneMenu } from './actions';
 import { CardBack, CardView, FaceView } from './CardView';
@@ -52,8 +53,33 @@ function Surface({ zone, state, flipped, width, scale, top = 0, children }: Surf
         const c = state.cards[id];
         return c && <CardView key={id} card={c} zone={zone} style={{ left: viewX(c.x, width), top: viewY(flipped ? mirrorY(c.y) : c.y) }} />;
       })}
+      <BoardPings zone={zone} state={state} flipped={flipped} width={width} />
       {children}
     </div>
+  );
+}
+
+/** Pings on empty spots of this battlefield. */
+function BoardPings({ zone, state, flipped, width }: { zone: Zone; state: GameState; flipped?: boolean; width: number }) {
+  const pings = useStore((s) => s.pings);
+  return (
+    <>
+      {pings
+        .filter((p) => p.zone === zone.id && p.x !== undefined && p.y !== undefined)
+        .map((p) => (
+          <span
+            key={p.id}
+            className="board-ping"
+            style={
+              {
+                left: viewX(p.x!, width) + CARD_W / 2,
+                top: viewY(flipped ? mirrorY(p.y!) : p.y!) + CARD_H / 2,
+                '--c': state.players[p.by]?.color,
+              } as React.CSSProperties
+            }
+          />
+        ))}
+    </>
   );
 }
 
@@ -158,10 +184,22 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
   const isMyLibrary = zone.role === 'library' && zone.owner === me;
   const onClick = () => (isMyLibrary ? draw() : openViewer(zone));
 
+  // A freshly loaded deck: draw the eye to the library, where drawing starts.
+  const [attention, setAttention] = useState(false);
+  const count = useRef(zone.cards.length);
+  useEffect(() => {
+    const before = count.current;
+    count.current = zone.cards.length;
+    if (!isMyLibrary || !(zone.cards.length > before + 10 || (before === 0 && zone.cards.length > 0))) return;
+    setAttention(true);
+    const t = setTimeout(() => setAttention(false), 3200);
+    return () => clearTimeout(t);
+  }, [zone.cards.length, isMyLibrary]);
+
   return (
     <div className={`pile${small ? ' small' : ''}`} title={isMyLibrary ? 'Click to draw · right-click for more' : 'Click to view'}>
       <div
-        className="pile-slot"
+        className={`pile-slot${attention ? ' attention' : ''}`}
         data-drop-zone={zone.id}
         onClick={onClick}
         onContextMenu={(e) => openMenu(e, zoneMenu(zone))}
@@ -172,6 +210,7 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
           <div className="pile-empty" />
         )}
         <span className="pile-count">{zone.cards.length}</span>
+        {attention && <span className="pile-bubble">Your deck · click to draw</span>}
       </div>
       <div className="pile-label">{zone.name}</div>
     </div>

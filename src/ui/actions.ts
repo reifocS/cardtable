@@ -270,6 +270,7 @@ export function onKeyDown(e: KeyboardEvent) {
     l: () => sendToOwners(ids, 'library'),
     b: () => toMyBattlefield(ids),
     a: () => ids[0] && startTargeting(ids[0]),
+    p: () => store.hovered && store.session?.point({ card: store.hovered }),
     delete: () => act({ type: 'delete', cards: ids.filter((id) => store.state?.cards[id]?.token) }),
     backspace: () => act({ type: 'delete', cards: ids.filter((id) => store.state?.cards[id]?.token) }),
   };

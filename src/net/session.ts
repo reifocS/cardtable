@@ -1,6 +1,7 @@
 import type { Patch } from '../core/diff';
 import type { Op } from '../core/ops';
-import type { GameState, PlayerId } from '../core/types';
+import type { CardId, GameState, PlayerId } from '../core/types';
+import type { Ping, PointTarget } from './presence';
 
 export const PEER_PREFIX = 'cardtable-v1-';
 
@@ -10,12 +11,20 @@ export const PEER_PREFIX = 'cardtable-v1-';
  * resync and gets the full state again, so it is either exactly in step with the host or knows
  * it isn't.
  */
-export type ToHost = { t: 'hello'; name: string; playerId?: PlayerId } | { t: 'op'; op: Op } | { t: 'resync' };
+export type ToHost =
+  | { t: 'hello'; name: string; playerId?: PlayerId }
+  | { t: 'op'; op: Op }
+  | { t: 'resync' }
+  // Presence: ephemeral, relayed by the host to everyone else.
+  | { t: 'hover'; card: CardId | null }
+  | { t: 'point'; target: PointTarget };
 export type ToClient =
   | { t: 'welcome'; playerId: PlayerId }
   | { t: 'state'; state: GameState; v: number }
   | { t: 'patch'; patch: Patch; base: number; v: number }
-  | { t: 'ping'; v: number };
+  | { t: 'ping'; v: number }
+  | { t: 'hover'; by: PlayerId; card: CardId | null }
+  | { t: 'point'; by: PlayerId; target: PointTarget };
 
 /** The host pings this often; a client that hears nothing for HEARTBEAT_TIMEOUT_MS reconnects. */
 export const HEARTBEAT_MS = 3000;
@@ -37,6 +46,12 @@ export interface Session {
   /** The game as this player is allowed to see it. */
   getState(): GameState | null;
   dispatch(op: Op): void;
+  /** Card each other player is hovering, and live pings. */
+  readonly hovers: Record<PlayerId, CardId>;
+  readonly pings: Ping[];
+  /** Share the card I'm hovering (only public cards should be passed). */
+  hover(card: CardId | null): void;
+  point(target: PointTarget): void;
   subscribe(fn: () => void): () => void;
   close(): void;
 }
