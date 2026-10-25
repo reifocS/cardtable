@@ -1785,6 +1785,8 @@ button.danger:hover:not(:disabled) {
 
 .stack-zone {
   position: absolute;
+  /* Over the reminder strip: spells waiting matter more than hints, and a busy stack is wide. */
+  z-index: 2;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
