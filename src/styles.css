@@ -692,6 +692,11 @@ body.dragging * {
 .opponents.duel .hand.compact {
   --hand-card-h: 90px;
   min-height: 94px;
+  min-width: 160px;
+}
+.opponents.duel .opp-zones {
+  flex-basis: min(100% - 56px, 460px);
+  min-width: min(100% - 56px, 460px);
 }
 .opponents.duel .opponent .player-name {
   font-size: 18px;
@@ -736,6 +741,8 @@ body.dragging * {
   --hand-card-h: 56px;
   padding: 0 6px;
   min-height: 60px;
+  /* An opponent's hand never vanishes: at worst its cards overlap down to slivers. */
+  min-width: 120px;
 }
 .hand.compact .card:hover {
   transform: none;
@@ -1240,8 +1247,10 @@ body.dragging * {
   flex-shrink: 0;
 }
 .opp-zones {
-  flex: 1 1 220px;
-  min-width: 0;
+  /* Never squeezed past piles plus a slice of every card in hand: it takes a line of its own first. */
+  /* Leaves room on its line for the zoom button. */
+  flex: 1 1 min(100% - 56px, 360px);
+  min-width: min(100% - 56px, 360px);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1585,8 +1594,34 @@ button.danger:hover:not(:disabled) {
   gap: 3px;
   padding: 1px 6px;
 }
+.trackers {
+  align-items: center;
+}
 .trackers.compact {
   gap: 4px;
+}
+/* Counters other than Life, in one pill: plain numbers, zeros faded. */
+.tracker-group {
+  display: inline-flex;
+  align-items: baseline;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0003;
+}
+.tracker-group .tracker-chip {
+  background: none;
+  border: none;
+  padding: 1px 5px;
+}
+.tracker-group .tracker-chip + .tracker-chip {
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+}
+.tracker-group .tracker-value {
+  font-size: 13px;
+}
+.tracker-chip.zero {
+  opacity: 0.5;
 }
 .trackers.compact .tracker.life .tracker-value {
   font-size: 17px;

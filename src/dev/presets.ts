@@ -208,7 +208,7 @@ export const PRESETS: DevPreset[] = [
   {
     id: 'duel',
     name: 'Duel, midgame',
-    covers: 'Tapped, counters, face down, token, attachment, transformed DFC, piles, a spell on the stack, arrow, log',
+    covers: 'Tapped, counters, face down, token, attachment, transformed DFC, piles, a spell on the stack, arrow, log, extra counters on both sides',
     decks: [WHITE, RED],
     build(b) {
       const me = b.player('Alice');
@@ -217,6 +217,9 @@ export const PRESETS: DevPreset[] = [
       duelBoards(b, me, bob);
       b.op(me, { type: 'setPlaymat', mat: 'tavern' }).op(bob, { type: 'setPlaymat', mat: 'futuristic' });
       b.op(me, { type: 'setSleeve', sleeve: 'midnight' }).op(bob, { type: 'setSleeve', sleeve: 'crimson' });
+      // Extra counters crowd an opponent's header: their hand must still show.
+      for (const [key, value] of [['Poison', 0], ['Experience', 1], ['Rad', 0]] as const) b.op(bob, { type: 'setTracker', player: bob, key, value });
+      for (const [key, value] of [['Poison', 2], ['Energy', 0]] as const) b.op(me, { type: 'setTracker', player: me, key, value });
       return me;
     },
   },

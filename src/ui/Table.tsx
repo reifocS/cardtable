@@ -85,58 +85,44 @@ const LETHAL: Record<string, (v: number) => boolean> = { Life: (v) => v <= 0, Po
 const COMMON_COUNTERS = ['Poison', 'Energy', 'Experience', 'Rad', 'Tickets'];
 
 /**
- * A player's counters. Full (− value +) in my own bar; compact chips in opponent headers, where
- * space is short: click +1, right-click −1, shift for ±5. Counters other than Life are removed
- * from the +◆ menu (or right-click in the full version).
+ * A player's counters, the same in my bar and in opponent headers: Life in its own chip, the others
+ * sharing one pill. Click +1, right-click −1, shift for ±5. Counters are added and removed from the
+ * +◆ menu.
  */
 function Trackers({ player, compact }: { player: Player; compact?: boolean }) {
   const bump = (key: string, delta: number) => act({ type: 'tracker', player: player.id, key, delta });
   const add = (key: string) => act({ type: 'setTracker', player: player.id, key, value: player.trackers[key] ?? 0 });
   const remove = (key: string) => act({ type: 'setTracker', player: player.id, key, value: null });
-  const removable = Object.keys(player.trackers).filter((k) => k !== 'Life');
+  const others = Object.entries(player.trackers).filter(([key]) => key !== 'Life');
+  const life = player.trackers.Life;
   const addMenu = (e: React.MouseEvent) =>
     openMenu(e, [
       { label: 'Add a counter', heading: true },
       ...COMMON_COUNTERS.filter((k) => !(k in player.trackers)).map((k) => ({ label: k, action: () => add(k) })),
       { label: 'Other…', action: () => ask('Counter name', '', (k) => k.trim() && add(k.trim().slice(0, 20))) },
-      ...(removable.length ? [{ label: 'Remove', heading: true }, ...removable.map((k) => ({ label: k, action: () => remove(k) }))] : []),
+      ...(others.length ? [{ label: 'Remove', heading: true }, ...others.map(([k]) => ({ label: k, action: () => remove(k) }))] : []),
     ]);
+  const chip = (key: string, v: number) => (
+    <button
+      key={key}
+      className={`tracker tracker-chip${key === 'Life' ? ' life' : ''}${LETHAL[key]?.(v) ? ' lethal' : ''}${v === 0 ? ' zero' : ''}`}
+      {...tip(`${key} · click +1, right-click −1, shift ±5`)}
+      onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        bump(key, e.shiftKey ? -5 : -1);
+      }}
+    >
+      <span className="tracker-value">{v}</span>
+      {/* Short labels: the tooltip has the full name. */}
+      <span className="tracker-key">{key === 'Life' ? '♥' : key.slice(0, 3)}</span>
+    </button>
+  );
   return (
     <div className={`trackers${compact ? ' compact' : ''}`}>
-      {Object.entries(player.trackers).map(([key, v]) => {
-        const cls = `tracker${key === 'Life' ? ' life' : ''}${LETHAL[key]?.(v) ? ' lethal' : ''}`;
-        if (compact) {
-          return (
-            <button
-              key={key}
-              className={`${cls} tracker-chip`}
-              {...tip(`${key} · click +1, right-click −1, shift ±5`)}
-              onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                bump(key, e.shiftKey ? -5 : -1);
-              }}
-            >
-              <span className="tracker-value">{v}</span>
-              {/* Short labels: the tooltip has the full name. */}
-              <span className="tracker-key">{key === 'Life' ? '♥' : key.slice(0, 3)}</span>
-            </button>
-          );
-        }
-        return (
-          <div
-            key={key}
-            className={cls}
-            {...tip(`${key} · shift-click for ±5${key === 'Life' ? '' : ' · right-click to remove'}`)}
-            onContextMenu={(e) => key !== 'Life' && openMenu(e, [{ label: `Remove ${key}`, action: () => remove(key) }])}
-          >
-            <button onClick={(e) => bump(key, e.shiftKey ? -5 : -1)}>−</button>
-            <span className="tracker-value">{v}</span>
-            <span className="tracker-key">{key}</span>
-            <button onClick={(e) => bump(key, e.shiftKey ? 5 : 1)}>+</button>
-          </div>
-        );
-      })}
+      {life !== undefined && chip('Life', life)}
+      {/* One pill for the rest, so a few counters don't crowd out the piles or the action bar. */}
+      {others.length > 0 && <span className="tracker-group">{others.map(([key, v]) => chip(key, v))}</span>}
       <button className="tracker-add" {...tip('Add or remove a counter (poison, energy…)')} onClick={addMenu}>
         +◆
       </button>
