@@ -255,7 +255,7 @@ export const PRESETS: DevPreset[] = [
   {
     id: 'crowded',
     name: 'Crowded board',
-    covers: 'Overflow stress: 40 cards on my board, 25 in hand, 30 in graveyard',
+    covers: 'Overflow stress: 40 cards on my board, 25 in hand, 30 in graveyard, the grass playmat',
     decks: [GREEN, GREEN, GREEN, BLACK],
     build(b) {
       const me = b.player('Alice');
@@ -269,6 +269,7 @@ export const PRESETS: DevPreset[] = [
       b.op(me, { type: 'move', cards: ids, to: zoneId(me, 'battlefield'), positions });
       b.op(me, { type: 'tap', cards: ids.filter((_, i) => i % 4 === 0), value: true });
       b.op(me, { type: 'counter', cards: ids.slice(20, 30), key: '+1/+1', delta: 3 });
+      b.op(me, { type: 'setPlaymat', mat: 'grass' });
       b.draw(me, 25);
       b.op(me, { type: 'moveTop', from: zoneId(me, 'library'), to: zoneId(me, 'graveyard'), n: 30 });
       b.row(bob, ['Swamp', 'Swamp', 'Swamp'], 240);

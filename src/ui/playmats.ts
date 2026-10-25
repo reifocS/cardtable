@@ -7,6 +7,7 @@ export const PLAYMATS = [
   { id: 'medieval', name: 'Medieval' },
   { id: 'arcane', name: 'Arcane' },
   { id: 'stone', name: 'Stone' },
+  { id: 'grass', name: 'Grass' },
 ] as const;
 
 /** Built-in sleeves (card backs), drawn in CSS (see .sleeve-* in styles.css). */
@@ -19,6 +20,7 @@ export const SLEEVES = [
 ] as const;
 
 const PREF_KEY = 'cardtable:playmat';
+const STILL_KEY = 'cardtable:stillMats';
 const SLEEVE_KEY = 'cardtable:sleeve';
 
 /** Class and style that paint a playmat: a theme, or a custom image under a dark veil. */
@@ -72,3 +74,24 @@ export function savePlaymatPref(mat: string) {
     // Not remembered across tables; it still applies here.
   }
 }
+
+/** Playmat animations are a viewer's comfort setting: on unless this browser turned them off. */
+export function matsAnimated(): boolean {
+  try {
+    return localStorage.getItem(STILL_KEY) !== '1';
+  } catch {
+    return true;
+  }
+}
+
+export function setMatsAnimated(on: boolean) {
+  document.documentElement.classList.toggle('mats-still', !on);
+  try {
+    if (on) localStorage.removeItem(STILL_KEY);
+    else localStorage.setItem(STILL_KEY, '1');
+  } catch {
+    // Applies until the page reloads.
+  }
+}
+
+document.documentElement.classList.toggle('mats-still', !matsAnimated());

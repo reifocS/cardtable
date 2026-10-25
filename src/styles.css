@@ -1609,9 +1609,196 @@ body.dragging .stack-zone {
     repeating-linear-gradient(90deg, #00000033 0 2px, transparent 2px 128px),
     radial-gradient(ellipse at center, #44484f, #272a30 80%);
 }
+.mat-grass {
+  background:
+    radial-gradient(ellipse at center, transparent 45%, #06140a99 100%),
+    radial-gradient(#ffffff10 1px, transparent 1.5px) 0 0 / 23px 19px,
+    repeating-linear-gradient(80deg, #00000014 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(100deg, #ffffff0a 0 1px, transparent 1px 9px),
+    radial-gradient(ellipse at 30% 40%, #4f8a3c, transparent 60%),
+    radial-gradient(ellipse at 75% 70%, #3f7a35, transparent 55%),
+    linear-gradient(#2f5e2a, #234a21);
+}
 .mat-image {
   background-repeat: no-repeat;
 }
+
+/*
+ * Animated layers, under the cards (the mat is its own stacking context, the layers sit at -1).
+ * Only transform and opacity move, so the GPU does it without repainting the board.
+ * Each viewer can turn them off (html.mats-still), and the system's reduced motion setting does too.
+ */
+.board-wrap.mat {
+  isolation: isolate;
+}
+.board-wrap.mat::before,
+.board-wrap.mat::after {
+  content: none;
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.mats-still .board-wrap.mat::before,
+.mats-still .board-wrap.mat::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-wrap.mat::before,
+  .board-wrap.mat::after {
+    animation: none;
+  }
+}
+
+/* Grass: two banks of mist drifting across at different speeds. The pattern repeats at half the
+   layer's width, so sliding it by half loops seamlessly. */
+.board-wrap.mat-grass::before,
+.board-wrap.mat-grass::after {
+  content: '';
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  background:
+    radial-gradient(ellipse 18% 45% at 20% 60%, #e8f4ea2e, transparent 70%),
+    radial-gradient(ellipse 22% 35% at 55% 30%, #e8f4ea24, transparent 70%),
+    radial-gradient(ellipse 16% 40% at 85% 75%, #e8f4ea29, transparent 70%);
+  background-size: 50% 100%;
+  animation: mat-drift 70s linear infinite;
+}
+.board-wrap.mat-grass::after {
+  opacity: 0.7;
+  background-position: 30% 0;
+  transform: scaleY(-1);
+  animation: mat-drift-back 110s linear infinite;
+}
+@keyframes mat-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes mat-drift-back {
+  from {
+    transform: translateX(-50%) scaleY(-1);
+  }
+  to {
+    transform: translateX(0) scaleY(-1);
+  }
+}
+
+/* Futuristic: a scan line sweeps down now and then. */
+.board-wrap.mat-futuristic::before {
+  content: '';
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 30%;
+  background: linear-gradient(transparent, #2de2ff12 70%, #2de2ff40 98%, transparent);
+  transform: translateY(-100%);
+  animation: mat-scan 9s ease-in-out infinite;
+}
+@keyframes mat-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  45%,
+  100% {
+    transform: translateY(340%);
+  }
+}
+
+/* Medieval: firelight from a hearth below the table, dancing softly (height and strength). */
+.board-wrap.mat-medieval::before {
+  content: '';
+  inset: 0;
+  background:
+    radial-gradient(ellipse 45% 70% at 50% 108%, #ff9a3c55, transparent 70%),
+    radial-gradient(ellipse 70% 45% at 50% 105%, #ff6a1f2e, transparent 75%);
+  transform-origin: 50% 100%;
+  animation: mat-hearth 3.7s ease-in-out infinite;
+}
+@keyframes mat-hearth {
+  0%,
+  100% {
+    opacity: 0.8;
+    transform: scaleY(1);
+  }
+  21% {
+    opacity: 1;
+    transform: scaleY(1.08);
+  }
+  38% {
+    opacity: 0.85;
+    transform: scaleY(0.97);
+  }
+  57% {
+    opacity: 0.96;
+    transform: scaleY(1.05);
+  }
+  79% {
+    opacity: 0.78;
+    transform: scaleY(0.98);
+  }
+}
+
+/* Arcane: extra stars drifting and twinkling, and now and then a shooting star. */
+.board-wrap.mat-arcane::before {
+  content: '';
+  top: 0;
+  bottom: 0;
+  left: 0;
+  /* Slides by a whole number of tiles (8 × 110px) to loop without a jump. */
+  width: calc(100% + 880px);
+  background: radial-gradient(#d9c2ff99 1px, transparent 1.7px) 12px 40px / 110px 80px;
+  animation:
+    mat-stars 160s linear infinite,
+    mat-twinkle 7s ease-in-out infinite alternate;
+}
+@keyframes mat-stars {
+  to {
+    transform: translateX(-880px);
+  }
+}
+@keyframes mat-twinkle {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* A streak whose bright head leads (rotate first, so it travels along its own length). */
+.board-wrap.mat-arcane::after {
+  content: '';
+  left: 72%;
+  top: 14%;
+  width: 130px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #e9dcff99 70%, #fff);
+  box-shadow: 0 0 6px #cdb6ff;
+  opacity: 0;
+  animation: mat-shooting 17s ease-in infinite;
+}
+@keyframes mat-shooting {
+  0%,
+  88% {
+    opacity: 0;
+    transform: rotate(158deg) translateX(0);
+  }
+  89% {
+    opacity: 1;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: rotate(158deg) translateX(420px);
+  }
+}
+
 /* The playmat is the surface: the board itself stays transparent on it. */
 .mat > .board {
   background: transparent;

@@ -1,7 +1,7 @@
 import type { GameState } from '../core/types';
 import { openMenu } from './actions';
 import { Icon } from './Icon';
-import { PLAYMATS, SLEEVES, savePlaymatPref, saveSleevePref } from './playmats';
+import { PLAYMATS, SLEEVES, matsAnimated, savePlaymatPref, saveSleevePref, setMatsAnimated } from './playmats';
 import { act, ask, useStore } from './store';
 import { tip } from './tip';
 
@@ -55,6 +55,7 @@ export function ActionBar({ state }: { state: GameState }) {
       { label: 'Playmat (everyone sees it)', heading: true },
       ...PLAYMATS.map((m) => ({ label: `${mat === m.id ? '✓ ' : ''}${m.name}`, action: () => setMat(m.id) })),
       customItem(mat, setMat),
+      { label: `${matsAnimated() ? '✓ ' : ''}Animated playmats (just for you)`, action: () => setMatsAnimated(!matsAnimated()) },
       { label: 'Sleeves (your card backs)', heading: true },
       ...SLEEVES.map((x) => ({ label: `${sleeve === x.id ? '✓ ' : ''}${x.name}`, action: () => setSleeve(x.id) })),
       customItem(sleeve, setSleeve),
