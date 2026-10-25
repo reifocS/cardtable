@@ -1,6 +1,7 @@
 import type { GameState } from '../core/types';
 import { openMenu } from './actions';
 import { Icon } from './Icon';
+import { PLAYMATS, savePlaymatPref } from './playmats';
 import { act, ask, useStore } from './store';
 import { tip } from './tip';
 
@@ -31,6 +32,24 @@ export function ActionBar({ state }: { state: GameState }) {
       { label: 'Flip a coin', action: () => act({ type: 'roll', sides: 2 }) },
       ...[4, 6, 8, 10, 12, 20].map((n) => ({ label: `Roll d${n}`, action: () => act({ type: 'roll', sides: n }) })),
       { label: 'Roll dN…', action: () => ask('Number of sides', '100', (v) => act({ type: 'roll', sides: parseInt(v, 10) })) },
+    ]);
+
+  const current = me ? state.players[me]?.playmat ?? 'felt' : 'felt';
+  const setMat = (mat: string) => {
+    act({ type: 'setPlaymat', mat });
+    savePlaymatPref(mat);
+  };
+  const playmat = (e: React.MouseEvent) =>
+    openMenu(e, [
+      { label: 'Your playmat (everyone sees it)', heading: true },
+      ...PLAYMATS.map((m) => ({ label: `${current === m.id ? '✓ ' : ''}${m.name}`, action: () => setMat(m.id) })),
+      {
+        label: `${current.startsWith('url:') ? '✓ ' : ''}Custom image…`,
+        action: () =>
+          ask('Image link (https://…)', current.startsWith('url:') ? current.slice(4) : '', (url) => {
+            if (/^https:\/\/[^\s"'()]+$/.test(url.trim())) setMat(`url:${url.trim()}`);
+          }),
+      },
     ]);
 
   const deck = (e: React.MouseEvent) =>
@@ -66,6 +85,9 @@ export function ActionBar({ state }: { state: GameState }) {
       )}
       <button className="action" onClick={() => act({ type: 'undo' })} {...tip('Undo your last action (Ctrl/⌘Z)')}>
         <Icon name="undo" />
+      </button>
+      <button className="action" onClick={playmat} {...tip('Playmat')}>
+        <Icon name="playmat" />
       </button>
       <button className="action" onClick={deck} {...tip('Deck: import, reset, mulligan', 'end')}>
         <Icon name="deck" />

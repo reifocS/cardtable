@@ -213,13 +213,14 @@ export const PRESETS: DevPreset[] = [
       const bob = b.player('Bob');
       b.deck(me, WHITE).deck(bob, RED);
       duelBoards(b, me, bob);
+      b.op(me, { type: 'setPlaymat', mat: 'medieval' }).op(bob, { type: 'setPlaymat', mat: 'futuristic' });
       return me;
     },
   },
   {
     id: 'commander4',
     name: 'Commander, 4 players',
-    covers: 'Commanders, tax, commander damage, poison and energy, long names, busy boards, reveals',
+    covers: 'Commanders, tax, commander damage, poison and energy, long names, busy boards, reveals, four playmats',
     decks: [WHITE, RED, BLUE, BLACK],
     build(b) {
       const me = b.player('Alice');
@@ -228,6 +229,9 @@ export const PRESETS: DevPreset[] = [
       const dan = b.player('Dan');
       b.deck(me, WHITE).deck(bob, RED).deck(carol, BLUE).deck(dan, BLACK);
       duelBoards(b, me, bob);
+      for (const [p, mat] of [[me, 'medieval'], [bob, 'futuristic'], [carol, 'arcane'], [dan, 'stone']] as const) {
+        b.op(p, { type: 'setPlaymat', mat });
+      }
       const krenko = b.play(bob, 'Krenko', { x: 820, y: 0, from: 'command' });
       b.op(bob, { type: 'commanderDamage', player: me, from: krenko, delta: 9 });
       b.row(carol, ['Island', 'Island', 'Island', 'Island', 'Island', 'Island'], 240, { step: 110 });

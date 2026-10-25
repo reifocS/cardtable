@@ -264,6 +264,22 @@ describe('table tools', () => {
   });
 });
 
+describe('playmats', () => {
+  it('accepts theme ids and https images only', () => {
+    const { e, a } = twoPlayers();
+    const set = (mat: string) => {
+      e.dispatch(a, { type: 'setPlaymat', mat });
+      return e.state.players[a].playmat;
+    };
+    expect(set('medieval')).toBe('medieval');
+    expect(set('url:https://example.com/mat.jpg')).toBe('url:https://example.com/mat.jpg');
+    expect(set('url:javascript:alert(1)')).toBe('url:https://example.com/mat.jpg');
+    // Quotes or parentheses could break out of the CSS url(): rejected.
+    expect(set('url:https://x.test/a.png"), url("evil')).toBe('url:https://example.com/mat.jpg');
+    expect(set('Not A Theme!')).toBe('url:https://example.com/mat.jpg');
+  });
+});
+
 describe('stack', () => {
   it('is a public table zone: casting is logged and everyone sees the spell', () => {
     const { e, a, b } = twoPlayers();

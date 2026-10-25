@@ -11,6 +11,7 @@ import { opponentLayout } from './fit';
 import { Icon } from './Icon';
 import { SidePanel, ZoomOverlay } from './SidePanel';
 import { act, ask, useStore } from './store';
+import { loadPlaymatPref } from './playmats';
 import { tip } from './tip';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
@@ -280,6 +281,14 @@ export function Table() {
   const targeting = useStore((s) => s.targeting);
   const attaching = useStore((s) => s.targetMode === 'attach');
   const offline = useStore((s) => s.session?.role === 'client' && s.status !== 'connected');
+
+  // Bring my preferred playmat to this table, once (changing it later saves a new preference).
+  const myMat = useStore((s) => (s.me ? s.state?.players[s.me]?.playmat : undefined));
+  const seated = useStore((s) => !!(s.me && s.state?.players[s.me]));
+  useEffect(() => {
+    const pref = loadPlaymatPref();
+    if (seated && pref && pref !== myMat) act({ type: 'setPlaymat', mat: pref });
+  }, [seated]);
 
   useEffect(() => {
     window.addEventListener('keydown', onKeyDown);

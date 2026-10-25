@@ -5,6 +5,7 @@ import { STACK, draw, openMenu, openViewer, zoneMenu } from './actions';
 import { CardBack, CardView, FaceView } from './CardView';
 import { onBoardPointerDown } from './drag';
 import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
+import { matLook } from './playmats';
 import { useStore } from './store';
 import { tip } from './tip';
 
@@ -92,8 +93,9 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
   const [wrap, size] = useSize<HTMLDivElement>();
   const { scale, width, top } = fitBoard(size.w, size.h);
   if (size.w) laidOutWidth.set(zone.id, width);
+  const mat = matLook(state.players[zone.owner]?.playmat);
   return (
-    <div className="board-wrap" ref={wrap}>
+    <div className={`board-wrap ${mat.className}`} style={mat.style} ref={wrap}>
       <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} top={top}>
         {children}
       </Surface>
@@ -147,6 +149,7 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
 
   const width = laidOutWidth.get(zone.id) ?? 1000;
   const box = cardsBox(zone, state, width, flipped);
+  const mat = matLook(state.players[zone.owner]?.playmat);
   const measured = size.w > 0 && size.h > 0;
   const fitBoardScale = measured ? Math.min(size.w / width, size.h / VIEW_H) : 1;
   const fitCardsScale = measured ? Math.min(size.w / box.w, size.h / box.h) : 1;
@@ -209,7 +212,7 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
 
   return (
     <div className="zoom-board">
-      <div className="zoom-scroll" ref={wrap}>
+      <div className={`zoom-scroll ${mat.className}`} style={mat.style} ref={wrap}>
         <div className="zoom-sizer" style={{ width: width * scale, height: VIEW_H * scale }}>
           <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} />
         </div>

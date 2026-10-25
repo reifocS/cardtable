@@ -49,6 +49,7 @@ export type Op =
   | { type: 'clearArrows' }
   | { type: 'removeArrow'; from: string; to: string }
   | { type: 'rename'; name: string }
+  | { type: 'setPlaymat'; mat: string }
   | { type: 'chat'; text: string }
   | { type: 'undo' };
 
@@ -388,6 +389,14 @@ class Mutation {
         if (!p || !name || name === p.name) return;
         this.log(`is now called ${name}`);
         p.name = name;
+        return;
+      }
+      case 'setPlaymat': {
+        const p = s.players[this.actor];
+        const mat = op.mat.slice(0, 500);
+        // Theme ids, or an https image: nothing else ends up in a style attribute.
+        if (!p || !(/^[a-z-]{1,20}$/.test(mat) || /^url:https:\/\/[^\s"'()]+$/.test(mat)) || p.playmat === mat) return;
+        p.playmat = mat;
         return;
       }
       case 'chat': {
