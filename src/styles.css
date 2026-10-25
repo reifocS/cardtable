@@ -263,6 +263,51 @@ kbd {
   padding: 0 16px;
   background: #0000004d;
 }
+/* This turn's trigger reminders, left on the line across the table. */
+.reminders {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(50% - 90px);
+  overflow: hidden;
+}
+.reminders-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+.reminder {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 7px 0 5px;
+  line-height: 16px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+  background: var(--panel);
+  border: 1px solid var(--owner, var(--line));
+  border-left-width: 3px;
+}
+.reminder-step {
+  color: var(--muted);
+  font-size: 10px;
+}
+.reminder.more {
+  border-left-width: 1px;
+  border-radius: 6px;
+  color: var(--muted);
+}
 .table-divider::before {
   content: '';
   flex: 1;

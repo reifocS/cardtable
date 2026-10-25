@@ -50,6 +50,8 @@ export interface Store {
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
   dialog: 'import' | 'create' | 'help' | null;
+  /** This viewer shows this turn's trigger reminders (see Reminders). */
+  reminders: boolean;
   /** Deck list typed in the import dialog and not imported yet (null: none). */
   deckDraft: string | null;
   /** Card whose other printings are being picked from. */
@@ -72,6 +74,26 @@ export interface Store {
   leave(): void;
 }
 
+const REMINDERS_KEY = 'cardtable:reminders';
+
+function loadReminders(): boolean {
+  try {
+    return localStorage.getItem(REMINDERS_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+export function setReminders(on: boolean) {
+  useStore.setState({ reminders: on });
+  try {
+    if (on) localStorage.removeItem(REMINDERS_KEY);
+    else localStorage.setItem(REMINDERS_KEY, '0');
+  } catch {
+    // Applies until the page reloads.
+  }
+}
+
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
 export const useStore = create<Store>((set, get) => ({
@@ -92,6 +114,7 @@ export const useStore = create<Store>((set, get) => ({
   viewer: null,
   dialog: null,
   deckDraft: null,
+  reminders: loadReminders(),
   artFor: null,
   focus: null,
   prompt: null,

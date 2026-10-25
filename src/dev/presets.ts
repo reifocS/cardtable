@@ -115,7 +115,9 @@ Deck
 2 The Wandering Emperor
 2 Elspeth Resplendent
 2 Wrath of God
-2 Sol Ring`;
+2 Sol Ring
+1 Phyrexian Arena
+1 Luminarch Ascension`;
 
 const RED = `Commander
 1 Krenko, Mob Boss
@@ -172,6 +174,9 @@ function duelBoards(b: Builder, me: PlayerId, opp: PlayerId) {
   b.row(me, ['Plains', 'Plains', 'Plains', 'Plains'], 240, { start: 40, step: 95 });
   b.play(me, 'Plains', { x: 420, y: 240, tap: true });
   b.play(me, 'Sol Ring', { x: 540, y: 240 });
+  // Phase triggers for the reminders: mine at my upkeep, and on my opponents' end steps.
+  b.play(me, 'Phyrexian Arena', { x: 660, y: 240 });
+  b.play(me, 'Luminarch Ascension', { x: 780, y: 240 });
   const angel = b.play(me, 'Serra Angel', { x: 120, y: 0, counters: { '+1/+1': 2 } });
   b.play(me, 'Wedding Announcement', { x: 300, y: 0 });
   b.op(me, { type: 'transform', cards: [b.find(me, 'Wedding Announcement', 'battlefield')] });
@@ -208,7 +213,7 @@ export const PRESETS: DevPreset[] = [
   {
     id: 'duel',
     name: 'Duel, midgame',
-    covers: 'Tapped, counters, face down, token, attachment, transformed DFC, piles, a spell on the stack, arrow, log, extra counters on both sides',
+    covers: 'Tapped, counters, face down, token, attachment, transformed DFC, piles, a spell on the stack, arrow, log, extra counters on both sides, trigger reminders for this turn',
     decks: [WHITE, RED],
     build(b) {
       const me = b.player('Alice');

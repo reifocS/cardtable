@@ -3,7 +3,7 @@ import type { GameState } from '../core/types';
 import { openMenu, openViewer } from './actions';
 import { Icon } from './Icon';
 import { PLAYMATS, SLEEVES, matId, matsAnimated, savePlaymatPref, saveSleevePref, setMatsAnimated } from './playmats';
-import { act, ask, useStore } from './store';
+import { act, ask, setReminders, useStore } from './store';
 import { tip } from './tip';
 
 /** My game actions, next to my cards. */
@@ -12,6 +12,7 @@ export function ActionBar({ state }: { state: GameState }) {
   const turnPlayer = state.turn.player ? state.players[state.turn.player] : null;
   const myTurn = state.turn.player === me;
 
+  const reminders = useStore((s) => s.reminders);
   const turnMenu = (e: React.MouseEvent) =>
     openMenu(e, [
       { label: 'Who goes first?', heading: true },
@@ -20,6 +21,7 @@ export function ActionBar({ state }: { state: GameState }) {
         label: `${state.players[pid].name} goes first`,
         action: () => act({ type: 'setTurn', player: pid, restart: true }),
       })),
+      { label: `${reminders ? '✓ ' : ''}This turn's trigger reminders (just for you)`, action: () => setReminders(!reminders) },
       { label: 'Give the turn to', heading: true },
       ...state.seats.map((pid) => ({
         label: state.players[pid].name,

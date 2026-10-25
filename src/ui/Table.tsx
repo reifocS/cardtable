@@ -13,6 +13,7 @@ import { SidePanel, ZoomOverlay } from './SidePanel';
 import { act, ask, useStore } from './store';
 import { loadPlaymatPref, loadSleevePref } from './playmats';
 import { tip } from './tip';
+import { Reminders } from './Reminders';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
 import { Board, Hand, Pile, StackZone, ZoomBoard } from './Zones';
@@ -324,6 +325,7 @@ export function Table() {
           </div>
         )}
         <div className={`table-divider${opponents.length ? '' : ' alone'}`}>
+          <Reminders state={state} />
           <StackZone state={state} />
         </div>
         <MyArea state={state} me={me} />

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseDeck, withPrinting } from '../cards/deckParser';
 import { imageSet } from '../cards/scryfall';
+import { firesOn, triggersOf } from '../cards/triggers';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
 import { apply } from './ops';
@@ -629,5 +630,28 @@ describe('imageSet', () => {
     );
     expect(imageSet({ name: 'Pikachu', image: 'https://example.com/pikachu.png' })).toBeUndefined();
     expect(imageSet({ name: 'Text only' })).toBeUndefined();
+  });
+});
+
+describe('triggersOf', () => {
+  it('reads phase triggers from Oracle text, whose turn included', () => {
+    const arena = triggersOf('At the beginning of your upkeep, you draw a card and you lose 1 life.');
+    expect(arena).toEqual([{ phase: 'upkeep', whose: 'yours', text: 'At the beginning of your upkeep, you draw a card and you lose 1 life.' }]);
+    expect(triggersOf("At the beginning of each opponent's end step, draw a card.")[0]).toMatchObject({ phase: 'end', whose: 'opponents' });
+    expect(triggersOf('Flying\nAt the beginning of combat on your turn, create a 1/1 token.')[0]).toMatchObject({ phase: 'combat', whose: 'yours' });
+    expect(triggersOf('Haste\nWhenever Goblin Guide attacks, defending player reveals the top card of their library.')[0]).toMatchObject({ phase: 'combat' });
+    // Reminder text goes, delayed triggers and other players' attacks don't count.
+    expect(triggersOf('Echo {2}{R} (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)')).toEqual([]);
+    expect(triggersOf('Sacrifice it at the beginning of the next end step.')).toEqual([]);
+    expect(triggersOf('Whenever a creature an opponent controls attacks, you gain 1 life.')).toEqual([]);
+  });
+
+  it('fires on the right turns', () => {
+    const [yours] = triggersOf('At the beginning of your upkeep, draw a card.');
+    const [each] = triggersOf('At the beginning of each upkeep, draw a card.');
+    const [theirs] = triggersOf("At the beginning of each opponent's upkeep, draw a card.");
+    expect([firesOn(yours, 'a', 'a'), firesOn(yours, 'a', 'b')]).toEqual([true, false]);
+    expect([firesOn(each, 'a', 'a'), firesOn(each, 'a', 'b')]).toEqual([true, true]);
+    expect([firesOn(theirs, 'a', 'a'), firesOn(theirs, 'a', 'b')]).toEqual([false, true]);
   });
 });
