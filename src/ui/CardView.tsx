@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { imageSet } from '../cards/scryfall';
 import type { Card, CardFace, Zone } from '../core/types';
 import { isPublic } from '../core/visibility';
 import { STACK, cardMenu, castToStack, isSpell, openMenu, resolve, toMyBattlefield } from './actions';
@@ -7,8 +8,17 @@ import { sleeveLook } from './playmats';
 import { onCardPointerDown } from './drag';
 import { act, useStore } from './store';
 
-export function FaceView({ face, large }: { face: CardFace; large?: boolean }) {
-  if (face.image) return <img src={large ? (face.imageLarge ?? face.image) : face.image} alt={face.name} draggable={false} loading="lazy" />;
+/**
+ * One side of a card. `large` shows the big image (preview, zoom); otherwise the browser picks the
+ * smallest size that's sharp at `width` CSS pixels, or at the image's own layout width when unknown.
+ */
+export function FaceView({ face, large, width }: { face: CardFace; large?: boolean; width?: number }) {
+  if (face.image && large) return <img src={face.imageLarge ?? face.image} alt={face.name} draggable={false} loading="lazy" />;
+  if (face.image) {
+    // "auto" needs a lazy image; browsers without it read the fallback after the comma.
+    const sizes = width ? `${width}px` : 'auto, 100px';
+    return <img src={face.image} srcSet={imageSet(face)} sizes={sizes} alt={face.name} draggable={false} loading="lazy" />;
+  }
   return (
     <div className="text-card">
       <div className="text-card-name">{face.name}</div>
@@ -49,11 +59,13 @@ interface Props {
   /** Position on a board, in pixels. Plain numbers, not a style object, so memo can skip unchanged cards. */
   left?: number;
   top?: number;
+  /** Width it's shown at on screen, when scaled (a board): picks the image size. */
+  shownWidth?: number;
   /** Shown as the top of a pile: right-click and double-click belong to the pile, not the card. */
   pileTop?: boolean;
 }
 
-export const CardView = memo(function CardView({ card, zone, left, top, pileTop }: Props) {
+export const CardView = memo(function CardView({ card, zone, left, top, shownWidth, pileTop }: Props) {
   const selected = useStore((s) => s.selection.includes(card.id));
   const me = useStore((s) => s.me);
   const sleeve = useStore((s) => s.state?.players[card.owner]?.sleeve);
@@ -86,7 +98,7 @@ export const CardView = memo(function CardView({ card, zone, left, top, pileTop 
       onDoubleClick={pileTop ? undefined : () => onDoubleClick(card, zone)}
       onContextMenu={pileTop ? undefined : (e) => openMenu(e, cardMenu(card, zone))}
     >
-      {face && !card.faceDown ? <FaceView face={face} /> : <CardBack sleeve={sleeve} />}
+      {face && !card.faceDown ? <FaceView face={face} width={shownWidth} /> : <CardBack sleeve={sleeve} />}
       {card.faceDown && face && <span className="peek" title="Face down — only you can see it">👁</span>}
       {card.token && <span className="token-badge">token</span>}
       {card.note && <span className="note-badge">{card.note}</span>}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDeck, withPrinting } from '../cards/deckParser';
+import { imageSet } from '../cards/scryfall';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
 import { apply } from './ops';
@@ -586,5 +587,17 @@ describe('withPrinting', () => {
     expect(out).toBe('Commander\n1 Delver of Secrets // Insectile Aberration\n\nDeck\n4 Lightning Bolt (CLU) 141\n2 Shock\nSB: 1 lightning bolt (CLU) 141');
     expect(withPrinting(text, 'Delver of Secrets', 'isd', '51')).toContain('1 Delver of Secrets // Insectile Aberration (ISD) 51');
     expect(parseDeck(out).filter((l) => l.set === 'clu').map((l) => [l.count, l.section])).toEqual([[4, 'main'], [1, 'side']]);
+  });
+});
+
+describe('imageSet', () => {
+  it('offers every Scryfall size, and nothing for other images', () => {
+    const normal = 'https://cards.scryfall.io/normal/front/0/9/abc.jpg?1';
+    const large = 'https://cards.scryfall.io/large/front/0/9/abc.jpg?1';
+    expect(imageSet({ name: 'Bolt', image: normal, imageLarge: large })).toBe(
+      `https://cards.scryfall.io/small/front/0/9/abc.jpg?1 146w, ${normal} 488w, ${large} 672w`,
+    );
+    expect(imageSet({ name: 'Pikachu', image: 'https://example.com/pikachu.png' })).toBeUndefined();
+    expect(imageSet({ name: 'Text only' })).toBeUndefined();
   });
 });

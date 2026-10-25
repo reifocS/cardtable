@@ -34,6 +34,8 @@ interface SurfaceProps {
 
 /** The cards of a battlefield, in logical units, scaled into place. */
 function Surface({ zone, state, flipped, width, scale, top = 0, children }: SurfaceProps) {
+  // Rounded up, so a window resize doesn't re-render every card for a pixel.
+  const shownWidth = Math.ceil((CARD_W * scale) / 16) * 16;
   return (
     <div
       className="board"
@@ -45,7 +47,7 @@ function Surface({ zone, state, flipped, width, scale, top = 0, children }: Surf
     >
       {zone.cards.map((id) => {
         const c = state.cards[id];
-        return c && <CardView key={id} card={c} zone={zone} left={viewX(c.x, width)} top={viewY(flipped ? mirrorY(c.y) : c.y)} />;
+        return c && <CardView key={id} card={c} zone={zone} left={viewX(c.x, width)} top={viewY(flipped ? mirrorY(c.y) : c.y)} shownWidth={shownWidth} />;
       })}
       <BoardPings zone={zone} state={state} flipped={flipped} width={width} />
       {children}

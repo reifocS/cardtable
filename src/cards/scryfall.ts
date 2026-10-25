@@ -115,6 +115,18 @@ export interface Printing {
   label: string;
 }
 
+const NORMAL = 'https://cards.scryfall.io/normal/';
+
+/**
+ * Every size a face's image comes in, as a srcset, so the browser downloads the smallest that's
+ * sharp where the card is shown. Scryfall serves each image at fixed widths; other images have one.
+ */
+export function imageSet(face: CardFace): string | undefined {
+  if (!face.image?.startsWith(NORMAL)) return undefined;
+  const small = face.image.replace(NORMAL, 'https://cards.scryfall.io/small/');
+  return `${small} 146w, ${face.image} 488w${face.imageLarge ? `, ${face.imageLarge} 672w` : ''}`;
+}
+
 /** Cards resolved from Scryfall, whose other printings can be listed. */
 export const isScryfallCard = (faces: CardFace[]) => !!faces[0]?.image?.startsWith('https://cards.scryfall.io/');
 
