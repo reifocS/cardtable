@@ -46,6 +46,7 @@ export function parseDeck(text: string): DeckLine[] {
   let section: Section | 'skip' = 'main';
   let sawHeader = false;
   let commanderFormat = false;
+  let magicVille = false;
 
   for (const raw of text.split(/\r?\n/)) {
     // Lists copied from a web page can carry <br /> tags and links ("Sauvegarder").
@@ -55,7 +56,10 @@ export function parseDeck(text: string): DeckLine[] {
       continue;
     }
     if (/^\/\/\s*format\s*:\s*commander/i.test(line)) commanderFormat = true;
+    if (/^\/\/.*magic-ville\.com/i.test(line)) magicVille = true;
     if (line.startsWith('//') || line.startsWith('#')) continue;
+    // Magic Ville's page ends the list with a save link, which survives a copy of the page as text.
+    if (magicVille && /^(sauvegarder|save)$/i.test(line)) continue;
 
     const header = HEADERS[line.toLowerCase().replace(/[:\s]+$/, '').replace(/\s*\(\d+\)$/, '')];
     if (header) {

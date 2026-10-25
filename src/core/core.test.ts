@@ -518,6 +518,12 @@ SB:  1 Satoru Umezawa<br />
     ]);
   });
 
+  it("ignores Magic Ville's save link when the page was copied as text", () => {
+    const deck = parseDeck('// www.magic-ville.com deck file\n// FORMAT : Commander\n1 Stature, Size Shifter\nSB:  1 Satoru Umezawa\n\n\n\nSauvegarder');
+    expect(deck.filter((l) => l.section === 'commander').map((l) => l.name)).toEqual(['Satoru Umezawa']);
+    expect(deck.some((l) => l.name === 'Sauvegarder')).toBe(false);
+  });
+
   it('reads MWS lines, dropping their set codes', () => {
     expect(parseDeck('1 [NPH] Jin-Gitaxias, Core Augur\n4 [] Island\nSB:  2 [M10] Duress')).toEqual([
       { count: 1, name: 'Jin-Gitaxias, Core Augur', section: 'main' },
