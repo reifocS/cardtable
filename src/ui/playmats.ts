@@ -1,6 +1,9 @@
 import type React from 'react';
 import { ARCANE } from './shaders/arcane';
+import { FELT } from './shaders/felt';
+import { FUTURISTIC } from './shaders/futuristic';
 import { HIGHLANDS } from './shaders/highlands';
+import { STONE } from './shaders/stone';
 import { STORM } from './shaders/storm';
 import { TAVERN } from './shaders/tavern';
 
@@ -48,9 +51,21 @@ export function matLook(mat: string | undefined): { className: string; style?: R
 }
 
 /** Playmats painted live by a fragment shader (see ShaderMat); their CSS look is the fallback. */
-const SHADERS: Record<string, string> = { storm: STORM, arcane: ARCANE, tavern: TAVERN, highlands: HIGHLANDS };
+const SHADERS: Record<string, { fragment: string; moving: boolean }> = {
+  felt: { fragment: FELT, moving: false },
+  futuristic: { fragment: FUTURISTIC, moving: true },
+  tavern: { fragment: TAVERN, moving: true },
+  arcane: { fragment: ARCANE, moving: true },
+  stone: { fragment: STONE, moving: false },
+  highlands: { fragment: HIGHLANDS, moving: true },
+  storm: { fragment: STORM, moving: true },
+};
 
-export const matShader = (mat: string | undefined) => (mat ? SHADERS[matId(mat)] : undefined);
+/** The shader for a playmat: unknown themes are felt, as in matLook; custom images have none. */
+export function matShader(mat: string | undefined) {
+  if (mat?.startsWith('url:')) return undefined;
+  return SHADERS[mat ? matId(mat) : 'felt'] ?? SHADERS.felt;
+}
 
 /** Class and style for a card back in a player's sleeves (default: classic). */
 export function sleeveLook(sleeve: string | undefined): { className: string; style?: React.CSSProperties } {

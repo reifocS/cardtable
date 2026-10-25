@@ -45,11 +45,12 @@ function link(gl: WebGL2RenderingContext, fragment: string) {
 }
 
 /**
- * A playmat painted by a fragment shader, under the cards. It animates at 30 fps while on screen,
- * shows a still frame when playmat animations are off (or the system asks for less motion), and
- * leaves the CSS look in place when WebGL isn't available.
+ * A playmat painted by a fragment shader, under the cards. A moving one animates at 30 fps while on
+ * screen and shows a still frame when playmat animations are off (or the system asks for less
+ * motion); a still one is drawn once per size, at full resolution, and costs nothing after. Without
+ * WebGL the CSS look stays.
  */
-export function ShaderMat({ fragment }: { fragment: string }) {
+export function ShaderMat({ fragment, moving }: { fragment: string; moving: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,13 +79,14 @@ export function ShaderMat({ fragment }: { fragment: string }) {
     };
 
     const resize = () => {
-      const scale = Math.min(devicePixelRatio, 2) * RENDER_SCALE;
+      const scale = Math.min(devicePixelRatio, 2) * (moving ? RENDER_SCALE : 1);
       canvas.width = Math.max(1, Math.round(canvas.clientWidth * scale));
       canvas.height = Math.max(1, Math.round(canvas.clientHeight * scale));
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.uniform2f(uSize, canvas.width, canvas.height);
       gl.uniform1f(uPixels, UNIT_PX * scale);
       stale = true;
+      if (!moving) draw(STILL_TIME);
     };
     const sized = new ResizeObserver(resize);
     sized.observe(canvas);
@@ -105,7 +107,7 @@ export function ShaderMat({ fragment }: { fragment: string }) {
         draw(STILL_TIME);
       }
     };
-    raf = requestAnimationFrame(tick);
+    if (moving) raf = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -116,7 +118,7 @@ export function ShaderMat({ fragment }: { fragment: string }) {
       canvas.remove();
       delete host.dataset.live;
     };
-  }, [fragment]);
+  }, [fragment, moving]);
 
   return <div ref={ref} className="shader-mat" aria-hidden />;
 }

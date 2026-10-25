@@ -98,7 +98,7 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
   const shader = matShader(playmat);
   return (
     <div className={`board-wrap ${mat.className}`} style={mat.style} ref={wrap}>
-      {shader && <ShaderMat fragment={shader} />}
+      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} />}
       <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} top={top}>
         {children}
       </Surface>
