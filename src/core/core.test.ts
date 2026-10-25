@@ -502,6 +502,30 @@ describe('engine', () => {
 });
 
 describe('parseDeck', () => {
+  it("reads Magic Ville's Apprentice export, commander from its SB line", () => {
+    const deck = parseDeck(`// www.magic-ville.com deck file<br />
+// NAME : [Commander Multi] Satoru<br />
+// CREATOR : FarfadetBleu (magic-ville.com)<br />
+// FORMAT : Commander<br />
+1 Stature, Size Shifter<br />
+1 Krang & Shredder<br />
+SB:  1 Satoru Umezawa<br />
+<br><br><br><a href="dl_appr?ref=1110782&save=1">Sauvegarder</a>`);
+    expect(deck).toEqual([
+      { count: 1, name: 'Stature, Size Shifter', section: 'main' },
+      { count: 1, name: 'Krang & Shredder', section: 'main' },
+      { count: 1, name: 'Satoru Umezawa', section: 'commander' },
+    ]);
+  });
+
+  it('reads MWS lines, dropping their set codes', () => {
+    expect(parseDeck('1 [NPH] Jin-Gitaxias, Core Augur\n4 [] Island\nSB:  2 [M10] Duress')).toEqual([
+      { count: 1, name: 'Jin-Gitaxias, Core Augur', section: 'main' },
+      { count: 4, name: 'Island', section: 'main' },
+      { count: 2, name: 'Duress', section: 'side' },
+    ]);
+  });
+
   it('reads Arena exports with sections and printings', () => {
     const deck = parseDeck(`Commander
 1 Atraxa, Praetors' Voice (2X2) 190

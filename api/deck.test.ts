@@ -48,6 +48,9 @@ describe('/api/deck', () => {
     const mox = await GET(req('https://www.moxfield.com/decks/abc'));
     expect(mox.status).toBe(422);
     expect((await mox.json()).error).toMatch(/Moxfield.*Export/);
+    const mv = await GET(req('https://www.magic-ville.com/fr/decks/showdeck?ref=1110782'));
+    expect(mv.status).toBe(422);
+    expect((await mv.json()).error).toMatch(/Magic Ville.*Appr\./);
     expect((await GET(new Request('https://cardtable.example/api/deck?url=x'))).status).toBe(403);
   });
 });

@@ -128,6 +128,7 @@ const PLACEHOLDER = `Paste a decklist. Supported:
 4 Lightning Bolt
 4x Lightning Bolt (M10) 146
 Commander / Deck / Sideboard headers
+Magic Ville: the "Appr." export
 
 Any other game: name | image URL
 3 Pikachu | https://example.com/pikachu.png`;

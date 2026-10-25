@@ -36,6 +36,8 @@ const HEADERS: Record<string, Section | 'skip'> = {
  *   4x Lightning Bolt (M10) 146 *F*
  *   SB: 2 Duress
  *   Sideboard / Commander headers, blank line before the sideboard (MTGO)
+ *   1 [NPH] Jin-Gitaxias, Core Augur   (MWS; its set codes aren't Scryfall's, so they're dropped)
+ *   Magic Ville's Apprentice export, HTML leftovers and all (its commander is the "SB:" line)
  *   2 Pikachu | https://example.com/pikachu.png   (any game, image by URL)
  *   https://example.com/card.png
  */
@@ -43,13 +45,16 @@ export function parseDeck(text: string): DeckLine[] {
   const out: DeckLine[] = [];
   let section: Section | 'skip' = 'main';
   let sawHeader = false;
+  let commanderFormat = false;
 
   for (const raw of text.split(/\r?\n/)) {
-    let line = raw.trim();
+    // Lists copied from a web page can carry <br /> tags and links ("Sauvegarder").
+    let line = raw.replace(/<a\b[^>]*>.*?<\/a>/gi, '').replace(/<[^>]+>/g, '').trim();
     if (!line) {
       if (!sawHeader && section === 'main' && out.length) section = 'side';
       continue;
     }
+    if (/^\/\/\s*format\s*:\s*commander/i.test(line)) commanderFormat = true;
     if (line.startsWith('//') || line.startsWith('#')) continue;
 
     const header = HEADERS[line.toLowerCase().replace(/[:\s]+$/, '').replace(/\s*\(\d+\)$/, '')];
@@ -73,6 +78,7 @@ export function parseDeck(text: string): DeckLine[] {
       line = m[2];
     }
     if (count <= 0) continue;
+    line = line.replace(/^\[[^\]]*\]\s*/, '');
 
     const url = line.match(/^(?:(.*?)\s*\|\s*)?(https?:\/\/\S+)$/);
     if (url) {
@@ -88,6 +94,10 @@ export function parseDeck(text: string): DeckLine[] {
     } else {
       out.push({ count, name: line, section: lineSection });
     }
+  }
+  // Apprentice files put a Commander deck's commander in the sideboard.
+  if (commanderFormat && !out.some((l) => l.section === 'commander')) {
+    for (const l of out) if (l.section === 'side') l.section = 'commander';
   }
   return out;
 }

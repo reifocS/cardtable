@@ -1,8 +1,8 @@
 /**
  * GET /api/deck?url=<deck page>: a decklist as text, from a deck-building site.
  *
- * Archidekt has a public JSON API. Moxfield, MTGGoldfish and TappedOut block server requests,
- * so for those the answer explains how to copy the list instead.
+ * Archidekt has a public JSON API. Moxfield, MTGGoldfish, TappedOut and Magic Ville block server
+ * requests, so for those the answer explains how to copy the list instead.
  */
 
 const json = (body: unknown, status = 200) =>
@@ -53,6 +53,11 @@ const BLOCKED: Record<string, string> = {
   'tappedout.net': 'TappedOut',
 };
 
+/** How to get a list out of a blocked site, when its export isn't simply called Export. */
+const HOW_TO: Record<string, string> = {
+  'magic-ville.com': 'Magic Ville doesn\'t allow this. On the deck page, click "Appr." next to Export, copy the list, and paste it here.',
+};
+
 export async function GET(request: Request): Promise<Response> {
   if (!sameSite(request)) return json({ error: 'forbidden' }, 403);
   let page: URL;
@@ -72,6 +77,7 @@ export async function GET(request: Request): Promise<Response> {
     return json({ name: deck.name, text: archidektToText(deck) });
   }
 
+  if (HOW_TO[host]) return json({ error: HOW_TO[host] }, 422);
   const site = BLOCKED[host];
   if (site) return json({ error: `${site} doesn't allow this. On ${site}, use Export and copy the list as text, then paste it here.` }, 422);
   return json({ error: 'Only Archidekt links can be fetched. For other sites, copy the list as text and paste it here.' }, 422);
