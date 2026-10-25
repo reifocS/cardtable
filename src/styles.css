@@ -1583,15 +1583,29 @@ body.dragging .stack-zone {
     inset 0 0 0 1px #2de2ff40,
     inset 0 0 48px #00e5ff1f;
 }
-.mat-medieval {
+/* A tavern table: wide worn oak planks, a few knots, rings left by ale mugs, smoky corners. */
+.mat-tavern {
   background:
-    radial-gradient(ellipse at center, transparent 45%, #140a0399 100%),
-    repeating-linear-gradient(90deg, #00000026 0 2px, transparent 2px 180px),
-    repeating-linear-gradient(1deg, #5b3b20 0 5px, #67462a 5px 8px, #503319 8px 14px, #5e3e22 14px 22px, #6a482b 22px 25px);
+    /* Smoke-darkened edges, the middle worn lighter by hands and cards. */
+    radial-gradient(ellipse at 50% 55%, #e8b06a1f, transparent 55%),
+    radial-gradient(ellipse at center, transparent 40%, #0d0603b3 100%),
+    /* Mug rings, soaked into the wood. */
+    radial-gradient(circle at 17% 28%, transparent 0 20px, #2b14062e 21px, #2b140652 23.5px, #2b14062e 26px, transparent 28px),
+    radial-gradient(circle at 81% 71%, transparent 0 23px, #2b140626 24px, #2b140647 26.5px, #2b140626 29px, transparent 31px),
+    radial-gradient(circle at 83.5% 65%, transparent 0 23px, #2b14061f 24px, #2b140638 26px, transparent 28px),
+    /* Knots, with the grain swirling round them. */
+    radial-gradient(ellipse 30px 11px at 31% 61%, #1f0e05 0 18%, #3b2010d9 30%, #2a150826 45%, #ffffff0a 55%, transparent 70%),
+    radial-gradient(ellipse 22px 8px at 67% 18%, #1f0e05 0 18%, #3b2010d9 30%, #2a150826 45%, #ffffff0a 55%, transparent 70%),
+    radial-gradient(ellipse 26px 9px at 9% 84%, #1f0e05 0 18%, #3b2010d9 30%, #2a150826 45%, #ffffff0a 55%, transparent 70%),
+    /* Seams between the planks. */
+    repeating-linear-gradient(180deg, #0000000f 0 2px, transparent 2px 61px, #120802b3 61px 64px),
+    /* Grain: long streaks running along the planks. */
+    repeating-linear-gradient(179.4deg, #ffffff08 0 1px, transparent 1px 5px, #0000001c 5px 6px, transparent 6px 9px, #ffffff05 9px 10px, transparent 10px 14px),
+    /* Each plank its own shade. */
+    repeating-linear-gradient(180deg, #5c3a1f 0 64px, #4e3019 64px 128px, #63401f 128px 192px, #553520 192px 256px);
   box-shadow:
-    inset 0 0 0 3px #2a1707,
-    inset 0 0 0 5px #c9963f8c,
-    inset 0 0 0 7px #2a1707;
+    inset 0 0 0 2px #1a0d05,
+    inset 0 0 22px #0a0402cc;
 }
 .mat-arcane {
   background:
@@ -1710,8 +1724,8 @@ body.dragging .stack-zone {
   }
 }
 
-/* Medieval: firelight from a hearth below the table, dancing softly (height and strength). */
-.board-wrap.mat-medieval::before {
+/* Tavern: firelight from the hearth, dancing softly (height and strength). */
+.board-wrap.mat-tavern::before {
   content: '';
   inset: 0;
   background:

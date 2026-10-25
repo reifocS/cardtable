@@ -1,7 +1,7 @@
 import type { GameState } from '../core/types';
 import { openMenu } from './actions';
 import { Icon } from './Icon';
-import { PLAYMATS, SLEEVES, matsAnimated, savePlaymatPref, saveSleevePref, setMatsAnimated } from './playmats';
+import { PLAYMATS, SLEEVES, matId, matsAnimated, savePlaymatPref, saveSleevePref, setMatsAnimated } from './playmats';
 import { act, ask, useStore } from './store';
 import { tip } from './tip';
 
@@ -34,7 +34,7 @@ export function ActionBar({ state }: { state: GameState }) {
       { label: 'Roll dN…', action: () => ask('Number of sides', '100', (v) => act({ type: 'roll', sides: parseInt(v, 10) })) },
     ]);
 
-  const mat = me ? state.players[me]?.playmat ?? 'felt' : 'felt';
+  const mat = matId(me ? (state.players[me]?.playmat ?? 'felt') : 'felt');
   const sleeve = me ? state.players[me]?.sleeve ?? 'classic' : 'classic';
   const setMat = (value: string) => {
     act({ type: 'setPlaymat', mat: value });

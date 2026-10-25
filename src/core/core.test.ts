@@ -273,7 +273,7 @@ describe('playmats', () => {
       e.dispatch(a, { type: 'setPlaymat', mat });
       return e.state.players[a].playmat;
     };
-    expect(set('medieval')).toBe('medieval');
+    expect(set('tavern')).toBe('tavern');
     expect(set('url:https://example.com/mat.jpg')).toBe('url:https://example.com/mat.jpg');
     expect(set('url:javascript:alert(1)')).toBe('url:https://example.com/mat.jpg');
     // Quotes or parentheses could break out of the CSS url(): rejected.

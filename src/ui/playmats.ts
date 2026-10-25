@@ -4,7 +4,7 @@ import type React from 'react';
 export const PLAYMATS = [
   { id: 'felt', name: 'Felt' },
   { id: 'futuristic', name: 'Futuristic' },
-  { id: 'medieval', name: 'Medieval' },
+  { id: 'tavern', name: 'Tavern' },
   { id: 'arcane', name: 'Arcane' },
   { id: 'stone', name: 'Stone' },
   { id: 'grass', name: 'Grass' },
@@ -23,6 +23,12 @@ const PREF_KEY = 'cardtable:playmat';
 const STILL_KEY = 'cardtable:stillMats';
 const SLEEVE_KEY = 'cardtable:sleeve';
 
+/** Themes that were renamed, as saved games and preferences may still name them. */
+const RENAMED: Record<string, string> = { medieval: 'tavern' };
+
+/** The current id of a built-in playmat (or the value itself: another theme, a custom image). */
+export const matId = (mat: string) => RENAMED[mat] ?? mat;
+
 /** Class and style that paint a playmat: a theme, or a custom image under a dark veil. */
 export function matLook(mat: string | undefined): { className: string; style?: React.CSSProperties } {
   if (mat?.startsWith('url:')) {
@@ -32,7 +38,7 @@ export function matLook(mat: string | undefined): { className: string; style?: R
       style: { backgroundImage: `linear-gradient(#0007, #0007), url("${url}")` },
     };
   }
-  const id = PLAYMATS.some((m) => m.id === mat) ? mat : 'felt';
+  const id = mat && PLAYMATS.some((m) => m.id === matId(mat)) ? matId(mat) : 'felt';
   return { className: `mat mat-${id}` };
 }
 
@@ -61,7 +67,8 @@ export function saveSleevePref(sleeve: string) {
 /** My preferred playmat, applied to every table I sit at. */
 export function loadPlaymatPref(): string | null {
   try {
-    return localStorage.getItem(PREF_KEY);
+    const mat = localStorage.getItem(PREF_KEY);
+    return mat && matId(mat);
   } catch {
     return null;
   }
