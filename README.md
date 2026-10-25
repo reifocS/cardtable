@@ -9,6 +9,9 @@ npm run dev     # http://localhost:5173
 npm test
 ```
 
+<img width="1487" height="943" alt="image" src="https://github.com/user-attachments/assets/effedd51-1c8e-4fa2-9f21-647560df7ad0" />
+
+
 ## How it fits together
 
 - `src/core/`: game-agnostic, framework-free TypeScript.
