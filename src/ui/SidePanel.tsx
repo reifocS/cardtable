@@ -31,6 +31,7 @@ function Preview({ state }: { state: GameState }) {
         {card.faceDown && <span className="tag">Face down — only you see it</span>}
         {card.revealedTo.includes('*') && <span className="tag">Revealed</span>}
         {card.token && <span className="tag">Token</span>}
+        {card.note && <span className="tag note-tag">“{card.note}”</span>}
         {!!card.tax && <span className="tag">Commander tax: +{card.tax}</span>}
         {counters.map(([k, n]) => (
           <span key={k} className="tag counter-tag">

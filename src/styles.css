@@ -1521,3 +1521,37 @@ body.dragging .stack-zone {
 .stack-zone .card:hover {
   z-index: 2;
 }
+
+/* ---- notes on cards ---- */
+
+.note-badge {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  bottom: 14%;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #f4e7b8;
+  color: #2a2109;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 3px #0008;
+  pointer-events: none;
+}
+.hand .note-badge,
+.viewer .note-badge,
+.stack-zone .note-badge {
+  font-size: 11px;
+}
+.tag.note-tag {
+  background: #f4e7b8;
+  color: #2a2109;
+  border-color: #c9b26a;
+  font-weight: 600;
+  white-space: normal;
+}

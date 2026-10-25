@@ -9,6 +9,7 @@ interface ScryCard {
   collector_number: string;
   type_line?: string;
   oracle_text?: string;
+  cmc?: number;
   id?: string;
   all_parts?: { id: string; name: string; component: string }[];
   image_uris?: { normal: string; large: string };
@@ -16,7 +17,7 @@ interface ScryCard {
 }
 
 export function facesOf(c: ScryCard): CardFace[] {
-  const faces = rawFaces(c);
+  const faces = rawFaces(c).map((f) => (c.cmc === undefined ? f : { ...f, cost: c.cmc }));
   const tokens = c.all_parts?.filter((p) => p.component === 'token' && p.id !== c.id);
   if (tokens?.length) faces[0].tokens = [...new Map(tokens.map((t) => [t.name, { id: t.id, name: t.name }])).values()];
   return faces;

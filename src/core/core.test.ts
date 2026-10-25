@@ -222,6 +222,48 @@ describe('attach', () => {
   });
 });
 
+describe('table tools', () => {
+  it('notes a card, and drops the note when it leaves the battlefield', () => {
+    const { e, a } = twoPlayers();
+    const [id] = e.state.zones[zoneId(a, 'library')].cards;
+    e.dispatch(a, { type: 'move', cards: [id], to: zoneId(a, 'battlefield') });
+    e.dispatch(a, { type: 'annotate', cards: [id], text: '  chosen color: blue  ' });
+    expect(e.state.cards[id].note).toBe('chosen color: blue');
+    expect(e.state.log.at(-1)?.text).toMatch(/: “chosen color: blue”$/);
+    e.dispatch(a, { type: 'move', cards: [id], to: zoneId(a, 'graveyard') });
+    expect(e.state.cards[id].note).toBeUndefined();
+  });
+
+  it('keeps the library top face up for its owner, or for everyone', () => {
+    const { e, a, b } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    e.dispatch(a, { type: 'setTopVisible', zone: lib, value: 'owner' });
+    const top = () => e.state.zones[lib].cards[0];
+    expect(redact(e.state, a).cards[top()].faces).toHaveLength(1);
+    expect(redact(e.state, b).cards[top()].faces).toHaveLength(0);
+    e.dispatch(a, { type: 'setTopVisible', zone: lib, value: 'all' });
+    e.dispatch(a, { type: 'moveTop', from: lib, to: zoneId(a, 'hand'), n: 1 });
+    // The next card becomes the visible top; the second one stays hidden.
+    expect(redact(e.state, b).cards[top()].faces).toHaveLength(1);
+    expect(redact(e.state, b).cards[e.state.zones[lib].cards[1]].faces).toHaveLength(0);
+    e.dispatch(a, { type: 'setTopVisible', zone: lib, value: null });
+    expect(redact(e.state, a).cards[top()].faces).toHaveLength(0);
+  });
+
+  it('draws from the bottom and sorts a hand', () => {
+    const { e, a } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const bottom = e.state.zones[lib].cards.at(-1);
+    e.dispatch(a, { type: 'moveTop', from: lib, to: zoneId(a, 'hand'), n: 1, fromBottom: true });
+    expect(e.state.zones[zoneId(a, 'hand')].cards).toEqual([bottom]);
+    expect(e.state.log.at(-1)?.text).toBe('drew a card from the bottom');
+    e.dispatch(a, { type: 'moveTop', from: lib, to: zoneId(a, 'hand'), n: 4 });
+    e.dispatch(a, { type: 'sortZone', zone: zoneId(a, 'hand'), by: 'name' });
+    const names = e.state.zones[zoneId(a, 'hand')].cards.map((id) => e.state.cards[id].faces[0].name);
+    expect(names).toEqual([...names].sort());
+  });
+});
+
 describe('stack', () => {
   it('is a public table zone: casting is logged and everyone sees the spell', () => {
     const { e, a, b } = twoPlayers();

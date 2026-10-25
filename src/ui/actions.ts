@@ -1,6 +1,6 @@
 import type React from 'react';
 import { TABLE, zoneId } from '../core/state';
-import type { Card, CardId, Zone } from '../core/types';
+import type { Card, CardFace, CardId, Zone } from '../core/types';
 import { fetchCard } from '../cards/scryfall';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
 
@@ -76,6 +76,10 @@ export function closeViewer() {
   useStore.setState({ viewer: null });
 }
 
+export function editNote(ids: CardId[], current = '') {
+  if (ids.length) ask('Note on the card (empty to clear)', current, (text) => act({ type: 'annotate', cards: ids, text }));
+}
+
 export function startTargeting(from: string) {
   useStore.setState({ targeting: from, targetMode: 'arrow', menu: null });
 }
@@ -86,6 +90,19 @@ export function startAttaching(ids: CardId[]) {
 
 function addCounterPrompt(ids: CardId[]) {
   ask('Counter name', DEFAULT_COUNTER, (key) => key.trim() && act({ type: 'counter', cards: ids, key: key.trim(), delta: 1 }));
+}
+
+/** Creates token(s) on my battlefield and remembers the kind, for "Create another". */
+export function createTokens(faces: CardFace[], count = 1, positions?: [number, number][]) {
+  const bf = myZone('battlefield');
+  if (!bf || !faces.length) return;
+  act({ type: 'create', zone: bf.id, token: true, cards: Array.from({ length: count }, () => faces), positions });
+  useStore.setState({ lastToken: faces });
+}
+
+export function createAnotherToken() {
+  const faces = useStore.getState().lastToken;
+  if (faces) createTokens(faces);
 }
 
 export function duplicate(ids: CardId[]) {
@@ -101,6 +118,7 @@ export function duplicate(ids: CardId[]) {
     cards: cards.map((c) => c.faces),
     positions: cards.map((c) => [c.x + 24, c.y + 24]),
   });
+  useStore.setState({ lastToken: cards[0].faces });
 }
 
 /** Creates a related token (from the card database) on my battlefield, next to its source. */
@@ -109,8 +127,7 @@ async function createToken(id: string, near: Card) {
   if (!bf) return;
   try {
     const faces = await fetchCard(id);
-    const onBoard = near.zone === bf.id;
-    act({ type: 'create', zone: bf.id, token: true, cards: [faces], positions: onBoard ? [[near.x + 80, near.y]] : undefined });
+    createTokens(faces, 1, near.zone === bf.id ? [[near.x + 80, near.y]] : undefined);
   } catch (e) {
     console.warn('Could not fetch token', e);
   }
@@ -162,6 +179,10 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
   }
   if (card.revealedTo.length) items.push({ label: 'Stop revealing', action: () => act({ type: 'hide', cards: ids }) });
 
+  items.push(
+    { label: card.note ? 'Edit note…' : 'Note…', hint: 'N', action: () => editNote(ids, card.note) },
+    ...(card.note ? [{ label: 'Clear note', action: () => act({ type: 'annotate', cards: ids, text: '' }) }] : []),
+  );
   if (zone.id === STACK) {
     items.unshift({ label: isSpell(card) ? 'Resolve → graveyard' : 'Resolve → battlefield', hint: 'dbl-click', action: () => resolve(card) });
   } else if (state.zones[STACK] && !isLand(card)) {
@@ -206,6 +227,7 @@ export function zoneMenu(zone: Zone): MenuItem[] {
     items.push(
       { label: 'Draw', hint: 'D', action: () => draw() },
       { label: 'Draw…', action: () => askNumber('Draw how many?', 2, draw) },
+      { label: 'Draw from the bottom', action: () => act({ type: 'moveTop', from: zone.id, to: myZone('hand')!.id, n: 1, fromBottom: true }) },
       { label: 'Shuffle', hint: 'S', action: () => shuffleLibrary() },
       { label: 'Look at top…', action: () => askNumber('Look at how many?', 3, (n) => openViewer(zone, n)) },
       { label: 'Search library', action: () => openViewer(zone) },
@@ -214,6 +236,16 @@ export function zoneMenu(zone: Zone): MenuItem[] {
       { label: 'Exile top card', action: () => act({ type: 'moveTop', from: zone.id, to: exile.id, n: 1 }) },
       { label: 'Play top card face down', action: () => act({ type: 'moveTop', from: zone.id, to: myZone('battlefield')!.id, n: 1, faceDown: true }) },
       { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
+      { label: 'Mulligan to…', action: () => askNumber('Draw a new hand of how many cards?', state.preset.handSize - 1, (n) => act({ type: 'mulligan', n })) },
+      { label: 'Top card', heading: true },
+      {
+        label: `${zone.topVisible === 'owner' ? '✓ ' : ''}Always look at the top card`,
+        action: () => act({ type: 'setTopVisible', zone: zone.id, value: zone.topVisible === 'owner' ? null : 'owner' }),
+      },
+      {
+        label: `${zone.topVisible === 'all' ? '✓ ' : ''}Play with the top card revealed`,
+        action: () => act({ type: 'setTopVisible', zone: zone.id, value: zone.topVisible === 'all' ? null : 'all' }),
+      },
     );
   } else if (zone.kind === 'pile') {
     items.push({ label: 'View', action: () => openViewer(zone) });
@@ -243,10 +275,16 @@ export function zoneMenu(zone: Zone): MenuItem[] {
       { label: 'Reveal hand', action: () => act({ type: 'reveal', cards: [...zone.cards], to: '*' }) },
       { label: 'Stop revealing hand', action: () => act({ type: 'hide', cards: [...zone.cards] }) },
       { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
+      { label: 'Sort', heading: true },
+      { label: 'By mana value', action: () => act({ type: 'sortZone', zone: zone.id, by: 'cost' }) },
+      { label: 'By name', action: () => act({ type: 'sortZone', zone: zone.id, by: 'name' }) },
+      { label: 'By type', action: () => act({ type: 'sortZone', zone: zone.id, by: 'type' }) },
     );
   } else if (zone.kind === 'free') {
     if (mine) items.push({ label: 'Untap all', hint: 'U', action: () => act({ type: 'untapAll' }) });
     items.push({ label: 'Create card / token…', hint: 'C', action: () => useStore.setState({ dialog: 'create', menu: null }) });
+    const last = useStore.getState().lastToken;
+    if (last) items.push({ label: `Create another ${last[0].name}`, hint: '⇧C', action: createAnotherToken });
     if (state.arrows.length) items.push({ label: 'Clear arrows', action: () => act({ type: 'clearArrows' }) });
   }
   return items;
@@ -270,6 +308,14 @@ export function onKeyDown(e: KeyboardEvent) {
   if ((e.metaKey || e.ctrlKey) && key === 'z') {
     e.preventDefault();
     act({ type: 'undo' });
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && key === 'a') {
+    const bf = myZone('battlefield');
+    if (bf) {
+      e.preventDefault();
+      useStore.setState({ selection: [...bf.cards] });
+    }
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -298,6 +344,7 @@ export function onKeyDown(e: KeyboardEvent) {
     b: () => toMyBattlefield(ids),
     a: () => ids[0] && startTargeting(ids[0]),
     p: () => store.hovered && store.session?.point({ card: store.hovered }),
+    n: () => editNote(ids, store.state?.cards[ids[0]]?.note),
     delete: () => act({ type: 'delete', cards: ids.filter((id) => store.state?.cards[id]?.token) }),
     backspace: () => act({ type: 'delete', cards: ids.filter((id) => store.state?.cards[id]?.token) }),
   };
@@ -307,6 +354,7 @@ export function onKeyDown(e: KeyboardEvent) {
     u: () => act({ type: 'untapAll' }),
     m: () => act({ type: 'mulligan' }),
     c: () => useStore.setState({ dialog: 'create' }),
+    C: () => createAnotherToken(),
     '?': () => useStore.setState({ dialog: 'help' }),
     z: () => useStore.setState({ zoom: true }),
   };

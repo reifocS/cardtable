@@ -4,8 +4,9 @@ import { deleteDeck, guessDeckName, listDecks, saveDeck } from '../cards/decks';
 import { lookupKey, resolveCards, searchCards } from '../cards/scryfall';
 import type { CardFace } from '../core/types';
 import { CardImage } from './Zones';
+import { createTokens } from './actions';
 import { GithubLink } from './Icon';
-import { act, myZone, useStore } from './store';
+import { act, useStore } from './store';
 
 const DECK_KEY = 'cardtable:lastDeck';
 
@@ -138,7 +139,26 @@ export function ImportDialog() {
   const [problem, setProblem] = useState<string | null>(null);
   const [decks, setDecks] = useState(listDecks);
   const [name, setName] = useState('');
+  const [link, setLink] = useState('');
   if (!open) return null;
+
+  const fetchLink = async () => {
+    if (!link.trim()) return;
+    setProblem(null);
+    setBusy('Fetching the deck…');
+    try {
+      const res = await fetch(`/api/deck?url=${encodeURIComponent(link.trim())}`);
+      const body = (await res.json().catch(() => ({}))) as { name?: string; text?: string; error?: string };
+      if (!res.ok || !body.text) throw new Error(body.error ?? `The server answered ${res.status}.`);
+      setText(body.text);
+      if (body.name) setName(body.name);
+      setLink('');
+    } catch (e) {
+      setProblem((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const save = () => {
     if (!text.trim()) return;
@@ -177,6 +197,16 @@ export function ImportDialog() {
 
   return (
     <Modal title="Import deck" onClose={closeDialog}>
+      <form
+        className="prompt"
+        onSubmit={(e) => {
+          e.preventDefault();
+          fetchLink();
+        }}
+      >
+        <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Deck link (Archidekt), or paste the list below" />
+        <button disabled={!!busy || !link.trim()}>Fetch</button>
+      </form>
       {decks.length > 0 && (
         <div className="saved-decks">
           {decks.map((d) => (
@@ -227,10 +257,7 @@ export function CreateDialog() {
   const [custom, setCustom] = useState({ name: '', text: '', image: '', count: 1 });
   if (!open) return null;
 
-  const create = (faces: CardFace[], count = 1) => {
-    const bf = myZone('battlefield');
-    if (bf) act({ type: 'create', zone: bf.id, token: true, cards: Array.from({ length: count }, () => faces) });
-  };
+  const create = (faces: CardFace[], count = 1) => createTokens(faces, count);
 
   const search = async () => {
     if (!query.trim()) return;
@@ -315,6 +342,9 @@ const SHORTCUTS: [string, string][] = [
   ['X', 'Transform (next face)'],
   ['+ / −', '+1/+1 counter'],
   ['A', 'Target with an arrow (click an arrow to remove it)'],
+  ['N', 'Write a note on the card'],
+  ['Shift C', 'Create another of the last token'],
+  ['⌘/Ctrl A', 'Select every card on your battlefield'],
   ['Right-click → Attach to…', 'Attach an aura or equipment; it moves with the card'],
   ['R', 'Reveal to everyone'],
   ['P / Alt-click', 'Ping a card (or a spot on a battlefield) for everyone'],

@@ -9,6 +9,8 @@ export interface CardFace {
   imageLarge?: string;
   /** Type line, e.g. "Basic Land — Plains". Used to filter when searching a zone. */
   type?: string;
+  /** Mana value (or any cost), for sorting a hand. */
+  cost?: number;
   text?: string;
   /** Tokens (and emblems) this card makes, by card-database id. Kept on the first face. */
   tokens?: { id: string; name: string }[];
@@ -37,6 +39,8 @@ export interface Card {
   tax?: number;
   /** The card this one is attached to (an aura, equipment…). It sits behind its host and moves with it. */
   attachedTo?: CardId;
+  /** A free note shown on the card ("chosen color: blue"). Cleared when it leaves the battlefield. */
+  note?: string;
 }
 
 /** pile: stacked, top = index 0. fan: spread out (a hand). free: positioned cards (a battlefield). */
@@ -55,6 +59,8 @@ export interface Zone extends ZoneSpec {
   id: ZoneId;
   owner: PlayerId;
   cards: CardId[];
+  /** The top card stays face up: to its owner ('owner') or to everyone ('all'). */
+  topVisible?: 'owner' | 'all';
 }
 
 /** Describes a game: which zones each player gets and which counters they track. */

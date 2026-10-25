@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Op } from '../core/ops';
 import { zoneOf } from '../core/state';
-import type { CardId, GameState, PlayerId, Zone, ZoneId } from '../core/types';
+import type { CardFace, CardId, GameState, PlayerId, Zone, ZoneId } from '../core/types';
 import type { Ping } from '../net/presence';
 import type { Route, Session, Status } from '../net/session';
 
@@ -57,6 +57,8 @@ export interface Store {
   targetMode: 'arrow' | 'attach';
   /** Cards to attach once the host is picked. */
   attachCards: CardId[];
+  /** Faces of the last token I created, for "Create another". */
+  lastToken: CardFace[] | null;
 
   connect(session: Session): void;
   leave(): void;
@@ -84,6 +86,7 @@ export const useStore = create<Store>((set, get) => ({
   targeting: null,
   targetMode: 'arrow',
   attachCards: [],
+  lastToken: null,
 
   connect(session) {
     const sync = () => {

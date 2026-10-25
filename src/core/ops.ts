@@ -12,7 +12,7 @@ export type Op =
       positions?: Record<CardId, [number, number]>;
       faceDown?: boolean;
     }
-  | { type: 'moveTop'; from: ZoneId; to: ZoneId; n: number; faceDown?: boolean }
+  | { type: 'moveTop'; from: ZoneId; to: ZoneId; n: number; faceDown?: boolean; fromBottom?: boolean }
   | { type: 'tap'; cards: CardId[]; value?: boolean }
   | { type: 'untapAll' }
   | { type: 'flip'; cards: CardId[] }
@@ -26,6 +26,10 @@ export type Op =
   | { type: 'tracker'; player: PlayerId; key: string; delta: number }
   | { type: 'setTracker'; player: PlayerId; key: string; value: number | null }
   | { type: 'commanderTax'; cards: CardId[]; delta: number }
+  /** Free text on cards; empty clears it. */
+  | { type: 'annotate'; cards: CardId[]; text: string }
+  | { type: 'setTopVisible'; zone: ZoneId; value: 'owner' | 'all' | null }
+  | { type: 'sortZone'; zone: ZoneId; by: 'name' | 'type' | 'cost' }
   /** Commander damage is also damage: it lowers Life by the same amount. */
   | { type: 'commanderDamage'; player: PlayerId; from: CardId; delta: number }
   | { type: 'create'; zone: ZoneId; cards: CardFace[][]; token: boolean; positions?: [number, number][] }
@@ -92,11 +96,14 @@ class Mutation {
       case 'moveTop': {
         const from = this.zone(op.from);
         const to = this.zone(op.to);
-        const ids = from.cards.slice(0, Math.max(0, op.n));
+        const n0 = Math.max(0, op.n);
+        const ids = op.fromBottom ? from.cards.slice(Math.max(0, from.cards.length - n0)) : from.cards.slice(0, n0);
         if (!ids.length) return;
         const isDraw = from.role === 'library' && to.role === 'hand' && to.owner === from.owner;
         this.move(ids, to.id, { faceDown: op.faceDown }, isDraw);
-        if (isDraw) {
+        if (isDraw && op.fromBottom) {
+          this.log(`drew ${ids.length === 1 ? 'a card' : `${ids.length} cards`} from the bottom`);
+        } else if (isDraw) {
           const key = `draw:${to.id}`;
           const n = (this.mergeable(key)?.n ?? 0) + ids.length;
           this.log(`drew ${n === 1 ? 'a card' : `${n} cards`}`, { merge: { key, n } });
@@ -203,6 +210,38 @@ class Mutation {
         if (!cards.length) return;
         return this.log(`${this.label(cards)}: commander tax → ${cards[0].tax}`, { merge: { key: `tax:${op.cards.join(',')}` } });
       }
+      case 'annotate': {
+        const cards = this.cards(op.cards);
+        if (!cards.length) return;
+        const text = op.text.trim().slice(0, 80);
+        for (const c of cards) {
+          if (text) c.note = text;
+          else delete c.note;
+        }
+        return this.log(text ? `noted on ${this.label(cards)}: “${text}”` : `cleared the note on ${this.label(cards)}`);
+      }
+      case 'setTopVisible': {
+        const z = this.zone(op.zone);
+        if (op.value) z.topVisible = op.value;
+        else delete z.topVisible;
+        const what = op.value === 'all' ? 'reveals' : op.value === 'owner' ? 'looks at' : 'stops showing';
+        return this.log(`${what} the top card of ${this.zoneLabel(z)}${op.value ? ' (stays face up)' : ''}`);
+      }
+      case 'sortZone': {
+        const z = this.zone(op.zone);
+        const face = (id: CardId) => s.cards[id].faces[0];
+        const key = (id: CardId): string | number =>
+          op.by === 'cost' ? (face(id)?.cost ?? 99) : op.by === 'type' ? (face(id)?.type ?? '~') : (face(id)?.name ?? '~');
+        z.cards = [...z.cards].sort((a, b) => {
+          const ka = key(a);
+          const kb = key(b);
+          if (ka < kb) return -1;
+          if (ka > kb) return 1;
+          return (face(a)?.name ?? '').localeCompare(face(b)?.name ?? '');
+        });
+        const by = { name: 'name', type: 'type', cost: 'mana value' }[op.by];
+        return this.log(`sorted ${this.zoneLabel(z)} by ${by}`);
+      }
       case 'commanderDamage': {
         const p = s.players[op.player];
         const src = s.cards[op.from];
@@ -277,6 +316,7 @@ class Mutation {
           Object.assign(c, { face: 0, faceDown: false, rotation: 0, counters: {}, revealedTo: [] });
           delete c.tax;
           delete c.attachedTo;
+          delete c.note;
         }
         s.arrows = s.arrows.filter((a) => s.cards[a.from] || s.players[a.from]);
         this.resetTrackers(commander);
@@ -545,6 +585,7 @@ class Mutation {
         else if (changed && from[i].kind !== 'free') c.faceDown = false;
       } else if (changed) {
         Object.assign(c, { rotation: 0, counters: {}, faceDown: false, face: 0 });
+        delete c.note;
       }
     });
 

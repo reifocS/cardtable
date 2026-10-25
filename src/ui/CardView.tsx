@@ -83,6 +83,7 @@ export const CardView = memo(function CardView({ card, zone, style, pileTop }: P
       {face && !card.faceDown ? <FaceView face={face} /> : <CardBack />}
       {card.faceDown && face && <span className="peek" title="Face down — only you can see it">👁</span>}
       {card.token && <span className="token-badge">token</span>}
+      {card.note && <span className="note-badge">{card.note}</span>}
       {ping && <span key={ping.id} className="ping-ring" style={{ '--c': pingColor } as React.CSSProperties} />}
       {!!card.tax && <span className="tax-badge" title="Commander tax">+{card.tax}</span>}
       {counters.length > 0 && (

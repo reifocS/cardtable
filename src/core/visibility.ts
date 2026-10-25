@@ -1,7 +1,10 @@
 import type { Card, GameState, PlayerId, Zone } from './types';
 
+const isShownTop = (card: Card, zone: Zone) => !!zone.topVisible && zone.cards[0] === card.id;
+
 export function canSee(card: Card, zone: Zone, viewer: PlayerId): boolean {
   if (card.revealedTo.includes('*') || card.revealedTo.includes(viewer)) return true;
+  if (isShownTop(card, zone) && (zone.topVisible === 'all' || zone.owner === viewer)) return true;
   // You may always look at your own face-down cards.
   if (card.faceDown) return zone.owner === viewer;
   if (zone.visibility === 'public') return true;
@@ -11,6 +14,7 @@ export function canSee(card: Card, zone: Zone, viewer: PlayerId): boolean {
 
 /** Visible to every player at the table. */
 export function isPublic(card: Card, zone: Zone): boolean {
+  if (isShownTop(card, zone) && zone.topVisible === 'all') return true;
   return card.revealedTo.includes('*') || (!card.faceDown && zone.visibility === 'public');
 }
 
