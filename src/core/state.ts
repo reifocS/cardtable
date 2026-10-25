@@ -21,7 +21,10 @@ export const MTG: Preset = {
     { role: 'sideboard', name: 'Sideboard', kind: 'pile', visibility: 'owner' },
   ],
   // Spells being cast, in the middle where everyone sees them. Top (index 0) = last cast.
-  shared: [{ role: 'stack', name: 'Stack', kind: 'pile', visibility: 'public' }],
+  shared: [{ role: 'stack', name: 'Stack', kind: 'pile', visibility: 'public', verb: 'cast' }],
+  parts: { deck: 'library', hand: 'hand', play: 'battlefield', discard: 'graveyard' },
+  deckSections: { main: 'library', side: 'sideboard', commander: 'command' },
+  commander: { zone: 'command', tax: 2, tracker: 'Life', life: 40, lethal: 21 },
 };
 
 /** Owner of the table's shared zones. */
@@ -30,7 +33,7 @@ export const TABLE = 'table';
 const COLORS = ['#e8a33d', '#4fa3e0', '#d0605e', '#5dbb7a', '#a67fd6', '#d98bb5', '#4cc2c0', '#c7b65a'];
 
 export function createGame(preset: Preset = MTG): GameState {
-  return withSharedZones({
+  return migrateGame({
     version: 1,
     preset,
     seats: [],
@@ -44,17 +47,29 @@ export function createGame(preset: Preset = MTG): GameState {
   });
 }
 
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 /**
- * Adds the table's shared zones if missing (games saved before they existed), refreshing the
- * built-in preset so old saves pick up its new zones too. Returns the same object if unchanged.
+ * Brings a saved game up to date with its preset: the built-in one is refreshed (old saves pick up
+ * its new zones and rules), missing shared zones are added, zones take their spec's latest fields.
+ * Returns the same object if nothing changed.
  */
-export function withSharedZones(s: GameState): GameState {
-  const preset = s.preset.id === MTG.id && !s.preset.shared ? { ...s.preset, shared: MTG.shared } : s.preset;
-  const missing = (preset.shared ?? []).filter((spec) => !s.zones[zoneId(TABLE, spec.role)]);
-  if (!missing.length && preset === s.preset) return s;
-  const zones = { ...s.zones };
-  for (const spec of missing) zones[zoneId(TABLE, spec.role)] = { ...spec, id: zoneId(TABLE, spec.role), owner: TABLE, cards: [] };
-  return { ...s, preset, zones };
+export function migrateGame(s: GameState): GameState {
+  const preset = s.preset.id === MTG.id && !same(s.preset, MTG) ? MTG : s.preset;
+  let zones = s.zones;
+  const put = (z: Zone) => {
+    if (zones === s.zones) zones = { ...s.zones };
+    zones[z.id] = z;
+  };
+  for (const spec of preset.shared ?? []) {
+    const id = zoneId(TABLE, spec.role);
+    if (!zones[id]) put({ ...spec, id, owner: TABLE, cards: [] });
+  }
+  for (const z of Object.values(zones)) {
+    const spec = (z.owner === TABLE ? (preset.shared ?? []) : preset.zones).find((x) => x.role === z.role);
+    if (spec && !same({ ...z, ...spec }, z)) put({ ...z, ...spec });
+  }
+  return zones === s.zones && preset === s.preset ? s : { ...s, preset, zones };
 }
 
 /** Mutates `s`. */

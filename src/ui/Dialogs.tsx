@@ -188,7 +188,7 @@ export function ImportDialog() {
       const facesFor = (l: DeckLine): CardFace[] =>
         l.image ? [{ name: l.name, image: l.image, imageLarge: l.image }] : (found.get(lookupKey(l)) ?? [{ name: l.name }]);
       for (const l of lines) for (let i = 0; i < l.count; i++) out[l.section].push(facesFor(l));
-      act({ type: 'loadDeck', ...out });
+      act({ type: 'loadDeck', sections: out });
       saveLastDeck(text);
       shown.current = text;
       if (missing.length) {

@@ -32,17 +32,18 @@ export type Op =
   | { type: 'setFaces'; cards: CardId[]; faces: CardFace[]; sameName?: boolean }
   | { type: 'setTopVisible'; zone: ZoneId; value: 'owner' | 'all' | null }
   | { type: 'sortZone'; zone: ZoneId; by: 'name' | 'type' | 'cost' }
-  /** Commander damage is also damage: it lowers Life by the same amount. */
+  /** Commander damage is also damage: it lowers the preset's commander tracker (Life) by the same amount. */
   | { type: 'commanderDamage'; player: PlayerId; from: CardId; delta: number }
   | { type: 'create'; zone: ZoneId; cards: CardFace[][]; token: boolean; positions?: [number, number][] }
   | { type: 'delete'; cards: CardId[] }
   /** Attach cards to a host on a battlefield, or detach them (`to: null`). */
   | { type: 'attach'; cards: CardId[]; to: CardId | null }
-  | { type: 'loadDeck'; main: CardFace[][]; side: CardFace[][]; commander: CardFace[][] }
+  /** Replaces your cards with a deck list, by section (see Preset.deckSections). */
+  | { type: 'loadDeck'; sections: Record<string, CardFace[][]> }
   | { type: 'resetDeck' }
   | { type: 'mulligan'; n?: number }
   | { type: 'roll'; sides: number }
-  /** A card picked by the host's RNG: discarded to its owner's graveyard, or revealed to everyone. */
+  /** A card picked by the host's RNG: discarded (see Preset.parts), or revealed to everyone. */
   | { type: 'random'; zone: ZoneId; action: 'discard' | 'reveal' }
   | { type: 'passTurn' }
   /** Hand the turn to a player ('random': the host picks). `restart` starts over at turn 1. */
@@ -103,7 +104,8 @@ class Mutation {
         const n0 = Math.max(0, op.n);
         const ids = op.fromBottom ? from.cards.slice(Math.max(0, from.cards.length - n0)) : from.cards.slice(0, n0);
         if (!ids.length) return;
-        const isDraw = from.role === 'library' && to.role === 'hand' && to.owner === from.owner;
+        const { deck, hand } = s.preset.parts;
+        const isDraw = !!deck && from.role === deck && to.role === hand && to.owner === from.owner;
         this.move(ids, to.id, { faceDown: op.faceDown }, isDraw);
         if (isDraw && op.fromBottom) {
           this.log(`drew ${ids.length === 1 ? 'a card' : `${ids.length} cards`} from the bottom`);
@@ -122,10 +124,10 @@ class Mutation {
         return this.log(`${value ? 'tapped' : 'untapped'} ${this.label(cards)}`);
       }
       case 'untapAll': {
-        const bf = this.s.zones[zoneId(this.actor, 'battlefield')];
-        if (!bf) return;
-        for (const id of bf.cards) s.cards[id].rotation = 0;
-        return this.log('untapped all permanents', { merge: { key: 'untapAll' } });
+        const play = this.part('play');
+        if (!play) return;
+        for (const id of play.cards) s.cards[id].rotation = 0;
+        return this.log(`untapped everything on ${this.zoneLabel(play)}`, { merge: { key: 'untapAll' } });
       }
       case 'flip': {
         const cards = this.cards(op.cards);
@@ -209,6 +211,7 @@ class Mutation {
         return;
       }
       case 'commanderTax': {
+        if (!s.preset.commander) return;
         const cards = this.cards(op.cards);
         for (const c of cards) c.tax = Math.max(0, (c.tax ?? 0) + op.delta);
         if (!cards.length) return;
@@ -257,23 +260,25 @@ class Mutation {
           if (ka > kb) return 1;
           return (face(a)?.name ?? '').localeCompare(face(b)?.name ?? '');
         });
-        const by = { name: 'name', type: 'type', cost: 'mana value' }[op.by];
-        return this.log(`sorted ${this.zoneLabel(z)} by ${by}`);
+        return this.log(`sorted ${this.zoneLabel(z)} by ${op.by}`);
       }
       case 'commanderDamage': {
+        const rules = s.preset.commander;
         const p = s.players[op.player];
         const src = s.cards[op.from];
-        if (!p || !src || !op.delta) return;
+        if (!rules || !p || !src || !op.delta) return;
         const dmg = (p.commanderDamage ??= {});
         const before = dmg[op.from] ?? 0;
         const total = Math.max(0, before + op.delta);
         const applied = total - before;
         dmg[op.from] = total;
-        if ('Life' in p.trackers) p.trackers.Life -= applied;
+        const t = rules.tracker;
+        const tracked = t in p.trackers;
+        if (tracked) p.trackers[t] -= applied;
         const key = `cmd:${op.player}:${op.from}`;
-        const start = this.mergeable(key)?.from ?? p.trackers.Life + applied;
-        const life = 'Life' in p.trackers ? ` · Life ${start} → ${p.trackers.Life}` : '';
-        return this.log(`${cardName(src)} → ${p.name}: ${total} commander damage${total >= 21 ? ' (lethal)' : ''}${life}`, {
+        const start = this.mergeable(key)?.from ?? (p.trackers[t] ?? 0) + applied;
+        const life = tracked ? ` · ${t} ${start} → ${p.trackers[t]}` : '';
+        return this.log(`${cardName(src)} → ${p.name}: ${total} commander damage${total >= rules.lethal ? ' (lethal)' : ''}${life}`, {
           merge: { key, from: start },
         });
       }
@@ -309,17 +314,19 @@ class Mutation {
       }
       case 'loadDeck': {
         for (const c of Object.values(s.cards)) if (c.owner === this.actor) this.remove(c);
-        const add = (list: CardFace[][], role: string) => {
-          const z = s.zones[zoneId(this.actor, role)];
-          if (z) for (const faces of list) this.newCard(faces, z, false, undefined, role);
-        };
-        add(op.main, 'library');
-        add(op.side, 'sideboard');
-        add(op.commander, 'command');
-        this.resetTrackers(op.commander.length > 0);
-        this.shuffleSilently('library');
-        const extra = [op.side.length && `${op.side.length} in sideboard`, op.commander.length && `${op.commander.length} commander`].filter(Boolean);
-        return this.log(`loaded a deck: ${op.main.length} cards${extra.length ? ` (${extra.join(', ')})` : ''}`);
+        const counts = new Map<Zone, number>();
+        for (const [section, list] of Object.entries(op.sections)) {
+          const z = s.zones[zoneId(this.actor, s.preset.deckSections[section] ?? '')];
+          if (!z || !list.length) continue;
+          for (const faces of list) this.newCard(faces, z, false, undefined, z.role);
+          counts.set(z, (counts.get(z) ?? 0) + list.length);
+        }
+        const deck = this.part('deck');
+        this.resetTrackers(!!s.preset.commander && (counts.get(this.part('commander')!) ?? 0) > 0);
+        this.shuffleSilently(deck);
+        const main = (deck && counts.get(deck)) ?? 0;
+        const extra = [...counts].filter(([z]) => z !== deck).map(([z, n]) => `${n} in ${z.name}`);
+        return this.log(`loaded a deck: ${main} cards${extra.length ? ` (${extra.join(', ')})` : ''}`);
       }
       case 'resetDeck': {
         let commander = false;
@@ -329,7 +336,7 @@ class Mutation {
             this.remove(c);
             continue;
           }
-          if (c.home === 'command') commander = true;
+          if (c.home === s.preset.commander?.zone) commander = true;
           this.move([c.id], zoneId(this.actor, c.home), { index: -1 }, true);
           Object.assign(c, { face: 0, faceDown: false, rotation: 0, counters: {}, revealedTo: [] });
           delete c.tax;
@@ -338,16 +345,16 @@ class Mutation {
         }
         s.arrows = s.arrows.filter((a) => s.cards[a.from] || s.players[a.from]);
         this.resetTrackers(commander);
-        this.shuffleSilently('library');
+        this.shuffleSilently(this.part('deck'));
         return this.log('reset their deck');
       }
       case 'mulligan': {
-        const hand = s.zones[zoneId(this.actor, 'hand')];
-        const lib = s.zones[zoneId(this.actor, 'library')];
+        const hand = this.part('hand');
+        const lib = this.part('deck');
         if (!hand || !lib) return;
         const n = op.n ?? s.preset.handSize;
         this.move([...hand.cards], lib.id, {}, true);
-        this.shuffleSilently('library');
+        this.shuffleSilently(lib);
         this.move(lib.cards.slice(0, n), hand.id, {}, true);
         return this.log(`mulliganed: shuffled their hand away and drew ${n}`);
       }
@@ -359,7 +366,7 @@ class Mutation {
           if (!c.revealedTo.includes('*')) c.revealedTo.push('*');
           return this.log(`revealed ${cardName(c)} at random from ${this.zoneLabel(z)}`);
         }
-        const gy = s.zones[zoneId(c.owner, 'graveyard')];
+        const gy = s.zones[zoneId(c.owner, s.preset.parts.discard ?? '')];
         if (!gy) return;
         this.move([c.id], gy.id, {}, true);
         return this.log(`discarded ${cardName(c)} at random from ${this.zoneLabel(z)}`);
@@ -500,7 +507,7 @@ class Mutation {
     return [16 + (k % slots) * step, row * (BOARD_H - CARD_H)];
   }
 
-  private newCard(faces: CardFace[], z: Zone, token: boolean, pos?: [number, number], home = 'library'): Card {
+  private newCard(faces: CardFace[], z: Zone, token: boolean, pos?: [number, number], home = z.role): Card {
     const [x, y] = pos ?? this.autoPlace(z.cards.length);
     const card: Card = {
       id: `c${this.s.nextId++}`,
@@ -553,14 +560,20 @@ class Mutation {
 
   private resetTrackers(commander: boolean) {
     const p = this.s.players[this.actor];
+    const rules = this.s.preset.commander;
     if (!p) return;
     p.trackers = { ...this.s.preset.trackers };
     p.commanderDamage = {};
-    if (commander && 'Life' in p.trackers) p.trackers.Life = 40;
+    if (commander && rules && rules.tracker in p.trackers) p.trackers[rules.tracker] = rules.life;
   }
 
-  private shuffleSilently(role: string) {
-    const z = this.s.zones[zoneId(this.actor, role)];
+  /** The actor's zone for a part the preset names (or its commander zone). */
+  private part(name: keyof GameState['preset']['parts'] | 'commander'): Zone | undefined {
+    const role = name === 'commander' ? this.s.preset.commander?.zone : this.s.preset.parts[name];
+    return role ? this.s.zones[zoneId(this.actor, role)] : undefined;
+  }
+
+  private shuffleSilently(z: Zone | undefined) {
     if (!z) return;
     for (let i = z.cards.length - 1; i > 0; i--) {
       const j = Math.floor(this.rng() * (i + 1));
@@ -590,15 +603,16 @@ class Mutation {
     to.cards.splice(index, 0, ...cards.map((c) => c.id));
 
     const taxed: Card[] = [];
+    const rules = this.s.preset.commander;
     const moving = new Set(cards.map((c) => c.id));
     const hosts: Card[] = [];
     cards.forEach((c, i) => {
       const changed = c.zone !== to.id;
       // Moved without its host: it's no longer attached.
       if (c.attachedTo && !moving.has(c.attachedTo)) delete c.attachedTo;
-      // Leaving the command zone for the battlefield is how a commander gets cast here.
-      if (changed && c.home === 'command' && from[i].role === 'command' && to.role === 'battlefield') {
-        c.tax = (c.tax ?? 0) + 2;
+      // Leaving the commander zone for play is how a commander gets cast here.
+      if (rules && changed && c.home === rules.zone && from[i].role === rules.zone && to.role === this.s.preset.parts.play) {
+        c.tax = (c.tax ?? 0) + rules.tax;
         taxed.push(c);
       }
       c.zone = to.id;
@@ -631,9 +645,9 @@ class Mutation {
     const labels = cards.map((c, i) => (wasPublic[i] || isPublic(c, to) ? cardName(c) : null));
     const sources = [...new Set(from)];
     const fromLabel = sources.length === 1 ? this.zoneLabel(sources[0]) : 'several zones';
-    if (to.role === 'stack') {
-      const fromHand = sources.length === 1 && sources[0].role === 'hand';
-      return this.log(`cast ${listLabel(labels)}${fromHand ? '' : ` from ${fromLabel}`}`);
+    if (to.verb) {
+      const fromHand = sources.length === 1 && sources[0].role === this.s.preset.parts.hand;
+      return this.log(`${to.verb} ${listLabel(labels)}${fromHand ? '' : ` from ${fromLabel}`}`);
     }
     const bottom = to.kind === 'pile' && opts.index === -1 ? ' (bottom)' : '';
     const tax = taxed.length ? ` (commander tax now ${taxed.map((c) => c.tax).join(', ')})` : '';

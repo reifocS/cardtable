@@ -35,7 +35,7 @@ export interface Card {
   token: boolean;
   /** Zone role the card returns to when its owner resets their deck. */
   home: string;
-  /** Commander tax: extra cost for the next cast from the command zone. Survives zone changes. */
+  /** Commander tax: extra cost for the next cast from the commander zone. Survives zone changes. */
   tax?: number;
   /** The card this one is attached to (an aura, equipment…). It sits behind its host and moves with it. */
   attachedTo?: CardId;
@@ -53,6 +53,8 @@ export interface ZoneSpec {
   name: string;
   kind: ZoneKind;
   visibility: Visibility;
+  /** How the log words a card entering this zone, e.g. "cast" for Magic's stack. Default: "moved … to". */
+  verb?: string;
 }
 
 export interface Zone extends ZoneSpec {
@@ -63,7 +65,31 @@ export interface Zone extends ZoneSpec {
   topVisible?: 'owner' | 'all';
 }
 
-/** Describes a game: which zones each player gets and which counters they track. */
+/** The zones the engine acts on by itself, by role. A part left out turns its actions off. */
+export interface PresetParts {
+  /** Draw pile: draws, mulligans, the shuffle after loading a deck. */
+  deck?: string;
+  hand?: string;
+  /** Where cards are played: "untap all". */
+  play?: string;
+  /** Where a random discard goes. */
+  discard?: string;
+}
+
+/** Magic's commander rules, for presets that want them. */
+export interface CommanderRules {
+  /** Zone the commander starts in and is cast from (to the `play` part). */
+  zone: string;
+  /** Extra cost each time it is cast from there. */
+  tax: number;
+  /** Commander damage lowers this tracker, which starts at `life` when the deck has a commander. */
+  tracker: string;
+  life: number;
+  /** Damage from a single commander that loses the game. */
+  lethal: number;
+}
+
+/** Describes a game: which zones each player gets, which counters they track, and the few rules the engine applies. */
 export interface Preset {
   id: string;
   name: string;
@@ -72,6 +98,10 @@ export interface Preset {
   shared?: ZoneSpec[];
   trackers: Record<string, number>;
   handSize: number;
+  parts: PresetParts;
+  /** Zone role for each section of an imported deck list ("main", "side"…). */
+  deckSections: Record<string, string>;
+  commander?: CommanderRules;
 }
 
 export interface Player {

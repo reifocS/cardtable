@@ -26,7 +26,11 @@ function opponentCell(rows: number[], i: number): React.CSSProperties {
   return { gridRow: `${row * 2 + 1} / span 2`, gridColumn: `span ${cols / rows[row]}` };
 }
 
-const commandersOf = (state: GameState) => Object.values(state.cards).filter((c) => c.home === 'command' && !c.token);
+/** Commanders on the table, for presets with commander rules. */
+const commandersOf = (state: GameState) => {
+  const zone = state.preset.commander?.zone;
+  return zone ? Object.values(state.cards).filter((c) => c.home === zone && !c.token) : [];
+};
 
 /**
  * Damage `player` has taken from each enemy commander. Only commanders that have dealt some get a
@@ -34,7 +38,8 @@ const commandersOf = (state: GameState) => Object.values(state.cards).filter((c)
  */
 function CommanderDamage({ state, player }: { state: GameState; player: Player }) {
   const sources = commandersOf(state).filter((c) => c.owner !== player.id);
-  if (!sources.length) return null;
+  const rules = state.preset.commander;
+  if (!rules || !sources.length) return null;
   const hit = (c: Card, delta: number) => act({ type: 'commanderDamage', player: player.id, from: c.id, delta });
   const nameOf = (c: Card) => (c.faces.length ? cardName(c) : 'Commander');
   const dealt = sources.filter((c) => (player.commanderDamage?.[c.id] ?? 0) > 0);
@@ -48,7 +53,7 @@ function CommanderDamage({ state, player }: { state: GameState; player: Player }
     ]);
   return (
     <div className="cmd-damage">
-      <button className="cmd-add" onClick={addMenu} {...tip('Commander damage (also lowers Life)')}>
+      <button className="cmd-add" onClick={addMenu} {...tip(`Commander damage (also lowers ${rules.tracker})`)}>
         ⚔
       </button>
       {dealt.map((c) => {
@@ -57,9 +62,9 @@ function CommanderDamage({ state, player }: { state: GameState; player: Player }
         return (
           <button
             key={c.id}
-            className={`cmd-chip${n >= 21 ? ' lethal' : ''}`}
+            className={`cmd-chip${n >= rules.lethal ? ' lethal' : ''}`}
             style={{ '--src': state.players[c.owner]?.color } as React.CSSProperties}
-            {...tip(`Commander damage from ${name} (also lowers Life) · click +1, right-click −1, shift ±5`)}
+            {...tip(`Commander damage from ${name} (also lowers ${rules.tracker}) · click +1, right-click −1, shift ±5`)}
             onClick={(e) => hit(c, e.shiftKey ? 5 : 1)}
             onContextMenu={(e) => {
               e.preventDefault();

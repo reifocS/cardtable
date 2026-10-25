@@ -175,10 +175,11 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
   for (const t of card.faces[0]?.tokens ?? []) {
     items.push({ label: `Create ${t.name}${/emblem/i.test(t.name) ? '' : ' token'}`, action: () => createToken(t.id, card) });
   }
-  if (card.home === 'command') {
+  const rules = state.preset.commander;
+  if (rules && card.home === rules.zone) {
     items.push(
-      { label: `Commander tax +2 (now ${card.tax ?? 0})`, action: () => act({ type: 'commanderTax', cards: [card.id], delta: 2 }) },
-      { label: 'Commander tax −2', disabled: !card.tax, action: () => act({ type: 'commanderTax', cards: [card.id], delta: -2 }) },
+      { label: `Commander tax +${rules.tax} (now ${card.tax ?? 0})`, action: () => act({ type: 'commanderTax', cards: [card.id], delta: rules.tax }) },
+      { label: `Commander tax −${rules.tax}`, disabled: !card.tax, action: () => act({ type: 'commanderTax', cards: [card.id], delta: -rules.tax }) },
     );
   }
   if (zone.visibility !== 'public' && zone.owner === me) {

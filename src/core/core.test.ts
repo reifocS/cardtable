@@ -3,7 +3,8 @@ import { parseDeck, withPrinting } from '../cards/deckParser';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
 import { apply } from './ops';
-import { TABLE, createGame, withSharedZones, zoneId } from './state';
+import { TABLE, createGame, migrateGame, zoneId } from './state';
+import type { Preset } from './types';
 import { redact } from './visibility';
 
 const faces = (n: number, prefix = 'Card') => Array.from({ length: n }, (_, i) => [{ name: `${prefix} ${i + 1}` }]);
@@ -12,8 +13,8 @@ function twoPlayers() {
   const e = new Engine();
   const a = e.join('Alice');
   const b = e.join('Bob');
-  e.dispatch(a, { type: 'loadDeck', main: faces(40, 'A'), side: faces(2, 'SB'), commander: [] });
-  e.dispatch(b, { type: 'loadDeck', main: faces(40, 'B'), side: [], commander: [] });
+  e.dispatch(a, { type: 'loadDeck', sections: { main: faces(40, 'A'), side: faces(2, 'SB'), commander: [] } });
+  e.dispatch(b, { type: 'loadDeck', sections: { main: faces(40, 'B'), side: [], commander: [] } });
   return { e, a, b };
 }
 
@@ -76,7 +77,7 @@ describe('ops', () => {
   it('sets life to 40 with a commander', () => {
     const e = new Engine();
     const a = e.join('Alice');
-    e.dispatch(a, { type: 'loadDeck', main: faces(99), side: [], commander: faces(1, 'Cmdr') });
+    e.dispatch(a, { type: 'loadDeck', sections: { main: faces(99), side: [], commander: faces(1, 'Cmdr') } });
     expect(e.state.players[a].trackers.Life).toBe(40);
     expect(e.state.zones[zoneId(a, 'command')].cards).toHaveLength(1);
   });
@@ -147,7 +148,7 @@ describe('commander', () => {
     const e = new Engine();
     const a = e.join('Alice');
     const b = e.join('Bob');
-    e.dispatch(a, { type: 'loadDeck', main: faces(99), side: [], commander: [[{ name: 'Atraxa' }]] });
+    e.dispatch(a, { type: 'loadDeck', sections: { main: faces(99), side: [], commander: [[{ name: 'Atraxa' }]] } });
     const [cmdr] = e.state.zones[zoneId(a, 'command')].cards;
     return { e, a, b, cmdr };
   }
@@ -168,7 +169,7 @@ describe('commander', () => {
 
   it('commander damage accumulates per source, lowers life, and merges in the log', () => {
     const { e, a, b, cmdr } = commanderGame();
-    e.dispatch(b, { type: 'loadDeck', main: faces(99), side: [], commander: [[{ name: 'Krenko' }]] });
+    e.dispatch(b, { type: 'loadDeck', sections: { main: faces(99), side: [], commander: [[{ name: 'Krenko' }]] } });
     for (let i = 0; i < 3; i++) e.dispatch(a, { type: 'commanderDamage', player: b, from: cmdr, delta: 7 });
     expect(e.state.players[b].commanderDamage?.[cmdr]).toBe(21);
     expect(e.state.players[b].trackers.Life).toBe(19);
@@ -290,7 +291,7 @@ describe('setFaces', () => {
     const a = e.join('Alice');
     const b = e.join('Bob');
     const bolt = [{ name: 'Bolt', image: 'old' }];
-    e.dispatch(a, { type: 'loadDeck', main: [bolt, bolt, bolt, [{ name: 'Other' }]], side: [], commander: [] });
+    e.dispatch(a, { type: 'loadDeck', sections: { main: [bolt, bolt, bolt, [{ name: 'Other' }]] } });
     const lib = e.state.zones[zoneId(a, 'library')];
     e.dispatch(a, { type: 'moveTop', from: lib.id, to: zoneId(a, 'hand'), n: 4 });
     const hand = e.state.zones[zoneId(a, 'hand')].cards;
@@ -337,7 +338,78 @@ describe('stack', () => {
     old.preset = { ...old.preset, shared: undefined };
     const e = new Engine(old);
     expect(e.state.zones[zoneId(TABLE, 'stack')]).toMatchObject({ owner: TABLE, visibility: 'public' });
-    expect(withSharedZones(e.state)).toBe(e.state);
+    expect(migrateGame(e.state)).toBe(e.state);
+  });
+
+  it('upgrades old saves to the current built-in preset', () => {
+    const old = createGame();
+    const { parts, deckSections, commander, ...before } = old.preset;
+    old.preset = { ...before, shared: [{ role: 'stack', name: 'Stack', kind: 'pile', visibility: 'public' }] } as typeof old.preset;
+    delete old.zones[zoneId(TABLE, 'stack')].verb;
+    const e = new Engine(old);
+    expect(e.state.preset).toMatchObject({ parts, deckSections, commander });
+    expect(e.state.zones[zoneId(TABLE, 'stack')].verb).toBe('cast');
+  });
+});
+
+describe('other games', () => {
+  // Nothing from Magic: a draw pile, a hand, a table, a discard pile, a score.
+  const CARDS: Preset = {
+    id: 'test-game',
+    name: 'Some card game',
+    handSize: 5,
+    trackers: { Score: 0 },
+    zones: [
+      { role: 'draw', name: 'Draw pile', kind: 'pile', visibility: 'hidden' },
+      { role: 'hand', name: 'Hand', kind: 'fan', visibility: 'owner' },
+      { role: 'table', name: 'Table', kind: 'free', visibility: 'public' },
+      { role: 'discard', name: 'Discard', kind: 'pile', visibility: 'public' },
+      { role: 'bench', name: 'Bench', kind: 'pile', visibility: 'public' },
+    ],
+    parts: { deck: 'draw', hand: 'hand', play: 'table', discard: 'discard' },
+    deckSections: { main: 'draw', side: 'bench' },
+  };
+
+  it('runs on the parts its preset names', () => {
+    const e = new Engine(createGame(CARDS));
+    const a = e.join('Ana');
+    e.dispatch(a, { type: 'loadDeck', sections: { main: faces(30), side: faces(2), commander: faces(1) } });
+    expect(e.state.log.at(-1)?.text).toBe('loaded a deck: 30 cards (2 in Bench)');
+    expect(e.state.zones[zoneId(a, 'draw')].cards).toHaveLength(30);
+    e.dispatch(a, { type: 'mulligan' });
+    expect(e.state.zones[zoneId(a, 'hand')].cards).toHaveLength(5);
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'draw'), to: zoneId(a, 'hand'), n: 1 });
+    expect(e.state.log.at(-1)?.text).toBe('drew a card');
+    e.dispatch(a, { type: 'random', zone: zoneId(a, 'hand'), action: 'discard' });
+    expect(e.state.zones[zoneId(a, 'discard')].cards).toHaveLength(1);
+
+    const [c] = e.state.zones[zoneId(a, 'hand')].cards;
+    e.dispatch(a, { type: 'move', cards: [c], to: zoneId(a, 'table') });
+    e.dispatch(a, { type: 'tap', cards: [c] });
+    e.dispatch(a, { type: 'untapAll' });
+    expect(e.state.cards[c].rotation).toBe(0);
+    expect(e.state.log.at(-1)?.text).toBe('untapped everything on Table');
+
+    // No commander rules in this game.
+    e.dispatch(a, { type: 'commanderTax', cards: [c], delta: 2 });
+    e.dispatch(a, { type: 'commanderDamage', player: a, from: c, delta: 3 });
+    expect(e.state.cards[c].tax).toBeUndefined();
+    expect(e.state.players[a].trackers).toEqual({ Score: 0 });
+  });
+
+  it('turns actions off when a preset leaves a part out', () => {
+    const bare: Preset = { ...CARDS, parts: {}, deckSections: { main: 'draw' } };
+    const e = new Engine(createGame(bare));
+    const a = e.join('Ana');
+    e.dispatch(a, { type: 'loadDeck', sections: { main: faces(10) } });
+    const before = e.state;
+    e.dispatch(a, { type: 'mulligan' });
+    e.dispatch(a, { type: 'untapAll' });
+    e.dispatch(a, { type: 'random', zone: zoneId(a, 'draw'), action: 'discard' });
+    expect(e.state.zones).toEqual(before.zones);
+    // Moving cards by hand still works: it's not a draw, just a move.
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'draw'), to: zoneId(a, 'hand'), n: 2 });
+    expect(e.state.log.at(-1)?.text).toBe('moved 2 cards from Draw pile to Hand');
   });
 });
 

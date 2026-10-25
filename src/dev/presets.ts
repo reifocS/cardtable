@@ -64,7 +64,7 @@ class Builder {
       const faces = this.faces.get(lookupKey(l)) ?? [{ name: l.name, text: l.image ? undefined : '(offline: text card)' }];
       for (let i = 0; i < l.count; i++) out[l.section].push(faces);
     }
-    return this.op(p, { type: 'loadDeck', ...out });
+    return this.op(p, { type: 'loadDeck', sections: out });
   }
 
   /** First card of `p` named `name` (prefix match, for double-faced names) in zone `role`. */
@@ -311,7 +311,7 @@ export const PRESETS: DevPreset[] = [
         card('Professor’s Research', 'Trainer · Supporter\nDiscard your hand and draw 7 cards.'),
       ];
       const main = Array.from({ length: 40 }, (_, i) => deck[i % deck.length]);
-      b.op(me, { type: 'loadDeck', main, side: [], commander: [] }).op(misty, { type: 'loadDeck', main, side: [], commander: [] });
+      b.op(me, { type: 'loadDeck', sections: { main, side: [], commander: [] } }).op(misty, { type: 'loadDeck', sections: { main, side: [], commander: [] } });
       b.op(me, { type: 'setTracker', player: me, key: 'Prizes', value: 6 }).op(misty, { type: 'setTracker', player: misty, key: 'Prizes', value: 4 });
       b.row(me, ['Pikachu', 'Charmander'], 0, { start: 200, step: 300, counters: { Damage: 20 } });
       b.row(me, ['Lightning Energy', 'Lightning Energy'], 240, { start: 200, step: 120 });

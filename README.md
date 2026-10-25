@@ -12,7 +12,9 @@ npm test
 ## How it fits together
 
 - `src/core/`: game-agnostic, framework-free TypeScript.
-  - `types.ts`: cards, zones, players. A game is a `Preset` (which zones each player gets, which trackers).
+  - `types.ts`: cards, zones, players. A game is a `Preset`: which zones each player gets, which trackers, which
+    zones play the deck, hand, play area and discard, where deck-list sections go, and optional commander rules.
+    The engine names no zone itself; Magic is just the built-in preset (`state.ts`).
   - `ops.ts`: every action is a serializable `Op`; `apply()` is pure and writes the log.
   - `visibility.ts`: who may see which card; `redact()` strips the rest before anything is sent.
   - `engine.ts`: the authoritative game on the host, with per-op undo.
