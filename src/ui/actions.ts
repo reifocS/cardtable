@@ -209,6 +209,7 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
     ['graveyard', 'Graveyard', 'G'],
     ['exile', 'Exile', 'E'],
     ['command', 'Command zone'],
+    ['sideboard', 'Sideboard'],
   ];
   for (const [role, label, hint, index] of dest) {
     if (role === zone.role && index === undefined && zone.owner === card.owner) continue;

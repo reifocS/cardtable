@@ -233,7 +233,9 @@ function MyArea({ state, me }: { state: GameState; me: PlayerId }) {
         <div className="tray-piles">
           {['library', ...SIDE_PILES, 'sideboard'].map((role) => {
             const z = zoneOf(state, me, role);
-            return z && <Pile key={role} zone={z} state={state} />;
+            // The sideboard only takes room when it has cards (the Deck menu opens it anyway).
+            if (!z || (role === 'sideboard' && !z.cards.length)) return null;
+            return <Pile key={role} zone={z} state={state} />;
           })}
         </div>
         {hand && <Hand zone={hand} state={state} />}

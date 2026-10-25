@@ -1,5 +1,6 @@
+import { zoneOf } from '../core/state';
 import type { GameState } from '../core/types';
-import { openMenu } from './actions';
+import { openMenu, openViewer } from './actions';
 import { Icon } from './Icon';
 import { PLAYMATS, SLEEVES, matId, matsAnimated, savePlaymatPref, saveSleevePref, setMatsAnimated } from './playmats';
 import { act, ask, useStore } from './store';
@@ -61,9 +62,11 @@ export function ActionBar({ state }: { state: GameState }) {
       customItem(sleeve, setSleeve),
     ]);
 
+  const sideboard = me ? zoneOf(state, me, 'sideboard') : undefined;
   const deck = (e: React.MouseEvent) =>
     openMenu(e, [
       { label: 'Import deck…', action: () => useStore.setState({ dialog: 'import' }) },
+      ...(sideboard ? [{ label: `View sideboard (${sideboard.cards.length})`, action: () => openViewer(sideboard) }] : []),
       { label: 'Reset my deck (new game)', action: () => act({ type: 'resetDeck' }) },
       { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
     ]);
