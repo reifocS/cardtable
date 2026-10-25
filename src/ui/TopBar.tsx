@@ -48,7 +48,14 @@ export function TopBar({ state }: { state: GameState }) {
     <header className="topbar">
       <span className="brand">Cardtable</span>
       <button className="code" onClick={copyInvite} {...tip('Copy the invite link')}>
-        {copied ? 'Link copied!' : `Table ${session.code}`}
+        {copied ? (
+          'Link copied!'
+        ) : (
+          <>
+            <span className="code-word">Table </span>
+            {session.code}
+          </>
+        )}
       </button>
       <span className={`status ${status}`} title={error ?? status}>
         {session.role === 'host' ? 'hosting' : status}
@@ -63,7 +70,8 @@ export function TopBar({ state }: { state: GameState }) {
           onClick={() => switchToNextSeat()}
           {...tip('Switch to your other seat (`)')}
         >
-          Playing as {state.players[me]?.name} ⇄
+          <span className="seat-word">Playing as </span>
+          {state.players[me]?.name} ⇄
         </button>
       )}
       {session.role === 'host' && (
@@ -77,7 +85,7 @@ export function TopBar({ state }: { state: GameState }) {
         onClick={() => ask('Your name', state.players[me].name, (name) => act({ type: 'rename', name }))}
       >
         <Icon name="rename" />
-        <span>{state.players[me].name}</span>
+        <span className="me-name">{state.players[me].name}</span>
       </button>
       <button
         className="icon-btn"

@@ -35,7 +35,7 @@ export function ActionBar({ state }: { state: GameState }) {
     ]);
 
   const mat = matId(me ? (state.players[me]?.playmat ?? 'felt') : 'felt');
-  const sleeve = me ? state.players[me]?.sleeve ?? 'classic' : 'classic';
+  const sleeve = me ? (state.players[me]?.sleeve ?? 'official') : 'official';
   const setMat = (value: string) => {
     act({ type: 'setPlaymat', mat: value });
     savePlaymatPref(value);
@@ -71,15 +71,16 @@ export function ActionBar({ state }: { state: GameState }) {
   return (
     <div className="actions">
       <button className="turn" style={{ color: turnPlayer?.color }} onClick={turnMenu} {...tip('Choose who starts, or whose turn it is')}>
-        Turn {state.turn.number} · {turnPlayer?.name} ▾
+        Turn {state.turn.number}
+        <span className="turn-name"> · {turnPlayer?.name}</span> ▾
       </button>
       <button className={`action${myTurn ? ' primary' : ''}`} onClick={() => act({ type: 'passTurn' })} {...tip('Pass the turn')}>
         <Icon name="passTurn" />
-        <span>Pass turn</span>
+        <span className="action-label pass-label">Pass turn</span>
       </button>
       <button className="action" onClick={() => act({ type: 'untapAll' })} {...tip('Untap all (U)')}>
         <Icon name="untap" />
-        <span>Untap</span>
+        <span className="action-label">Untap</span>
       </button>
       <button className="action" onClick={dice} {...tip('Dice and coin')}>
         <Icon name="dice" />
@@ -100,7 +101,7 @@ export function ActionBar({ state }: { state: GameState }) {
       </button>
       <button className="action" onClick={deck} {...tip('Deck: import, reset, mulligan', 'end')}>
         <Icon name="deck" />
-        <span>Deck ▾</span>
+        <span className="action-label">Deck ▾</span>
       </button>
     </div>
   );

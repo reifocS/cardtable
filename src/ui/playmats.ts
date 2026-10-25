@@ -20,6 +20,7 @@ export const PLAYMATS = [
 
 /** Built-in sleeves (card backs), drawn in CSS (see .sleeve-* in styles.css). */
 export const SLEEVES = [
+  { id: 'official', name: 'Official' },
   { id: 'classic', name: 'Classic' },
   { id: 'midnight', name: 'Midnight' },
   { id: 'crimson', name: 'Crimson' },
@@ -67,10 +68,12 @@ export function matShader(mat: string | undefined) {
   return SHADERS[mat ? matId(mat) : 'felt'] ?? SHADERS.felt;
 }
 
-/** Class and style for a card back in a player's sleeves (default: classic). */
+/** Class and style for a card back in a player's sleeves (default: the official back). */
 export function sleeveLook(sleeve: string | undefined): { className: string; style?: React.CSSProperties } {
   if (sleeve?.startsWith('url:')) return { className: 'sleeve-image', style: { '--sleeve-image': `url("${sleeve.slice(4)}")` } as React.CSSProperties };
-  return { className: SLEEVES.some((x) => x.id === sleeve) && sleeve !== 'classic' ? `sleeve-${sleeve}` : '' };
+  if (sleeve === 'classic') return { className: '' };
+  // Until a player picks sleeves, their cards show the game's own back.
+  return { className: `sleeve-${SLEEVES.some((x) => x.id === sleeve) ? sleeve : 'official'}` };
 }
 
 export function loadSleevePref(): string | null {

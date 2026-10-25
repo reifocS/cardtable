@@ -186,6 +186,24 @@ kbd {
   padding: 0 10px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+  /* Sizes its items to its own width, like my bar below. */
+  container-type: inline-size;
+}
+.topbar > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+@container (max-width: 1000px) {
+  .topbar .code-word,
+  .topbar .seat-word {
+    display: none;
+  }
+}
+@container (max-width: 760px) {
+  .topbar .me-name,
+  .topbar .brand {
+    display: none;
+  }
 }
 .brand {
   font-weight: 700;
@@ -194,11 +212,12 @@ kbd {
 .code {
   font-family: ui-monospace, monospace;
 }
-.status {
+/* Takes what room is left, cut short only when it must (the whole text is in its tooltip). */
+.topbar > .status {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: 12px;
   color: var(--muted);
-  max-width: 320px;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -210,6 +229,14 @@ kbd {
   font-weight: 600;
   background: none;
   border-color: transparent;
+  white-space: nowrap;
+}
+.turn-name {
+  display: inline-block;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 
 .table {
@@ -592,16 +619,22 @@ body.dragging * {
   height: 100%;
   border: 1px dashed #ffffff30;
   border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff24;
 }
 .pile-count {
   position: absolute;
   bottom: 3px;
   right: 3px;
-  background: #000c;
-  font-size: 11px;
+  background: #000d;
+  font-size: 14px;
+  line-height: 1.25;
   font-weight: 700;
-  padding: 0 5px;
-  border-radius: 4px;
+  padding: 0 6px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px #ffffff26;
   pointer-events: none;
 }
 .pile-label {
@@ -612,13 +645,60 @@ body.dragging * {
   width: 40px;
 }
 .pile.small .pile-count {
-  font-size: 10px;
-  padding: 0 3px;
+  font-size: 12px;
+  padding: 0 4px;
   bottom: 1px;
   right: 1px;
 }
+/* Which pile it is, over its top card. */
+.pile-icon {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  display: flex;
+  padding: 3px;
+  border-radius: 5px;
+  background: #000d;
+  color: #e9e2d0;
+  box-shadow: 0 0 0 1px #ffffff26;
+  pointer-events: none;
+}
+.pile.small .pile-icon {
+  top: 1px;
+  left: 1px;
+  padding: 2px;
+}
 .pile.small .pile-label {
   display: none;
+}
+/* One opponent: their piles, hand and counters, readable from across the table. */
+.opponents.duel .pile.small .pile-slot {
+  width: 64px;
+}
+.opponents.duel .pile.small .pile-count {
+  font-size: 14px;
+  padding: 0 5px;
+  bottom: 2px;
+  right: 2px;
+}
+.opponents.duel .pile.small .pile-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.opponents.duel .pile.small .pile-empty svg {
+  width: 30px;
+  height: 30px;
+}
+.opponents.duel .hand.compact {
+  --hand-card-h: 90px;
+  min-height: 94px;
+}
+.opponents.duel .opponent .player-name {
+  font-size: 18px;
+  max-width: 200px;
+}
+.opponents.duel .trackers.compact .tracker.life .tracker-value {
+  font-size: 22px;
 }
 
 .hand {
@@ -1104,6 +1184,45 @@ body.dragging * {
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
+  white-space: nowrap;
+}
+/* My bar sizes its buttons to its own width (the side panel takes its share of the window). */
+.area.mine > .player-header {
+  container-type: inline-size;
+}
+.area.mine > .player-header .player-name {
+  flex-shrink: 0;
+  min-width: 5ch;
+}
+@container (max-width: 1000px) {
+  .actions .action-label:not(.pass-label) {
+    display: none;
+  }
+  .actions .action {
+    padding: 5px 8px;
+  }
+}
+@container (max-width: 820px) {
+  .actions .pass-label,
+  .actions .turn-name {
+    display: none;
+  }
+  .actions {
+    gap: 4px;
+  }
+}
+@container (max-width: 700px) {
+  .actions .action {
+    padding: 5px 6px;
+  }
+  .area.mine > .player-header .turn-badge {
+    display: none;
+  }
+}
+/* Never past its own edge: when even icons don't fit, the buttons take a second line. */
+.area.mine > .player-header {
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 .area.mine > .player-header {
   min-height: 48px;
@@ -1848,6 +1967,14 @@ body.dragging .stack-zone {
 
 /* ---- sleeves: each player's card backs, seen by everyone (ui/playmats.ts) ---- */
 
+/* The game's own back (Scryfall's scan of Magic's), over the classic design while it loads or if it can't. */
+.card-back.sleeve-official {
+  background:
+    url("https://backs.scryfall.io/normal/0/a/0aeebaf5-8c7d-4636-9e82-8c27447861f7.jpg") 0 0 / 100% 100%,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%23d6a24e' stroke-opacity='1' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%23d6a24e' stroke-opacity='0.60' stroke-width='0.4'/%3E%3Cpath d='M12 9.5 L14.5 12 L12 14.5 L9.5 12Z' fill='%23d6a24e'/%3E%3Cpath d='M60 9.5 L62.5 12 L60 14.5 L57.5 12Z' fill='%23d6a24e'/%3E%3Cpath d='M12 85.5 L14.5 88 L12 90.5 L9.5 88Z' fill='%23d6a24e'/%3E%3Cpath d='M60 85.5 L62.5 88 L60 90.5 L57.5 88Z' fill='%23d6a24e'/%3E%3Ccircle cx='36' cy='50' r='16' fill='none' stroke='%23d6a24e' stroke-width='0.8'/%3E%3Ccircle cx='36' cy='50' r='13' fill='none' stroke='%23d6a24e' stroke-width='0.35' stroke-dasharray='1 1.4'/%3E%3Cpath d='M36.00 35.00 L37.61 46.12 L46.61 39.39 L39.88 48.39 L51.00 50.00 L39.88 51.61 L46.61 60.61 L37.61 53.88 L36.00 65.00 L34.39 53.88 L25.39 60.61 L32.12 51.61 L21.00 50.00 L32.12 48.39 L25.39 39.39 L34.39 46.12Z' fill='%23c9923f'/%3E%3Cpath d='M39.44 41.69 L37.84 48.16 L44.31 46.56 L38.60 50.00 L44.31 53.44 L37.84 51.84 L39.44 58.31 L36.00 52.60 L32.56 58.31 L34.16 51.84 L27.69 53.44 L33.40 50.00 L27.69 46.56 L34.16 48.16 L32.56 41.69 L36.00 47.40Z' fill='%23f0c879'/%3E%3Ccircle cx='36' cy='50' r='1.8' fill='%233b2a1e'/%3E%3C/svg%3E") 0 0 / 100% 100%,
+    linear-gradient(135deg, #3b2a1e, #6b4a2e 50%, #3b2a1e);
+  box-shadow: none;
+}
 .card-back.sleeve-midnight {
   background:
     linear-gradient(115deg, transparent 30%, #ffffff12 45%, transparent 58%),

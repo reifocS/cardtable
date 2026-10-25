@@ -321,7 +321,8 @@ export function Table() {
       <main className="table">
         {opponents.length > 0 && (
           <div
-            className="opponents"
+            // Face to face, the one opponent has the whole width: their header can be bigger.
+            className={`opponents${opponents.length === 1 ? ' duel' : ''}`}
             style={{
               flexBasis: `${layout.share}%`,
               gridTemplateColumns: `repeat(${layout.rows.length === 1 ? layout.rows[0] : layout.rows[0] * layout.rows[1]}, minmax(0, 1fr))`,

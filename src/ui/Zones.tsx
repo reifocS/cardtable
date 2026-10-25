@@ -5,6 +5,7 @@ import { STACK, draw, openMenu, openViewer, zoneMenu } from './actions';
 import { CardBack, CardView, FaceView } from './CardView';
 import { onBoardPointerDown } from './drag';
 import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
+import { Icon, type IconName } from './Icon';
 import { matLook, matShader } from './playmats';
 import { ShaderMat } from './ShaderMat';
 import { setBoardLayout, useStore } from './store';
@@ -256,12 +257,22 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
   );
 }
 
+/** Icons for the piles the built-in preset has; other games' piles go without. */
+const PILE_ICONS: Record<string, IconName | undefined> = {
+  library: 'deck',
+  graveyard: 'graveyard',
+  exile: 'exile',
+  command: 'command',
+  sideboard: 'sideboard',
+};
+
 /** A stack: shows its top card and a count. Click opens it (or draws, for your library). */
 export function Pile({ zone, state, small }: { zone: Zone; state: GameState; small?: boolean }) {
   const me = useStore((s) => s.me);
   const top = zone.cards[0] ? state.cards[zone.cards[0]] : undefined;
   const isMyLibrary = zone.role === 'library' && zone.owner === me;
   const onClick = () => (isMyLibrary ? draw() : openViewer(zone));
+  const icon = PILE_ICONS[zone.role];
 
   // A freshly loaded deck: draw the eye to the library, where drawing starts.
   const count = zone.cards.length;
@@ -291,7 +302,13 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
         {top ? (
           <CardView card={top} zone={zone} pileTop />
         ) : (
-          <div className="pile-empty" />
+          <div className="pile-empty">{icon && <Icon name={icon} size={small ? 22 : 34} />}</div>
+        )}
+        {/* Which pile this is, even where its name doesn't fit (opponents' small piles). */}
+        {top && icon && (
+          <span className="pile-icon">
+            <Icon name={icon} size={small ? 13 : 16} />
+          </span>
         )}
         <span className="pile-count">{zone.cards.length}</span>
         {attention && <span className="pile-bubble">Your deck · click to draw</span>}
