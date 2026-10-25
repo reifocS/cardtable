@@ -5,7 +5,8 @@ import { STACK, draw, openMenu, openViewer, zoneMenu } from './actions';
 import { CardBack, CardView, FaceView } from './CardView';
 import { onBoardPointerDown } from './drag';
 import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
-import { matLook } from './playmats';
+import { matLook, matShader } from './playmats';
+import { ShaderMat } from './ShaderMat';
 import { setBoardWidth, useStore } from './store';
 import { tip } from './tip';
 
@@ -92,9 +93,12 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
   useLayoutEffect(() => {
     if (size.w) setBoardWidth(zone.id, width);
   }, [zone.id, width, size.w]);
-  const mat = matLook(state.players[zone.owner]?.playmat);
+  const playmat = state.players[zone.owner]?.playmat;
+  const mat = matLook(playmat);
+  const shader = matShader(playmat);
   return (
     <div className={`board-wrap ${mat.className}`} style={mat.style} ref={wrap}>
+      {shader && <ShaderMat fragment={shader} />}
       <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} top={top}>
         {children}
       </Surface>

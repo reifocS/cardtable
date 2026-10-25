@@ -279,7 +279,7 @@ export const PRESETS: DevPreset[] = [
   {
     id: 'six',
     name: 'Six players',
-    covers: 'Extreme layout: five opponent headers and boards side by side',
+    covers: 'Extreme layout: five opponent headers and boards side by side, three shader playmats at once',
     decks: DECKS,
     build(b) {
       const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank Withaverylongname'];
@@ -293,6 +293,7 @@ export const PRESETS: DevPreset[] = [
       });
       b.row(ids[1], ['Goblin Guide', 'Monastery Swiftspear'], 0, { start: 300, step: 300 });
       b.row(ids[4], ['Grizzly Bears', 'Llanowar Elves', 'Grizzly Bears'], 0, { start: 150, step: 300 });
+      for (const p of [ids[0], ids[1], ids[4]]) b.op(p, { type: 'setPlaymat', mat: 'storm' });
       return ids[0];
     },
   },

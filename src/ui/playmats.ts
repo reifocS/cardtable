@@ -1,4 +1,5 @@
 import type React from 'react';
+import { STORM } from './shaders/storm';
 
 /** Built-in playmats, drawn in CSS (see .mat-* in styles.css). */
 export const PLAYMATS = [
@@ -8,6 +9,7 @@ export const PLAYMATS = [
   { id: 'arcane', name: 'Arcane' },
   { id: 'stone', name: 'Stone' },
   { id: 'grass', name: 'Grass' },
+  { id: 'storm', name: 'Stormy sea' },
 ] as const;
 
 /** Built-in sleeves (card backs), drawn in CSS (see .sleeve-* in styles.css). */
@@ -41,6 +43,11 @@ export function matLook(mat: string | undefined): { className: string; style?: R
   const id = mat && PLAYMATS.some((m) => m.id === matId(mat)) ? matId(mat) : 'felt';
   return { className: `mat mat-${id}` };
 }
+
+/** Playmats painted live by a fragment shader (see ShaderMat); their CSS look is the fallback. */
+const SHADERS: Record<string, string> = { storm: STORM };
+
+export const matShader = (mat: string | undefined) => (mat ? SHADERS[matId(mat)] : undefined);
 
 /** Class and style for a card back in a player's sleeves (default: classic). */
 export function sleeveLook(sleeve: string | undefined): { className: string; style?: React.CSSProperties } {
