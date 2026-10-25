@@ -589,6 +589,36 @@ body.dragging * {
   padding: 6px 10px;
   background: #0004;
   min-width: 0;
+  /* Piles shrink with the room the tray has (below); past that it scrolls sideways, never over the side panel. */
+  container-type: inline-size;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff30 transparent;
+}
+.tray > .hand {
+  /* My hand keeps room for a slice of every card. */
+  min-width: 160px;
+}
+@container (max-width: 760px) {
+  .tray-piles .pile-slot {
+    width: 64px;
+  }
+  .tray-piles {
+    gap: 6px;
+  }
+}
+@container (max-width: 560px) {
+  .tray-piles .pile-slot {
+    width: 48px;
+  }
+  .tray-piles .pile-label {
+    display: none;
+  }
+  .tray-piles .pile-empty svg {
+    width: 22px;
+    height: 22px;
+  }
 }
 .tray-piles {
   display: flex;
@@ -743,6 +773,58 @@ body.dragging * {
   min-height: 60px;
   /* An opponent's hand never vanishes: at worst its cards overlap down to slivers. */
   min-width: 120px;
+}
+/* Too narrow to spread out: the hand folds into a pile, its top card and how many it holds. */
+@container (max-width: 280px) {
+  .hand.compact {
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    position: relative;
+  }
+  /* Folded into one card: a card revealed to me if there is one (the last in the hand), else the top. Clicking
+     the hand still opens all of it. */
+  .hand.compact:not(:has(.seen)) .hand-slot:not(:last-child),
+  .hand.compact:has(.seen) .hand-slot:not(.seen),
+  .hand.compact .hand-slot.seen:has(~ .seen) {
+    display: none;
+  }
+  .hand.compact .hand-slot {
+    flex: 0 0 40px;
+  }
+  .hand.compact .card {
+    height: auto;
+    width: 40px;
+  }
+  .hand.compact:not([data-count='0'])::after {
+    content: attr(data-count);
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    background: #000d;
+    font-size: 12px;
+    line-height: 1.25;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 5px;
+    box-shadow: 0 0 0 1px #ffffff26;
+    pointer-events: none;
+  }
+}
+/* Narrower still (five or six players on a small screen): smaller piles, so all five fit. */
+@container (max-width: 250px) {
+  .opp-zones .pile.small .pile-slot,
+  .hand.compact .hand-slot {
+    width: 32px;
+    flex-basis: 32px;
+  }
+  .hand.compact .card {
+    width: 32px;
+  }
+  .opp-zones .pile-icon {
+    display: none;
+  }
 }
 .hand.compact .card:hover {
   transform: none;
@@ -1247,6 +1329,8 @@ body.dragging * {
   flex-shrink: 0;
 }
 .opp-zones {
+  /* Lets an opponent's hand fold into a pile when the row is too narrow for it (see .hand.compact). */
+  container-type: inline-size;
   /* Never squeezed past piles plus a slice of every card in hand: it takes a line of its own first. */
   /* Leaves room on its line for the zoom button. */
   flex: 1 1 min(100% - 56px, 360px);
@@ -1254,7 +1338,11 @@ body.dragging * {
   display: flex;
   align-items: center;
   gap: 5px;
-  overflow: hidden;
+  /* When even the folded layout doesn't fit, the row scrolls sideways rather than cut cards off. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff30 transparent;
   /* Room inside the clip for selection outlines and hover rings. */
   padding: 5px;
 }

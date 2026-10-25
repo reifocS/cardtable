@@ -327,13 +327,15 @@ export function Hand({ zone, state, compact }: { zone: Zone; state: GameState; c
     <div
       className={`hand${compact ? ' compact' : ''}`}
       data-drop-zone={zone.id}
+      data-count={zone.cards.length}
       onContextMenu={(e) => e.target === e.currentTarget && openMenu(e, zoneMenu(zone))}
     >
       {zone.cards.map((id) => {
         const c = state.cards[id];
         return (
           c && (
-            <div key={id} className="hand-slot">
+            // A card I can see in someone else's hand (revealed to me): what the hand shows when it folds.
+            <div key={id} className={`hand-slot${compact && c.faces.length ? ' seen' : ''}`}>
               <CardView card={c} zone={zone} />
             </div>
           )
