@@ -11,8 +11,8 @@ float height(vec2 p) {
 }
 
 void main() {
-  vec2 p = gl_FragCoord.xy / uPixels;
-  vec2 uv = gl_FragCoord.xy / uSize;
+  vec2 p = boardFrag() / uPixels;
+  vec2 uv = boardFrag() / uSize;
   float e = 0.1;
   float h = height(p);
   vec3 n = normalize(vec3(h - height(p + vec2(e, 0.0)), h - height(p + vec2(0.0, e)), e * 0.4));

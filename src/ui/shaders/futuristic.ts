@@ -26,8 +26,8 @@ float pulses(float along, float across, float lineId, float seed) {
 }
 
 void main() {
-  vec2 p = gl_FragCoord.xy / uPixels;
-  vec2 uv = gl_FragCoord.xy / uSize;
+  vec2 p = boardFrag() / uPixels;
+  vec2 uv = boardFrag() / uSize;
 
   vec3 c = mix(vec3(0.016, 0.035, 0.07), vec3(0.04, 0.09, 0.17), smoothstep(1.0, 0.1, length(uv - vec2(0.5, 0.45))));
   c += vec3(0.0, 0.25, 0.35) * 0.35 * smoothstep(0.4, 0.0, uv.y);

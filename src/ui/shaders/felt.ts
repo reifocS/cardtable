@@ -6,8 +6,8 @@ import { COMMON } from './common';
  */
 export const FELT = `${COMMON}
 void main() {
-  vec2 p = gl_FragCoord.xy / uPixels;
-  vec2 uv = gl_FragCoord.xy / uSize;
+  vec2 p = boardFrag() / uPixels;
+  vec2 uv = boardFrag() / uSize;
 
   // Fibres running both ways, and the fuzz between them.
   float warp = noise(vec2(p.x * 38.0, p.y * 7.0));

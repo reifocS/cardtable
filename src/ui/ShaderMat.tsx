@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type React from 'react';
 
 /** Covers the canvas with one triangle; no buffers needed. */
 const VERTEX = `#version 300 es
@@ -44,14 +45,30 @@ function link(gl: WebGL2RenderingContext, fragment: string) {
   return program;
 }
 
+interface Props {
+  fragment: string;
+  /** Animated; a still shader is drawn once per size, at full resolution, and costs nothing after. */
+  moving: boolean;
+  /** The board, when this canvas is a fixed window onto one that scrolls and zooms (the zoomed view). */
+  track?: React.RefObject<HTMLElement | null>;
+  /** How much bigger than on the table the board is shown, so the playmat grows with it. */
+  zoom?: number;
+  /** Covered (by the zoomed view): no need to draw. */
+  paused?: boolean;
+}
+
 /**
  * A playmat painted by a fragment shader, under the cards. A moving one animates at 30 fps while on
  * screen and shows a still frame when playmat animations are off (or the system asks for less
- * motion); a still one is drawn once per size, at full resolution, and costs nothing after. Without
- * WebGL the CSS look stays.
+ * motion). Without WebGL the CSS look stays.
  */
-export function ShaderMat({ fragment, moving }: { fragment: string; moving: boolean }) {
+export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  // Read every frame, so zooming or covering doesn't rebuild the WebGL context.
+  const live = useRef({ zoom, paused });
+  useEffect(() => {
+    live.current = { zoom, paused };
+  }, [zoom, paused]);
 
   useEffect(() => {
     // A fresh canvas each time: a context given back in cleanup can't be had again from the same one.
@@ -65,6 +82,7 @@ export function ShaderMat({ fragment, moving }: { fragment: string; moving: bool
     host.dataset.live = '';
     gl.bindVertexArray(gl.createVertexArray());
     const uSize = gl.getUniformLocation(program, 'uSize');
+    const uOrigin = gl.getUniformLocation(program, 'uOrigin');
     const uPixels = gl.getUniformLocation(program, 'uPixels');
     const uTime = gl.getUniformLocation(program, 'uTime');
 
@@ -72,10 +90,33 @@ export function ShaderMat({ fragment, moving }: { fragment: string; moving: bool
     const animated = () => !reduced.matches && !document.documentElement.classList.contains('mats-still');
     let onScreen = true;
     let stale = true;
+    let placed = '';
     const draw = (time: number) => {
       gl.uniform1f(uTime, time);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       stale = false;
+    };
+
+    // Where the board is under the canvas, and how big: the canvas itself, unless tracking one.
+    const place = () => {
+      const px = canvas.width / Math.max(1, canvas.clientWidth);
+      let origin = [0, 0];
+      let size = [canvas.width, canvas.height];
+      const board = track?.current;
+      if (board) {
+        const b = board.getBoundingClientRect();
+        const c = canvas.getBoundingClientRect();
+        origin = [(c.left - b.left) * px, (b.bottom - c.bottom) * px];
+        size = [b.width * px, b.height * px];
+      }
+      const pixels = UNIT_PX * px * live.current.zoom;
+      const key = `${origin}|${size}|${pixels}`;
+      if (key === placed) return;
+      placed = key;
+      gl.uniform2f(uOrigin, origin[0], origin[1]);
+      gl.uniform2f(uSize, size[0], size[1]);
+      gl.uniform1f(uPixels, pixels);
+      stale = true;
     };
 
     const resize = () => {
@@ -83,10 +124,9 @@ export function ShaderMat({ fragment, moving }: { fragment: string; moving: bool
       canvas.width = Math.max(1, Math.round(canvas.clientWidth * scale));
       canvas.height = Math.max(1, Math.round(canvas.clientHeight * scale));
       gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(uSize, canvas.width, canvas.height);
-      gl.uniform1f(uPixels, UNIT_PX * scale);
-      stale = true;
-      if (!moving) draw(STILL_TIME);
+      placed = '';
+      place();
+      if (!moving && !track) draw(STILL_TIME);
     };
     const sized = new ResizeObserver(resize);
     sized.observe(canvas);
@@ -97,17 +137,19 @@ export function ShaderMat({ fragment, moving }: { fragment: string; moving: bool
     let last = 0;
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
-      if (!onScreen) return;
-      if (animated()) {
+      if (!onScreen || live.current.paused) return;
+      place();
+      if (moving && animated()) {
         if (now - last < FRAME_MS) return;
         last = now;
         draw((now - EPOCH) / 1000);
       } else if (stale) {
-        // Still: one moment, early in a period, when the storm shader can't be mid-strike.
+        // Still: one moment, early in a period, when no shader is mid-strike or mid-flight.
         draw(STILL_TIME);
       }
     };
-    if (moving) raf = requestAnimationFrame(tick);
+    // A still playmat on the table never needs a frame loop; one that scrolls and zooms does.
+    if (moving || track) raf = requestAnimationFrame(tick);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -118,7 +160,7 @@ export function ShaderMat({ fragment, moving }: { fragment: string; moving: bool
       canvas.remove();
       delete host.dataset.live;
     };
-  }, [fragment, moving]);
+  }, [fragment, moving, track]);
 
   return <div ref={ref} className="shader-mat" aria-hidden />;
 }

@@ -63,8 +63,8 @@ export interface Store {
   targetMode: 'arrow' | 'attach';
   /** Cards to attach once the host is picked. */
   attachCards: CardId[];
-  /** Logical width each battlefield is laid out at on this screen (see Board). */
-  boardWidths: Record<ZoneId, number>;
+  /** How each battlefield is laid out on this screen: logical width and scale (see Board). */
+  boardLayouts: Record<ZoneId, { width: number; scale: number }>;
   /** Faces of the last token I created, for "Create another". */
   lastToken: CardFace[] | null;
 
@@ -99,7 +99,7 @@ export const useStore = create<Store>((set, get) => ({
   targeting: null,
   targetMode: 'arrow',
   attachCards: [],
-  boardWidths: {},
+  boardLayouts: {},
   lastToken: null,
 
   connect(session) {
@@ -155,8 +155,11 @@ export function targetCards(hint?: CardId): CardId[] {
   return selection;
 }
 
-export function setBoardWidth(zone: ZoneId, width: number) {
-  useStore.setState((s) => (s.boardWidths[zone] === width ? s : { boardWidths: { ...s.boardWidths, [zone]: width } }));
+export function setBoardLayout(zone: ZoneId, width: number, scale: number) {
+  useStore.setState((s) => {
+    const was = s.boardLayouts[zone];
+    return was?.width === width && was.scale === scale ? s : { boardLayouts: { ...s.boardLayouts, [zone]: { width, scale } } };
+  });
 }
 
 export function ask(title: string, value: string, submit: (v: string) => void) {

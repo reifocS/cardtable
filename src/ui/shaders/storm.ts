@@ -63,7 +63,7 @@ float lightning(float t) {
 }
 
 void main() {
-  vec2 p = gl_FragCoord.xy / uPixels;
+  vec2 p = boardFrag() / uPixels;
   float e = 0.04;
   float h = sea(p);
   vec3 n = normalize(vec3(h - sea(p + vec2(e, 0.0)), h - sea(p + vec2(0.0, e)), e * 2.2));
@@ -99,7 +99,7 @@ void main() {
 
   c += lightning(uTime) * vec3(0.55, 0.62, 0.75) * (0.35 + 0.65 * diffuse);
 
-  vec2 uv = gl_FragCoord.xy / uSize;
+  vec2 uv = boardFrag() / uSize;
   c *= 0.75 + 0.25 * smoothstep(0.9, 0.2, length(uv - 0.5));
   color = vec4(c, 1.0);
 }

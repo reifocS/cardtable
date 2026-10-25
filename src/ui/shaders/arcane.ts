@@ -37,7 +37,7 @@ float shootingStar(vec2 uv) {
 }
 
 void main() {
-  vec2 frag = gl_FragCoord.xy;
+  vec2 frag = boardFrag();
   vec2 uv = frag / uSize;
   vec2 p = frag / uPixels * 0.3;
   float t = uTime * 0.02;

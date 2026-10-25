@@ -1185,6 +1185,7 @@ body.dragging * {
 
 .zoom-board {
   position: relative;
+  isolation: isolate;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -1640,6 +1641,10 @@ body.dragging .stack-zone {
   pointer-events: none;
 }
 /* A live shader replaces the theme's CSS layers; without WebGL they stay. */
+.zoom-board:has(> .shader-mat[data-live]) > .zoom-scroll {
+  background: none;
+  box-shadow: none;
+}
 .board-wrap:has(> .shader-mat[data-live])::before,
 .board-wrap:has(> .shader-mat[data-live])::after {
   content: none;

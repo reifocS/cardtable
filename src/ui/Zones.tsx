@@ -7,7 +7,7 @@ import { onBoardPointerDown } from './drag';
 import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
 import { matLook, matShader } from './playmats';
 import { ShaderMat } from './ShaderMat';
-import { setBoardWidth, useStore } from './store';
+import { setBoardLayout, useStore } from './store';
 import { tip } from './tip';
 
 /** Size of the element `ref` points at, kept up to date. */
@@ -89,16 +89,18 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
   const wrap = useRef<HTMLDivElement>(null);
   const size = useSize(wrap);
   const { scale, width, top } = fitBoard(size.w, size.h);
-  // The zoomed view reuses this width, so its cards keep exactly the same arrangement.
+  // The zoomed view reuses this layout: same arrangement of cards, same playmat, only bigger.
   useLayoutEffect(() => {
-    if (size.w) setBoardWidth(zone.id, width);
-  }, [zone.id, width, size.w]);
+    if (size.w) setBoardLayout(zone.id, width, scale);
+  }, [zone.id, width, scale, size.w]);
+  // The zoomed view covers the whole table while it's open.
+  const covered = useStore((s) => s.focus !== null);
   const playmat = state.players[zone.owner]?.playmat;
   const mat = matLook(playmat);
   const shader = matShader(playmat);
   return (
     <div className={`board-wrap ${mat.className}`} style={mat.style} ref={wrap}>
-      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} />}
+      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} paused={covered} />}
       <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} top={top}>
         {children}
       </Surface>
@@ -150,9 +152,13 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
   // Scroll position for the next scale, applied once it's on screen.
   const pending = useRef<{ left: number; top: number } | null>(null);
 
-  const width = useStore((s) => s.boardWidths[zone.id]) ?? 1000;
+  const layout = useStore((s) => s.boardLayouts[zone.id]);
+  const width = layout?.width ?? 1000;
   const box = cardsBox(zone, state, width, flipped);
-  const mat = matLook(state.players[zone.owner]?.playmat);
+  const playmat = state.players[zone.owner]?.playmat;
+  const mat = matLook(playmat);
+  const shader = matShader(playmat);
+  const sizer = useRef<HTMLDivElement>(null);
   const measured = size.w > 0 && size.h > 0;
   const fitBoardScale = measured ? Math.min(size.w / width, size.h / VIEW_H) : 1;
   const fitCardsScale = measured ? Math.min(size.w / box.w, size.h / box.h) : 1;
@@ -225,8 +231,9 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
 
   return (
     <div className="zoom-board">
+      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} track={sizer} zoom={scale / (layout?.scale ?? 1)} />}
       <div className={`zoom-scroll ${mat.className}`} style={mat.style} ref={wrap}>
-        <div className="zoom-sizer" style={{ width: width * scale, height: VIEW_H * scale }}>
+        <div className="zoom-sizer" ref={sizer} style={{ width: width * scale, height: VIEW_H * scale }}>
           <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} />
         </div>
       </div>

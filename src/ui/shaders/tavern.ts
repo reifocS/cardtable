@@ -37,8 +37,8 @@ vec3 wood(vec2 p) {
 }
 
 void main() {
-  vec2 p = gl_FragCoord.xy / uPixels;
-  vec2 uv = gl_FragCoord.xy / uSize;
+  vec2 p = boardFrag() / uPixels;
+  vec2 uv = boardFrag() / uSize;
   vec3 c = wood(p);
 
   // The hearth, below the table's edge: it breathes, and its light drifts from side to side.

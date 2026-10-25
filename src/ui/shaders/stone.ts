@@ -10,8 +10,8 @@ vec2 jitter(vec2 cell) {
 }
 
 void main() {
-  vec2 p = gl_FragCoord.xy / uPixels;
-  vec2 uv = gl_FragCoord.xy / uSize;
+  vec2 p = boardFrag() / uPixels;
+  vec2 uv = boardFrag() / uSize;
 
   // Flagstones: cells around scattered points, the mortar where two are equally near.
   vec2 q = p * 0.55 + 0.25 * vec2(fbm(p * 0.8), fbm(p * 0.8 + 5.0));
