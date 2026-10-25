@@ -222,6 +222,11 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
   if (ids.every((id) => state.cards[id]?.token)) {
     items.push({ label: '', heading: true }, { label: `Delete token${many}`, hint: 'Del', action: () => act({ type: 'delete', cards: ids }) });
   }
+  // A full hand leaves no bare spot to right-click, so its own menu rides along on each card.
+  if (zone.role === 'hand') {
+    const handItems = zoneMenu(zone);
+    if (handItems.length) items.push({ label: 'Hand', heading: true }, ...handItems);
+  }
   return items;
 }
 
