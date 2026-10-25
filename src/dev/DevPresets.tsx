@@ -19,8 +19,11 @@ async function openPreset(p: DevPreset) {
     const { state, me } = await buildPreset(p);
     const saved = { code: makeCode(), me, state, savedAt: Date.now(), controlled: p.controlsAll ? state.seats : undefined };
     const session = new HostSession(state.players[me].name, saved, { persist: false, keepPresence: true });
+    // &mat=<id> tries a playmat on my board, whatever the preset gives it.
+    const mat = new URLSearchParams(location.search).get('mat');
+    if (mat) session.dispatch({ type: 'setPlaymat', mat });
     useStore.getState().connect(session);
-    history.replaceState(null, '', `?preset=${p.id}`);
+    history.replaceState(null, '', `?preset=${p.id}${mat ? `&mat=${encodeURIComponent(mat)}` : ''}`);
     requestAnimationFrame(() =>
       p.after?.({ me, state: session.getState(), dispatch: (op) => session.dispatch(op), set: (s) => useStore.setState(s) }),
     );

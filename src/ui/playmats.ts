@@ -1,5 +1,6 @@
 import type React from 'react';
 import { ARCANE } from './shaders/arcane';
+import { HIGHLANDS } from './shaders/highlands';
 import { STORM } from './shaders/storm';
 import { TAVERN } from './shaders/tavern';
 
@@ -10,7 +11,7 @@ export const PLAYMATS = [
   { id: 'tavern', name: 'Tavern' },
   { id: 'arcane', name: 'Arcane' },
   { id: 'stone', name: 'Stone' },
-  { id: 'grass', name: 'Grass' },
+  { id: 'highlands', name: 'Highlands' },
   { id: 'storm', name: 'Stormy sea' },
 ] as const;
 
@@ -28,7 +29,7 @@ const STILL_KEY = 'cardtable:stillMats';
 const SLEEVE_KEY = 'cardtable:sleeve';
 
 /** Themes that were renamed, as saved games and preferences may still name them. */
-const RENAMED: Record<string, string> = { medieval: 'tavern' };
+const RENAMED: Record<string, string> = { medieval: 'tavern', grass: 'highlands' };
 
 /** The current id of a built-in playmat (or the value itself: another theme, a custom image). */
 export const matId = (mat: string) => RENAMED[mat] ?? mat;
@@ -47,7 +48,7 @@ export function matLook(mat: string | undefined): { className: string; style?: R
 }
 
 /** Playmats painted live by a fragment shader (see ShaderMat); their CSS look is the fallback. */
-const SHADERS: Record<string, string> = { storm: STORM, arcane: ARCANE, tavern: TAVERN };
+const SHADERS: Record<string, string> = { storm: STORM, arcane: ARCANE, tavern: TAVERN, highlands: HIGHLANDS };
 
 export const matShader = (mat: string | undefined) => (mat ? SHADERS[matId(mat)] : undefined);
 

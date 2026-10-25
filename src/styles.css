@@ -424,10 +424,10 @@ kbd {
 }
 .card-back {
   background:
-    radial-gradient(circle at 50% 50%, #c58b3a 0 12%, transparent 13%),
-    radial-gradient(circle at 50% 50%, transparent 0 22%, #c58b3a33 23% 25%, transparent 26%),
+    linear-gradient(115deg, transparent 30%, #ffffff12 45%, transparent 58%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%23d6a24e' stroke-opacity='1' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%23d6a24e' stroke-opacity='0.60' stroke-width='0.4'/%3E%3Cpath d='M12 9.5 L14.5 12 L12 14.5 L9.5 12Z' fill='%23d6a24e'/%3E%3Cpath d='M60 9.5 L62.5 12 L60 14.5 L57.5 12Z' fill='%23d6a24e'/%3E%3Cpath d='M12 85.5 L14.5 88 L12 90.5 L9.5 88Z' fill='%23d6a24e'/%3E%3Cpath d='M60 85.5 L62.5 88 L60 90.5 L57.5 88Z' fill='%23d6a24e'/%3E%3Ccircle cx='36' cy='50' r='16' fill='none' stroke='%23d6a24e' stroke-width='0.8'/%3E%3Ccircle cx='36' cy='50' r='13' fill='none' stroke='%23d6a24e' stroke-width='0.35' stroke-dasharray='1 1.4'/%3E%3Cpath d='M36.00 35.00 L37.61 46.12 L46.61 39.39 L39.88 48.39 L51.00 50.00 L39.88 51.61 L46.61 60.61 L37.61 53.88 L36.00 65.00 L34.39 53.88 L25.39 60.61 L32.12 51.61 L21.00 50.00 L32.12 48.39 L25.39 39.39 L34.39 46.12Z' fill='%23c9923f'/%3E%3Cpath d='M39.44 41.69 L37.84 48.16 L44.31 46.56 L38.60 50.00 L44.31 53.44 L37.84 51.84 L39.44 58.31 L36.00 52.60 L32.56 58.31 L34.16 51.84 L27.69 53.44 L33.40 50.00 L27.69 46.56 L34.16 48.16 L32.56 41.69 L36.00 47.40Z' fill='%23f0c879'/%3E%3Ccircle cx='36' cy='50' r='1.8' fill='%233b2a1e'/%3E%3C/svg%3E") 0 0 / 100% 100%,
     linear-gradient(135deg, #3b2a1e, #6b4a2e 50%, #3b2a1e);
-  box-shadow: inset 0 0 0 4px #20160f;
+  box-shadow: inset 0 0 0 3px #20160f;
 }
 .text-card {
   background: linear-gradient(#f4ecd8, #e2d6b8);
@@ -1619,15 +1619,13 @@ body.dragging .stack-zone {
     repeating-linear-gradient(90deg, #00000033 0 2px, transparent 2px 128px),
     radial-gradient(ellipse at center, #44484f, #272a30 80%);
 }
-.mat-grass {
+.mat-highlands {
+  /* Painted by a shader (ui/shaders/highlands.ts); without WebGL, moorland under drifting mist. */
   background:
-    radial-gradient(ellipse at center, transparent 45%, #06140a99 100%),
-    radial-gradient(#ffffff10 1px, transparent 1.5px) 0 0 / 23px 19px,
-    repeating-linear-gradient(80deg, #00000014 0 1px, transparent 1px 7px),
-    repeating-linear-gradient(100deg, #ffffff0a 0 1px, transparent 1px 9px),
-    radial-gradient(ellipse at 30% 40%, #4f8a3c, transparent 60%),
-    radial-gradient(ellipse at 75% 70%, #3f7a35, transparent 55%),
-    linear-gradient(#2f5e2a, #234a21);
+    radial-gradient(ellipse at center, transparent 45%, #08100bb3 100%),
+    radial-gradient(ellipse 30% 40% at 30% 35%, #4d6b3a, transparent 70%),
+    radial-gradient(ellipse 25% 35% at 72% 65%, #4a3a48b3, transparent 70%),
+    linear-gradient(#34502c, #263d22);
 }
 /* Stormy sea: painted by a shader (ui/shaders/storm.ts); this is what shows without WebGL. */
 .mat-storm {
@@ -1682,10 +1680,10 @@ body.dragging .stack-zone {
   }
 }
 
-/* Grass: two banks of mist drifting across at different speeds. The pattern repeats at half the
+/* Highlands (without WebGL): two banks of mist drifting across at different speeds. The pattern repeats at half the
    layer's width, so sliding it by half loops seamlessly. */
-.board-wrap.mat-grass::before,
-.board-wrap.mat-grass::after {
+.board-wrap.mat-highlands::before,
+.board-wrap.mat-highlands::after {
   content: '';
   top: 0;
   bottom: 0;
@@ -1698,7 +1696,7 @@ body.dragging .stack-zone {
   background-size: 50% 100%;
   animation: mat-drift 70s linear infinite;
 }
-.board-wrap.mat-grass::after {
+.board-wrap.mat-highlands::after {
   opacity: 0.7;
   background-position: 30% 0;
   transform: scaleY(-1);
@@ -1847,38 +1845,38 @@ body.dragging .stack-zone {
 
 .card-back.sleeve-midnight {
   background:
-    radial-gradient(circle at 50% 50%, #cfd8ff 0 6%, transparent 7%),
-    conic-gradient(from 0deg at 50% 50%, transparent 0 40deg, #9fb2ff33 40deg 50deg, transparent 50deg 130deg, #9fb2ff33 130deg 140deg, transparent 140deg 220deg, #9fb2ff33 220deg 230deg, transparent 230deg 310deg, #9fb2ff33 310deg 320deg, transparent 320deg),
+    linear-gradient(115deg, transparent 30%, #ffffff12 45%, transparent 58%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%239fb2ff' stroke-opacity='0.7' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%239fb2ff' stroke-opacity='0.42' stroke-width='0.4'/%3E%3Ccircle cx='14' cy='16' r='0.5' fill='%23dfe6ff' fill-opacity='0.8'/%3E%3Ccircle cx='25' cy='11' r='0.35' fill='%23dfe6ff' fill-opacity='0.6'/%3E%3Ccircle cx='52' cy='14' r='0.55' fill='%23dfe6ff' fill-opacity='0.9'/%3E%3Ccircle cx='60' cy='24' r='0.35' fill='%23dfe6ff' fill-opacity='0.6'/%3E%3Ccircle cx='11' cy='34' r='0.4' fill='%23dfe6ff' fill-opacity='0.7'/%3E%3Ccircle cx='63' cy='40' r='0.45' fill='%23dfe6ff' fill-opacity='0.7'/%3E%3Ccircle cx='18' cy='70' r='0.5' fill='%23dfe6ff' fill-opacity='0.8'/%3E%3Ccircle cx='57' cy='72' r='0.4' fill='%23dfe6ff' fill-opacity='0.6'/%3E%3Ccircle cx='28' cy='86' r='0.35' fill='%23dfe6ff' fill-opacity='0.6'/%3E%3Ccircle cx='48' cy='88' r='0.5' fill='%23dfe6ff' fill-opacity='0.8'/%3E%3Ccircle cx='62' cy='58' r='0.3' fill='%23dfe6ff' fill-opacity='0.5'/%3E%3Ccircle cx='10' cy='56' r='0.3' fill='%23dfe6ff' fill-opacity='0.5'/%3E%3Ccircle cx='40' cy='22' r='0.3' fill='%23dfe6ff' fill-opacity='0.5'/%3E%3Ccircle cx='33' cy='78' r='0.3' fill='%23dfe6ff' fill-opacity='0.5'/%3E%3Ccircle cx='36' cy='50' r='13.5' fill='none' stroke='%23aebcf5' stroke-width='0.6'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%280 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%2830 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%2860 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%2890 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28120 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28150 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28180 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28210 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28240 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28270 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28300 36 50%29'/%3E%3Cpath d='M36 32 L36 34.5' stroke='%23aebcf5' stroke-width='0.5' transform='rotate%28330 36 50%29'/%3E%3Cpath d='M40 39.5 A11 11 0 1 0 40 60.5 A8.6 8.6 0 1 1 40 39.5Z' fill='%23e6ebff'/%3E%3Ccircle cx='43' cy='45' r='0.7' fill='%23e6ebff'/%3E%3C/svg%3E") 0 0 / 100% 100%,
     radial-gradient(ellipse at center, #1d2b5c, #0a1030 80%);
-  box-shadow: inset 0 0 0 4px #060a1f, inset 0 0 0 6px #8fa3e84d;
+  box-shadow: inset 0 0 0 3px #060a1f;
 }
 .card-back.sleeve-crimson {
   background:
-    radial-gradient(circle at 50% 50%, #ffcf8a 0 8%, transparent 9%),
-    repeating-linear-gradient(45deg, #ffffff0d 0 6px, transparent 6px 12px),
+    linear-gradient(115deg, transparent 30%, #ffffff12 45%, transparent 58%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cpattern id='d' width='9' height='9' patternUnits='userSpaceOnUse' patternTransform='rotate%2845%29'%3E%3Cpath d='M0 0H9M0 0V9' stroke='%23e0a14a' stroke-opacity='0.28' stroke-width='0.45'/%3E%3Ccircle r='0.9' fill='%23e0a14a' fill-opacity='0.45'/%3E%3C/pattern%3E%3C/defs%3E%3Crect x='7.5' y='7.5' width='57' height='85' fill='url%28%23d%29'/%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%23e7b25c' stroke-opacity='1' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%23e7b25c' stroke-opacity='0.60' stroke-width='0.4'/%3E%3Cpath d='M12 9.5 L14.5 12 L12 14.5 L9.5 12Z' fill='%23e7b25c'/%3E%3Cpath d='M60 9.5 L62.5 12 L60 14.5 L57.5 12Z' fill='%23e7b25c'/%3E%3Cpath d='M12 85.5 L14.5 88 L12 90.5 L9.5 88Z' fill='%23e7b25c'/%3E%3Cpath d='M60 85.5 L62.5 88 L60 90.5 L57.5 88Z' fill='%23e7b25c'/%3E%3Cpath d='M36 31 L51 50 L36 69 L21 50Z' fill='%235e0d12' stroke='%23e7b25c' stroke-width='0.9'/%3E%3Cpath d='M36 35.5 L47.5 50 L36 64.5 L24.5 50Z' fill='none' stroke='%23e7b25c' stroke-width='0.35'/%3E%3Cpath d='M36 40 C42 46 41.5 53 36 59.5 C30.5 53 30 46 36 40Z' fill='%23f0b860'/%3E%3Cpath d='M36 47 C38.5 50 38.2 53.5 36 56.5 C33.8 53.5 33.5 50 36 47Z' fill='%23fff1c9'/%3E%3C/svg%3E") 0 0 / 100% 100%,
     radial-gradient(ellipse at center, #8e1c22, #3d070b 85%);
-  box-shadow: inset 0 0 0 4px #24040a, inset 0 0 0 6px #e0a14a66;
+  box-shadow: inset 0 0 0 3px #24040a;
 }
 .card-back.sleeve-emerald {
   background:
-    radial-gradient(circle at 50% 50%, #c8f7d4 0 7%, transparent 8%),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 10px, #ffffff12 10px 12px),
+    linear-gradient(115deg, transparent 30%, #ffffff12 45%, transparent 58%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%239be2b3' stroke-opacity='0.8' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%239be2b3' stroke-opacity='0.48' stroke-width='0.4'/%3E%3Cpath d='M34 7.5 q2 -2.5 4 0 q-2 2.5 -4 0Z' fill='%239be2b3' fill-opacity='0.8' transform='rotate%280 34 7.5%29'/%3E%3Cpath d='M34 92.5 q2 -2.5 4 0 q-2 2.5 -4 0Z' fill='%239be2b3' fill-opacity='0.8' transform='rotate%280 34 92.5%29'/%3E%3Cpath d='M5 48 q2 -2.5 4 0 q-2 2.5 -4 0Z' fill='%239be2b3' fill-opacity='0.8' transform='rotate%2890 5 48%29'/%3E%3Cpath d='M67 48 q2 -2.5 4 0 q-2 2.5 -4 0Z' fill='%239be2b3' fill-opacity='0.8' transform='rotate%2890 67 48%29'/%3E%3Ccircle cx='36' cy='50' r='17' fill='none' stroke='%239be2b3' stroke-width='0.7'/%3E%3Cg fill='none' stroke='%23c8f7d4' stroke-width='1.1'%3E%3Ccircle cx='36' cy='45' r='7.5'/%3E%3Ccircle cx='31.7' cy='52.5' r='7.5'/%3E%3Ccircle cx='40.3' cy='52.5' r='7.5'/%3E%3C/g%3E%3Ccircle cx='36' cy='50' r='2' fill='%23c8f7d4'/%3E%3C/svg%3E") 0 0 / 100% 100%,
     radial-gradient(ellipse at center, #1f7a4d, #08331f 85%);
-  box-shadow: inset 0 0 0 4px #04200f, inset 0 0 0 6px #9be2b366;
+  box-shadow: inset 0 0 0 3px #04200f;
 }
 .card-back.sleeve-circuit {
   background:
-    linear-gradient(#2de2ff26 1px, transparent 1px) 0 0 / 14px 14px,
-    linear-gradient(90deg, #2de2ff26 1px, transparent 1px) 0 0 / 14px 14px,
-    radial-gradient(circle at 50% 50%, #2de2ffcc 0 6%, transparent 7%),
+    linear-gradient(115deg, transparent 30%, #ffffff12 45%, transparent 58%),
+    radial-gradient(circle at 50% 50%, #2de2ff33, transparent 30%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%232de2ff' stroke-opacity='0.55' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%232de2ff' stroke-opacity='0.33' stroke-width='0.4'/%3E%3Cg fill='none' stroke='%232de2ff' stroke-opacity='0.55' stroke-width='0.6'%3E%3Cpath d='M28 44 H18 L13 39 V20'/%3E%3Cpath d='M28 48 H10'/%3E%3Cpath d='M44 44 H54 L59 39 V16'/%3E%3Cpath d='M44 52 H62'/%3E%3Cpath d='M32 42 V30 L26 24 V12'/%3E%3Cpath d='M40 42 V28 L46 22 V10'/%3E%3Cpath d='M32 58 V72 L24 80 V90'/%3E%3Cpath d='M40 58 V74 L50 84'/%3E%3Cpath d='M28 56 H20 L15 61 V82'/%3E%3Cpath d='M44 56 H52 L57 61 V76'/%3E%3C/g%3E%3Ccircle cx='13' cy='20' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='10' cy='48' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='59' cy='16' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='62' cy='52' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='26' cy='12' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='46' cy='10' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='24' cy='90' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='50' cy='84' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='15' cy='82' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Ccircle cx='57' cy='76' r='1.3' fill='%230b2236' stroke='%232de2ff' stroke-width='0.6'/%3E%3Crect x='28' y='42' width='16' height='16' rx='1.5' fill='%230b2236' stroke='%232de2ff' stroke-width='0.8'/%3E%3Cpath d='M31 40 V42M31 58 V60' stroke='%232de2ff' stroke-width='0.5'/%3E%3Cpath d='M34 40 V42M34 58 V60' stroke='%232de2ff' stroke-width='0.5'/%3E%3Cpath d='M37 40 V42M37 58 V60' stroke='%232de2ff' stroke-width='0.5'/%3E%3Cpath d='M40 40 V42M40 58 V60' stroke='%232de2ff' stroke-width='0.5'/%3E%3Crect x='32' y='46' width='8' height='8' rx='0.8' fill='%232de2ff' fill-opacity='0.85'/%3E%3C/svg%3E") 0 0 / 100% 100%,
     radial-gradient(ellipse at center, #0e2a44, #040c18 85%);
-  box-shadow: inset 0 0 0 4px #020610, inset 0 0 0 5px #2de2ff66;
+  box-shadow: inset 0 0 0 3px #020610;
 }
 /* The classic back stays underneath in case the image fails to load. */
 .card-back.sleeve-image {
   background-image:
     var(--sleeve-image),
-    radial-gradient(circle at 50% 50%, #c58b3a 0 12%, transparent 13%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 100' preserveAspectRatio='none'%3E%3Crect x='5' y='5' width='62' height='90' rx='3' fill='none' stroke='%23d6a24e' stroke-opacity='1' stroke-width='0.9'/%3E%3Crect x='7.5' y='7.5' width='57' height='85' rx='2' fill='none' stroke='%23d6a24e' stroke-opacity='0.60' stroke-width='0.4'/%3E%3Cpath d='M12 9.5 L14.5 12 L12 14.5 L9.5 12Z' fill='%23d6a24e'/%3E%3Cpath d='M60 9.5 L62.5 12 L60 14.5 L57.5 12Z' fill='%23d6a24e'/%3E%3Cpath d='M12 85.5 L14.5 88 L12 90.5 L9.5 88Z' fill='%23d6a24e'/%3E%3Cpath d='M60 85.5 L62.5 88 L60 90.5 L57.5 88Z' fill='%23d6a24e'/%3E%3Ccircle cx='36' cy='50' r='16' fill='none' stroke='%23d6a24e' stroke-width='0.8'/%3E%3Ccircle cx='36' cy='50' r='13' fill='none' stroke='%23d6a24e' stroke-width='0.35' stroke-dasharray='1 1.4'/%3E%3Cpath d='M36.00 35.00 L37.61 46.12 L46.61 39.39 L39.88 48.39 L51.00 50.00 L39.88 51.61 L46.61 60.61 L37.61 53.88 L36.00 65.00 L34.39 53.88 L25.39 60.61 L32.12 51.61 L21.00 50.00 L32.12 48.39 L25.39 39.39 L34.39 46.12Z' fill='%23c9923f'/%3E%3Cpath d='M39.44 41.69 L37.84 48.16 L44.31 46.56 L38.60 50.00 L44.31 53.44 L37.84 51.84 L39.44 58.31 L36.00 52.60 L32.56 58.31 L34.16 51.84 L27.69 53.44 L33.40 50.00 L27.69 46.56 L34.16 48.16 L32.56 41.69 L36.00 47.40Z' fill='%23f0c879'/%3E%3Ccircle cx='36' cy='50' r='1.8' fill='%233b2a1e'/%3E%3C/svg%3E"),
     linear-gradient(135deg, #3b2a1e, #6b4a2e 50%, #3b2a1e);
   background-size: cover;
   background-position: center;
