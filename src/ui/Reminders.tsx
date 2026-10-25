@@ -28,7 +28,7 @@ function thisTurn(state: GameState): Reminder[] {
   return out.sort((a, b) => a.step - b.step);
 }
 
-const SHOWN = 4;
+const SHOWN = 3;
 
 /**
  * This turn's triggers, on the line across the table: each card in play whose Oracle text fires
@@ -52,7 +52,7 @@ export function Reminders({ state }: { state: GameState }) {
           onClick={() => useStore.getState().session?.point({ card: card.id })}
         >
           <span className="reminder-step">{STEPS_IN_ORDER[step]?.name}</span>
-          {card.faces[card.face]?.name}
+          <span className="reminder-name">{card.faces[card.face]?.name}</span>
         </button>
       ))}
       {reminders.length > SHOWN && (

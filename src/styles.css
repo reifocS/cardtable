@@ -292,9 +292,10 @@ kbd {
   line-height: 16px;
   font-size: 11px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 190px;
+  /* Shrinks with the others to fit the strip; the name gives way, with an ellipsis. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 170px;
   background: var(--panel);
   border: 1px solid var(--owner, var(--line));
   border-left-width: 3px;
@@ -302,6 +303,16 @@ kbd {
 .reminder-step {
   color: var(--muted);
   font-size: 10px;
+  flex-shrink: 0;
+}
+.reminder-name {
+  min-width: 7ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reminders-label,
+.reminder.more {
+  flex-shrink: 0;
 }
 .reminder.more {
   border-left-width: 1px;
