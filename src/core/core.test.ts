@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseDeck, withPrinting } from '../cards/deckParser';
 import { imageSet } from '../cards/scryfall';
 import { firesOn, triggersOf } from '../cards/triggers';
+import { manaOf, poolOf } from '../cards/mana';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
 import { apply } from './ops';
@@ -653,5 +654,36 @@ describe('triggersOf', () => {
     expect([firesOn(yours, 'a', 'a'), firesOn(yours, 'a', 'b')]).toEqual([true, false]);
     expect([firesOn(each, 'a', 'a'), firesOn(each, 'a', 'b')]).toEqual([true, true]);
     expect([firesOn(theirs, 'a', 'a'), firesOn(theirs, 'a', 'b')]).toEqual([false, true]);
+  });
+});
+
+describe('mana', () => {
+  it('reads what a card taps for from its Oracle text', () => {
+    expect(manaOf('({T}: Add {W}.)')).toEqual({ units: [['W']], special: false });
+    expect(manaOf('({T}: Add {U} or {R}.)\nThis land enters tapped.')).toEqual({ units: [['U', 'R']], special: false });
+    expect(manaOf('{T}: Add {C}{C}.')).toEqual({ units: [['C'], ['C']], special: false });
+    expect(manaOf('Flying\n{T}: Add one mana of any color.')?.units).toEqual([['W', 'U', 'B', 'R', 'G']]);
+    // A painland: the better of its two abilities.
+    expect(manaOf('{T}: Add {C}.\n{T}: Add {W} or {U}. This land deals 1 damage to you.')?.units).toEqual([['W', 'U']]);
+    // Not read, so flagged rather than guessed.
+    expect(manaOf('{1}, {T}: Add {W}{U}.')).toEqual({ units: [], special: true });
+    expect(manaOf('{T}: Add {G} for each Elf you control.')).toEqual({ units: [], special: true });
+    expect(manaOf('Flying, vigilance')).toBeUndefined();
+    // Paying life or sacrificing still makes the mana now; Dryad Arbor's ability is quoted in reminder text.
+    expect(manaOf('{T}, Pay 1 life: Add one mana of any color.')?.units).toHaveLength(1);
+    expect(manaOf('{T}, Sacrifice this artifact: Add one mana of any color.')?.units).toHaveLength(1);
+    expect(manaOf('(This land isn\'t a spell, it\'s affected by summoning sickness, and it has "{T}: Add {G}.")')?.units).toEqual([['G']]);
+  });
+
+  it('adds up a pool, each color as the most of it the sources can make', () => {
+    const pool = poolOf([
+      { name: 'Plains', source: manaOf('({T}: Add {W}.)')! },
+      { name: 'Hallowed Fountain', source: manaOf('({T}: Add {W} or {U}.)')! },
+      { name: 'Sol Ring', source: manaOf('{T}: Add {C}{C}.')! },
+      { name: 'Elvish Archdruid', source: manaOf('{T}: Add {G} for each Elf you control.')! },
+    ]);
+    expect(pool.total).toBe(4);
+    expect(pool.max).toMatchObject({ W: 2, U: 1, C: 2, G: 0 });
+    expect(pool.special).toEqual(['Elvish Archdruid']);
   });
 });

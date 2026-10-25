@@ -13,6 +13,7 @@ import { SidePanel, ZoomOverlay } from './SidePanel';
 import { act, ask, useStore } from './store';
 import { loadPlaymatPref, loadSleevePref } from './playmats';
 import { tip } from './tip';
+import { ManaPool } from './ManaPool';
 import { Reminders } from './Reminders';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
@@ -228,6 +229,7 @@ function MyArea({ state, me }: { state: GameState; me: PlayerId }) {
         {hand && <Hand zone={hand} state={state} />}
       </div>
       <PlayerHeader state={state} pid={me}>
+        <ManaPool state={state} me={me} />
         <ActionBar state={state} />
       </PlayerHeader>
     </section>
