@@ -1,29 +1,11 @@
+import { COMMON } from './common';
+
 /**
  * A stormy sea seen from above: swells crossing from several directions, wind chop, foam tearing
  * off the crests, the overcast sky glinting on the slopes, and now and then a flash of lightning.
  * Units are world units (see ShaderMat), so waves keep their size whatever the board's.
  */
-export const STORM = `#version 300 es
-precision highp float;
-
-uniform vec2 uSize;
-uniform float uPixels;
-uniform float uTime;
-out vec4 color;
-
-float hash(vec2 p) {
-  p = fract(p * vec2(123.34, 456.21));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
-}
-
+export const STORM = `${COMMON}
 vec2 hash2(vec2 p) {
   p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
   return fract(sin(p) * 43758.5453);
@@ -49,19 +31,6 @@ float cellEdge(vec2 p) {
     }
   }
   return d2 - d1;
-}
-
-const mat2 TURN = mat2(1.6, 1.2, -1.2, 1.6);
-
-float fbm(vec2 p) {
-  float sum = 0.0;
-  float amp = 0.5;
-  for (int i = 0; i < 5; i++) {
-    sum += amp * noise(p);
-    p = TURN * p;
-    amp *= 0.5;
-  }
-  return sum;
 }
 
 // Nine trains of waves around the wind's direction, each shorter and fainter than the last. Like

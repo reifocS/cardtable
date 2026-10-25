@@ -58,7 +58,10 @@ export function ShaderMat({ fragment }: { fragment: string }) {
     const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, powerPreference: 'low-power' });
     const program = gl && link(gl, fragment);
     if (!gl || !program) return;
-    ref.current!.append(canvas);
+    const host = ref.current!;
+    host.append(canvas);
+    // Tells the CSS the shader is on, so a theme's own animated layers stand aside.
+    host.dataset.live = '';
     gl.bindVertexArray(gl.createVertexArray());
     const uSize = gl.getUniformLocation(program, 'uSize');
     const uPixels = gl.getUniformLocation(program, 'uPixels');
@@ -111,6 +114,7 @@ export function ShaderMat({ fragment }: { fragment: string }) {
       // Browsers cap live WebGL contexts: give this one back now rather than at garbage collection.
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       canvas.remove();
+      delete host.dataset.live;
     };
   }, [fragment]);
 

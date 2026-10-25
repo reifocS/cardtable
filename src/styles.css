@@ -1583,16 +1583,12 @@ body.dragging .stack-zone {
     inset 0 0 0 1px #2de2ff40,
     inset 0 0 48px #00e5ff1f;
 }
-/* A tavern table: wide worn oak planks, a few knots, rings left by ale mugs, smoky corners. */
+/* A tavern table: wide worn oak planks, a few knots, smoky corners. */
 .mat-tavern {
   background:
     /* Smoke-darkened edges, the middle worn lighter by hands and cards. */
     radial-gradient(ellipse at 50% 55%, #e8b06a1f, transparent 55%),
     radial-gradient(ellipse at center, transparent 40%, #0d0603b3 100%),
-    /* Mug rings, soaked into the wood. */
-    radial-gradient(circle at 17% 28%, transparent 0 20px, #2b14062e 21px, #2b140652 23.5px, #2b14062e 26px, transparent 28px),
-    radial-gradient(circle at 81% 71%, transparent 0 23px, #2b140626 24px, #2b140647 26.5px, #2b140626 29px, transparent 31px),
-    radial-gradient(circle at 83.5% 65%, transparent 0 23px, #2b14061f 24px, #2b140638 26px, transparent 28px),
     /* Knots, with the grain swirling round them. */
     radial-gradient(ellipse 30px 11px at 31% 61%, #1f0e05 0 18%, #3b2010d9 30%, #2a150826 45%, #ffffff0a 55%, transparent 70%),
     radial-gradient(ellipse 22px 8px at 67% 18%, #1f0e05 0 18%, #3b2010d9 30%, #2a150826 45%, #ffffff0a 55%, transparent 70%),
@@ -1644,6 +1640,11 @@ body.dragging .stack-zone {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+}
+/* A live shader replaces the theme's CSS layers; without WebGL they stay. */
+.board-wrap:has(> .shader-mat[data-live])::before,
+.board-wrap:has(> .shader-mat[data-live])::after {
+  content: none;
 }
 .shader-mat > canvas {
   display: block;

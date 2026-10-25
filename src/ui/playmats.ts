@@ -1,5 +1,7 @@
 import type React from 'react';
+import { ARCANE } from './shaders/arcane';
 import { STORM } from './shaders/storm';
+import { TAVERN } from './shaders/tavern';
 
 /** Built-in playmats, drawn in CSS (see .mat-* in styles.css). */
 export const PLAYMATS = [
@@ -45,7 +47,7 @@ export function matLook(mat: string | undefined): { className: string; style?: R
 }
 
 /** Playmats painted live by a fragment shader (see ShaderMat); their CSS look is the fallback. */
-const SHADERS: Record<string, string> = { storm: STORM };
+const SHADERS: Record<string, string> = { storm: STORM, arcane: ARCANE, tavern: TAVERN };
 
 export const matShader = (mat: string | undefined) => (mat ? SHADERS[matId(mat)] : undefined);
 
