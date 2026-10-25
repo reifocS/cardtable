@@ -113,6 +113,8 @@ export const CardView = memo(function CardView({ card, zone, left, top, shownWid
               title={`${key} — click +1, right-click −1`}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => act({ type: 'counter', cards: [card.id], key, delta: 1 })}
+              // Two quick clicks are two +1s, not a double-click that taps the card.
+              onDoubleClick={(e) => e.stopPropagation()}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
