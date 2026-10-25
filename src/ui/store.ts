@@ -50,6 +50,8 @@ export interface Store {
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
   dialog: 'import' | 'create' | 'help' | null;
+  /** Card whose other printings are being picked from. */
+  artFor: CardId | null;
   /** Opponent whose battlefield is shown big over the table. */
   focus: PlayerId | null;
   prompt: Prompt | null;
@@ -83,6 +85,7 @@ export const useStore = create<Store>((set, get) => ({
   menu: null,
   viewer: null,
   dialog: null,
+  artFor: null,
   focus: null,
   prompt: null,
   confirm: null,
@@ -115,7 +118,7 @@ export const useStore = create<Store>((set, get) => ({
 
   leave() {
     get().session?.close();
-    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null });
+    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null, artFor: null });
     history.replaceState(null, '', location.pathname);
   },
 }));

@@ -10,6 +10,12 @@ export interface DeckLine {
   section: Section;
 }
 
+export const norm = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+\/{2,3}\s+/g, ' // ').trim();
+/** Split and double-faced cards are only found by their front face name. */
+export const frontName = (name: string) => name.split(/\s+\/{2,3}\s+/)[0];
+const sameCard = (a: string, b: string) => norm(frontName(a)) === norm(frontName(b));
+
 const HEADERS: Record<string, Section | 'skip'> = {
   deck: 'main',
   main: 'main',
@@ -84,4 +90,17 @@ export function parseDeck(text: string): DeckLine[] {
     }
   }
   return out;
+}
+
+/** Points every line for `name` at one printing, keeping counts and sections. */
+export function withPrinting(text: string, name: string, set: string, cn: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((raw) => {
+      const [line] = parseDeck(raw);
+      if (!line || line.image || !sameCard(line.name, name)) return raw;
+      const sb = /^\s*sb:/i.test(raw) ? 'SB: ' : '';
+      return `${sb}${line.count} ${line.name} (${set.toUpperCase()}) ${cn}`;
+    })
+    .join('\n');
 }

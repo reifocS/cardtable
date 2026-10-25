@@ -1,7 +1,7 @@
 import type React from 'react';
 import { TABLE, zoneId } from '../core/state';
 import type { Card, CardFace, CardId, Zone } from '../core/types';
-import { fetchCard } from '../cards/scryfall';
+import { fetchCard, isScryfallCard } from '../cards/scryfall';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
 
 const DEFAULT_COUNTER = '+1/+1';
@@ -190,6 +190,7 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
     { label: card.note ? 'Edit note…' : 'Note…', hint: 'N', action: () => editNote(ids, card.note) },
     ...(card.note ? [{ label: 'Clear note', action: () => act({ type: 'annotate', cards: ids, text: '' }) }] : []),
   );
+  if (card.owner === me && isScryfallCard(card.faces)) items.push({ label: 'Choose art…', action: () => useStore.setState({ artFor: card.id }) });
   if (zone.id === STACK) {
     items.unshift({ label: isSpell(card) ? 'Resolve → graveyard' : 'Resolve → battlefield', hint: 'dbl-click', action: () => resolve(card) });
   } else if (state.zones[STACK] && !isLand(card)) {

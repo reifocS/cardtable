@@ -5,7 +5,7 @@ import type { Card, GameState, Player, PlayerId } from '../core/types';
 import { onKeyDown, onKeyUp, openMenu } from './actions';
 import { ActionBar } from './ActionBar';
 import { Arrows } from './Arrows';
-import { ConfirmDialog, ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
+import { ArtDialog, ConfirmDialog, ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
 import { finishTargeting } from './drag';
 import { opponentLayout } from './fit';
 import { Icon } from './Icon';
@@ -344,6 +344,7 @@ export function Table() {
       <ConfirmDialog />
       <ImportDialog />
       <CreateDialog />
+      <ArtDialog />
       <HelpDialog />
       {offline && (
         <div className="offline">

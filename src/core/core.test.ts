@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDeck } from '../cards/deckParser';
+import { parseDeck, withPrinting } from '../cards/deckParser';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
 import { apply } from './ops';
@@ -284,6 +284,38 @@ describe('playmats', () => {
   });
 });
 
+describe('setFaces', () => {
+  it('changes your own cards, and every copy (hidden ones too) on request', () => {
+    const e = new Engine();
+    const a = e.join('Alice');
+    const b = e.join('Bob');
+    const bolt = [{ name: 'Bolt', image: 'old' }];
+    e.dispatch(a, { type: 'loadDeck', main: [bolt, bolt, bolt, [{ name: 'Other' }]], side: [], commander: [] });
+    const lib = e.state.zones[zoneId(a, 'library')];
+    e.dispatch(a, { type: 'moveTop', from: lib.id, to: zoneId(a, 'hand'), n: 4 });
+    const hand = e.state.zones[zoneId(a, 'hand')].cards;
+    const one = hand.find((id) => e.state.cards[id].faces[0].name === 'Bolt')!;
+    const art = (id: string) => e.state.cards[id].faces[0].image;
+
+    e.dispatch(b, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'bob' }] });
+    expect(art(one)).toBe('old');
+    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'new' }] });
+    expect(hand.filter((id) => art(id) === 'new')).toEqual([one]);
+
+    // Put two copies back in the library: the player can't see them, the host still finds them.
+    e.dispatch(a, { type: 'move', cards: hand.filter((id) => id !== one), to: lib.id });
+    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'v3' }, { name: 'Back' }], sameName: true });
+    const bolts = Object.values(e.state.cards).filter((c) => c.faces[0].name === 'Bolt');
+    expect(bolts.map((c) => c.faces[0].image)).toEqual(['v3', 'v3', 'v3']);
+    expect(Object.values(e.state.cards).find((c) => c.faces[0].name === 'Other')?.faces).toHaveLength(1);
+    expect(e.state.log.at(-1)?.text).toBe('changed the art of a card and 2 other copies');
+
+    e.dispatch(a, { type: 'transform', cards: [one] });
+    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt' }] });
+    expect(e.state.cards[one].face).toBe(0);
+  });
+});
+
 describe('stack', () => {
   it('is a public table zone: casting is logged and everyone sees the spell', () => {
     const { e, a, b } = twoPlayers();
@@ -456,5 +488,15 @@ describe('deck names', () => {
     const { guessDeckName } = await import('../cards/decks');
     expect(guessDeckName('Commander\n1 Krenko, Mob Boss\n\nDeck\n30 Mountain')).toBe('Krenko, Mob Boss');
     expect(guessDeckName('20 Island\n4 Delver of Secrets\n2 Brazen Borrower')).toBe('Delver of Secrets');
+  });
+});
+
+describe('withPrinting', () => {
+  it('points every line of a card at one printing, keeping counts and sections', () => {
+    const text = 'Commander\n1 Delver of Secrets // Insectile Aberration\n\nDeck\n4 Lightning Bolt (M10) 146 *F*\n2 Shock\nSB: 1 lightning bolt';
+    const out = withPrinting(text, 'Lightning Bolt', 'clu', '141');
+    expect(out).toBe('Commander\n1 Delver of Secrets // Insectile Aberration\n\nDeck\n4 Lightning Bolt (CLU) 141\n2 Shock\nSB: 1 lightning bolt (CLU) 141');
+    expect(withPrinting(text, 'Delver of Secrets', 'isd', '51')).toContain('1 Delver of Secrets // Insectile Aberration (ISD) 51');
+    expect(parseDeck(out).filter((l) => l.set === 'clu').map((l) => [l.count, l.section])).toEqual([[4, 'main'], [1, 'side']]);
   });
 });

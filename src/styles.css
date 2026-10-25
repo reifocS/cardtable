@@ -1035,8 +1035,14 @@ body.dragging * {
   width: 100%;
   cursor: pointer;
 }
-.result:hover .card {
+.result:hover .card,
+.result.on .card {
   outline: 2px solid var(--accent);
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .custom {
   display: flex;

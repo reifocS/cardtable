@@ -1,6 +1,7 @@
 import { parseDeck } from './deckParser';
 
 const KEY = 'cardtable:decks';
+const LAST_KEY = 'cardtable:lastDeck';
 
 export interface SavedDeck {
   name: string;
@@ -46,4 +47,24 @@ export function guessDeckName(text: string): string {
   const basics = /^(snow-covered )?(plains|island|swamp|mountain|forest|wastes)$/i;
   const main = lines.filter((l) => l.section === 'main' && !basics.test(l.name)).sort((a, b) => b.count - a.count);
   return main[0]?.name ?? 'My deck';
+}
+
+/** The list last imported in this browser. */
+export const loadLastDeck = () => localStorage.getItem(LAST_KEY) ?? '';
+
+export function saveLastDeck(text: string) {
+  try {
+    localStorage.setItem(LAST_KEY, text);
+  } catch {
+    // Same as above: a convenience.
+  }
+}
+
+/** Edits the last imported list, and the saved decks it came from. */
+export function editLastDeck(edit: (text: string) => string) {
+  const old = loadLastDeck();
+  const text = old && edit(old);
+  if (!text || text === old) return;
+  saveLastDeck(text);
+  write(listDecks().map((d) => (d.text === old ? { ...d, text } : d)));
 }

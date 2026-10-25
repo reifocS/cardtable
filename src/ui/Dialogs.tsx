@@ -1,14 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { parseDeck, type DeckLine, type Section } from '../cards/deckParser';
-import { deleteDeck, guessDeckName, listDecks, saveDeck } from '../cards/decks';
-import { lookupKey, resolveCards, searchCards } from '../cards/scryfall';
+import { parseDeck, withPrinting, type DeckLine, type Section } from '../cards/deckParser';
+import { deleteDeck, editLastDeck, guessDeckName, listDecks, loadLastDeck, saveDeck, saveLastDeck } from '../cards/decks';
+import { lookupKey, printingsOf, resolveCards, searchCards, type Printing } from '../cards/scryfall';
 import type { CardFace } from '../core/types';
 import { CardImage } from './Zones';
 import { createTokens } from './actions';
 import { GithubLink } from './Icon';
 import { act, useStore } from './store';
-
-const DECK_KEY = 'cardtable:lastDeck';
+import { tip } from './tip';
 
 export function ContextMenu() {
   const menu = useStore((s) => s.menu);
@@ -134,7 +133,15 @@ Any other game: name | image URL
 
 export function ImportDialog() {
   const open = useStore((s) => s.dialog === 'import');
-  const [text, setText] = useState(() => localStorage.getItem(DECK_KEY) ?? '');
+  const [text, setText] = useState(loadLastDeck);
+  // Follow the last imported list when it changes elsewhere (a new art), unless it was edited here.
+  const shown = useRef(text);
+  useEffect(() => {
+    if (!open) return;
+    const last = loadLastDeck();
+    if (text === shown.current) setText(last);
+    shown.current = last;
+  }, [open]);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [decks, setDecks] = useState(listDecks);
@@ -182,7 +189,8 @@ export function ImportDialog() {
         l.image ? [{ name: l.name, image: l.image, imageLarge: l.image }] : (found.get(lookupKey(l)) ?? [{ name: l.name }]);
       for (const l of lines) for (let i = 0; i < l.count; i++) out[l.section].push(facesFor(l));
       act({ type: 'loadDeck', ...out });
-      localStorage.setItem(DECK_KEY, text);
+      saveLastDeck(text);
+      shown.current = text;
       if (missing.length) {
         setProblem(`Imported, but not found on Scryfall (added as text cards): ${missing.join(', ')}`);
       } else {
@@ -243,6 +251,54 @@ export function ImportDialog() {
         <button className="primary" disabled={!!busy || !text.trim()} onClick={run}>
           {busy ?? 'Import'}
         </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Pick another printing of one of your cards; for all copies, the deck list remembers it. */
+export function ArtDialog() {
+  const card = useStore((s) => (s.artFor ? s.state?.cards[s.artFor] : undefined));
+  const name = card?.faces[0]?.name;
+  const [prints, setPrints] = useState<Printing[] | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [all, setAll] = useState(true);
+  useEffect(() => {
+    if (!name) return;
+    let live = true;
+    setPrints(null);
+    setProblem(null);
+    printingsOf(name).then(
+      (p) => live && setPrints(p),
+      (e: Error) => live && setProblem(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [name]);
+  if (!card || !name) return null;
+
+  const close = () => useStore.setState({ artFor: null });
+  const pick = (p: Printing) => {
+    act({ type: 'setFaces', cards: [card.id], faces: p.faces, sameName: all });
+    if (all) editLastDeck((text) => withPrinting(text, name, p.set, p.cn));
+    close();
+  };
+  return (
+    <Modal title={`Art for ${name}`} onClose={close} wide>
+      <label className="check">
+        <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+        Every copy in my deck, and remember it in my deck list
+      </label>
+      {problem && <p className="problem">{problem}</p>}
+      <div className="results">
+        {prints?.map((p) => (
+          <button key={`${p.set}:${p.cn}`} className={`result${p.faces[0].image === card.faces[0].image ? ' on' : ''}`} onClick={() => pick(p)} {...tip(p.label)}>
+            <CardImage faces={p.faces} />
+          </button>
+        ))}
+        {!prints && !problem && <p className="muted">Looking up printings…</p>}
+        {prints?.length === 0 && <p className="muted">No other printings found.</p>}
       </div>
     </Modal>
   );

@@ -1,4 +1,5 @@
 import type { CardFace } from '../core/types';
+import { frontName, norm } from './deckParser';
 
 const API = 'https://api.scryfall.com';
 const BATCH = 75;
@@ -6,6 +7,7 @@ const BATCH = 75;
 interface ScryCard {
   name: string;
   set: string;
+  set_name?: string;
   collector_number: string;
   type_line?: string;
   oracle_text?: string;
@@ -44,10 +46,6 @@ export interface Lookup {
   cn?: string;
 }
 
-const norm = (s: string) =>
-  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+\/{2,3}\s+/g, ' // ').trim();
-/** Split and double-faced cards are only found by their front face name. */
-const frontName = (name: string) => name.split(/\s+\/{2,3}\s+/)[0];
 export const lookupKey = (l: Lookup) => (l.set && l.cn ? `set:${l.set}:${l.cn}` : `name:${norm(l.name)}`);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -108,6 +106,28 @@ export async function fetchCard(id: string): Promise<CardFace[]> {
   const res = await fetch(`${API}/cards/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`Scryfall error ${res.status}`);
   return facesOf(await res.json());
+}
+
+export interface Printing {
+  faces: CardFace[];
+  set: string;
+  cn: string;
+  label: string;
+}
+
+/** Cards resolved from Scryfall, whose other printings can be listed. */
+export const isScryfallCard = (faces: CardFace[]) => !!faces[0]?.image?.startsWith('https://cards.scryfall.io/');
+
+/** Every printing of a card with an image, newest first (the first page: plenty, except for basic lands). */
+export async function printingsOf(name: string): Promise<Printing[]> {
+  const q = `!"${frontName(name).replace(/"/g, '')}"`;
+  const res = await fetch(`${API}/cards/search?unique=prints&order=released&dir=desc&q=${encodeURIComponent(q)}`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`Scryfall error ${res.status}`);
+  const body: { data: ScryCard[] } = await res.json();
+  return body.data
+    .map((c) => ({ faces: facesOf(c), set: c.set, cn: c.collector_number, label: `${c.set_name ?? c.set.toUpperCase()} · #${c.collector_number}` }))
+    .filter((p) => p.faces[0].image);
 }
 
 /** Full-text Scryfall search, tokens included. */

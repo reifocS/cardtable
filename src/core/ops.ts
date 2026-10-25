@@ -28,6 +28,8 @@ export type Op =
   | { type: 'commanderTax'; cards: CardId[]; delta: number }
   /** Free text on cards; empty clears it. */
   | { type: 'annotate'; cards: CardId[]; text: string }
+  /** New faces (another art, a corrected scan…) for your cards; `sameName` also changes every other card of yours with that name. */
+  | { type: 'setFaces'; cards: CardId[]; faces: CardFace[]; sameName?: boolean }
   | { type: 'setTopVisible'; zone: ZoneId; value: 'owner' | 'all' | null }
   | { type: 'sortZone'; zone: ZoneId; by: 'name' | 'type' | 'cost' }
   /** Commander damage is also damage: it lowers Life by the same amount. */
@@ -221,6 +223,20 @@ class Mutation {
           else delete c.note;
         }
         return this.log(text ? `noted on ${this.label(cards)}: “${text}”` : `cleared the note on ${this.label(cards)}`);
+      }
+      case 'setFaces': {
+        const picked = this.cards(op.cards).filter((c) => c.owner === this.actor);
+        const faces = op.faces.slice(0, 4);
+        if (!picked.length || !faces.length || faces.some((f) => typeof f?.name !== 'string')) return;
+        // Copies are found here, not by the player: their hidden cards (the library) have no faces on their side.
+        const names = new Set(picked.map((c) => c.faces[0]?.name));
+        const cards = op.sameName ? Object.values(s.cards).filter((c) => c.owner === this.actor && names.has(c.faces[0]?.name)) : picked;
+        for (const c of cards) {
+          c.faces = faces.map((f) => ({ ...f }));
+          c.face = Math.min(c.face, faces.length - 1);
+        }
+        const copies = cards.length > picked.length ? ` and ${cards.length - picked.length} other ${cards.length - picked.length > 1 ? 'copies' : 'copy'}` : '';
+        return this.log(`changed the art of ${this.label(picked)}${copies}`);
       }
       case 'setTopVisible': {
         const z = this.zone(op.zone);
