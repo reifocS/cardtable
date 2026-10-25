@@ -277,6 +277,10 @@ describe('playmats', () => {
     // Quotes or parentheses could break out of the CSS url(): rejected.
     expect(set('url:https://x.test/a.png"), url("evil')).toBe('url:https://example.com/mat.jpg');
     expect(set('Not A Theme!')).toBe('url:https://example.com/mat.jpg');
+    // Sleeves go through the same check.
+    e.dispatch(a, { type: 'setSleeve', sleeve: 'crimson' });
+    e.dispatch(a, { type: 'setSleeve', sleeve: 'url:data:text/html,x' });
+    expect(e.state.players[a].sleeve).toBe('crimson');
   });
 });
 

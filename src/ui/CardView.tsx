@@ -3,6 +3,7 @@ import type { Card, CardFace, Zone } from '../core/types';
 import { isPublic } from '../core/visibility';
 import { STACK, cardMenu, castToStack, isSpell, openMenu, resolve, toMyBattlefield } from './actions';
 import { formatCounter } from './counters';
+import { sleeveLook } from './playmats';
 import { onCardPointerDown } from './drag';
 import { act, useStore } from './store';
 
@@ -16,8 +17,10 @@ export function FaceView({ face, large }: { face: CardFace; large?: boolean }) {
   );
 }
 
-export function CardBack() {
-  return <div className="card-back" />;
+/** A card back, in its owner's sleeves when known. */
+export function CardBack({ sleeve }: { sleeve?: string }) {
+  const look = sleeveLook(sleeve);
+  return <div className={`card-back ${look.className}`} style={look.style} />;
 }
 
 function hover(card: Card, zone: Zone) {
@@ -51,6 +54,7 @@ interface Props {
 export const CardView = memo(function CardView({ card, zone, style, pileTop }: Props) {
   const selected = useStore((s) => s.selection.includes(card.id));
   const me = useStore((s) => s.me);
+  const sleeve = useStore((s) => s.state?.players[card.owner]?.sleeve);
   // Colors of the other players hovering this card (a string, so the selector stays cheap).
   const watchers = useStore((s) =>
     Object.entries(s.hovers)
@@ -80,7 +84,7 @@ export const CardView = memo(function CardView({ card, zone, style, pileTop }: P
       onDoubleClick={pileTop ? undefined : () => onDoubleClick(card, zone)}
       onContextMenu={pileTop ? undefined : (e) => openMenu(e, cardMenu(card, zone))}
     >
-      {face && !card.faceDown ? <FaceView face={face} /> : <CardBack />}
+      {face && !card.faceDown ? <FaceView face={face} /> : <CardBack sleeve={sleeve} />}
       {card.faceDown && face && <span className="peek" title="Face down — only you can see it">👁</span>}
       {card.token && <span className="token-badge">token</span>}
       {card.note && <span className="note-badge">{card.note}</span>}

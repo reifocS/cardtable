@@ -216,13 +216,14 @@ export const PRESETS: DevPreset[] = [
       b.deck(me, WHITE).deck(bob, RED);
       duelBoards(b, me, bob);
       b.op(me, { type: 'setPlaymat', mat: 'medieval' }).op(bob, { type: 'setPlaymat', mat: 'futuristic' });
+      b.op(me, { type: 'setSleeve', sleeve: 'midnight' }).op(bob, { type: 'setSleeve', sleeve: 'crimson' });
       return me;
     },
   },
   {
     id: 'commander4',
     name: 'Commander, 4 players',
-    covers: 'Commanders, tax, commander damage, poison and energy, long names, busy boards, reveals, four playmats',
+    covers: 'Commanders, tax, commander damage, poison and energy, long names, busy boards, reveals, four playmats and sleeves',
     decks: [WHITE, RED, BLUE, BLACK],
     build(b) {
       const me = b.player('Alice');
@@ -231,9 +232,8 @@ export const PRESETS: DevPreset[] = [
       const dan = b.player('Dan');
       b.deck(me, WHITE).deck(bob, RED).deck(carol, BLUE).deck(dan, BLACK);
       duelBoards(b, me, bob);
-      for (const [p, mat] of [[me, 'medieval'], [bob, 'futuristic'], [carol, 'arcane'], [dan, 'stone']] as const) {
-        b.op(p, { type: 'setPlaymat', mat });
-      }
+      const looks = [[me, 'medieval', 'midnight'], [bob, 'futuristic', 'crimson'], [carol, 'arcane', 'emerald'], [dan, 'stone', 'circuit']] as const;
+      for (const [p, mat, sleeve] of looks) b.op(p, { type: 'setPlaymat', mat }).op(p, { type: 'setSleeve', sleeve });
       const krenko = b.play(bob, 'Krenko', { x: 820, y: 0, from: 'command' });
       b.op(bob, { type: 'commanderDamage', player: me, from: krenko, delta: 9 });
       b.row(carol, ['Island', 'Island', 'Island', 'Island', 'Island', 'Island'], 240, { step: 110 });

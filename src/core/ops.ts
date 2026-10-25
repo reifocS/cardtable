@@ -50,6 +50,7 @@ export type Op =
   | { type: 'removeArrow'; from: string; to: string }
   | { type: 'rename'; name: string }
   | { type: 'setPlaymat'; mat: string }
+  | { type: 'setSleeve'; sleeve: string }
   | { type: 'chat'; text: string }
   | { type: 'undo' };
 
@@ -391,12 +392,15 @@ class Mutation {
         p.name = name;
         return;
       }
-      case 'setPlaymat': {
+      case 'setPlaymat':
+      case 'setSleeve': {
         const p = s.players[this.actor];
-        const mat = op.mat.slice(0, 500);
+        const value = (op.type === 'setPlaymat' ? op.mat : op.sleeve).slice(0, 500);
         // Theme ids, or an https image: nothing else ends up in a style attribute.
-        if (!p || !(/^[a-z-]{1,20}$/.test(mat) || /^url:https:\/\/[^\s"'()]+$/.test(mat)) || p.playmat === mat) return;
-        p.playmat = mat;
+        if (!p || !(/^[a-z-]{1,20}$/.test(value) || /^url:https:\/\/[^\s"'()]+$/.test(value))) return;
+        if ((op.type === 'setPlaymat' ? p.playmat : p.sleeve) === value) return;
+        if (op.type === 'setPlaymat') p.playmat = value;
+        else p.sleeve = value;
         return;
       }
       case 'chat': {

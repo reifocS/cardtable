@@ -11,7 +11,7 @@ import { opponentLayout } from './fit';
 import { Icon } from './Icon';
 import { SidePanel, ZoomOverlay } from './SidePanel';
 import { act, ask, useStore } from './store';
-import { loadPlaymatPref } from './playmats';
+import { loadPlaymatPref, loadSleevePref } from './playmats';
 import { tip } from './tip';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
@@ -284,10 +284,14 @@ export function Table() {
 
   // Bring my preferred playmat to this table, once (changing it later saves a new preference).
   const myMat = useStore((s) => (s.me ? s.state?.players[s.me]?.playmat : undefined));
+  const mySleeve = useStore((s) => (s.me ? s.state?.players[s.me]?.sleeve : undefined));
   const seated = useStore((s) => !!(s.me && s.state?.players[s.me]));
   useEffect(() => {
-    const pref = loadPlaymatPref();
-    if (seated && pref && pref !== myMat) act({ type: 'setPlaymat', mat: pref });
+    if (!seated) return;
+    const mat = loadPlaymatPref();
+    if (mat && mat !== myMat) act({ type: 'setPlaymat', mat });
+    const sleeve = loadSleevePref();
+    if (sleeve && sleeve !== mySleeve) act({ type: 'setSleeve', sleeve });
   }, [seated]);
 
   useEffect(() => {

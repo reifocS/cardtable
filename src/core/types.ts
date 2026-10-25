@@ -84,6 +84,8 @@ export interface Player {
   commanderDamage?: Record<string, number>;
   /** The playmat under this player's battlefield: a theme id, or "url:<https image>". */
   playmat?: string;
+  /** The back of this player's cards (their sleeves), same format as `playmat`. */
+  sleeve?: string;
 }
 
 /** A "this targets that" pointer between two cards or a card and a player. */
