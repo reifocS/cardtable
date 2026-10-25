@@ -3,7 +3,7 @@ import { parseDeck } from '../cards/deckParser';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
 import { apply } from './ops';
-import { zoneId } from './state';
+import { TABLE, createGame, withSharedZones, zoneId } from './state';
 import { redact } from './visibility';
 
 const faces = (n: number, prefix = 'Card') => Array.from({ length: n }, (_, i) => [{ name: `${prefix} ${i + 1}` }]);
@@ -219,6 +219,31 @@ describe('attach', () => {
     expect(e.state.cards[stolen].zone).toBe(zoneId(a, 'battlefield'));
     e.dispatch(a, { type: 'attach', cards: [stolen], to: null });
     expect(e.state.cards[stolen].attachedTo).toBeUndefined();
+  });
+});
+
+describe('stack', () => {
+  it('is a public table zone: casting is logged and everyone sees the spell', () => {
+    const { e, a, b } = twoPlayers();
+    const stack = zoneId(TABLE, 'stack');
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'library'), to: zoneId(a, 'hand'), n: 1 });
+    const [spell] = e.state.zones[zoneId(a, 'hand')].cards;
+    e.dispatch(a, { type: 'move', cards: [spell], to: stack });
+    expect(e.state.zones[stack].cards).toEqual([spell]);
+    expect(e.state.log.at(-1)?.text).toMatch(/^cast A \d+$/);
+    expect(redact(e.state, b).cards[spell].faces).toHaveLength(1);
+    e.dispatch(a, { type: 'move', cards: [spell], to: zoneId(a, 'graveyard') });
+    expect(e.state.log.at(-1)?.text).toMatch(/^moved A \d+ from the Stack to Graveyard$/);
+  });
+
+  it('is added to games saved before it existed', () => {
+    const old = createGame();
+    delete old.zones[zoneId(TABLE, 'stack')];
+    // A copy: createGame shares the built-in preset object.
+    old.preset = { ...old.preset, shared: undefined };
+    const e = new Engine(old);
+    expect(e.state.zones[zoneId(TABLE, 'stack')]).toMatchObject({ owner: TABLE, visibility: 'public' });
+    expect(withSharedZones(e.state)).toBe(e.state);
   });
 });
 

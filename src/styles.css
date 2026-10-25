@@ -227,6 +227,8 @@ kbd {
   background: #00000038;
 }
 .table-divider {
+  position: relative;
+  z-index: 30;
   flex: 0 0 22px;
   display: flex;
   align-items: center;
@@ -1471,4 +1473,51 @@ button.danger:hover:not(:disabled) {
 }
 .opponent .player-name {
   max-width: 110px;
+}
+
+/* ---- the stack, over the middle line ---- */
+
+.stack-zone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 12px;
+  border: 1px dashed #c58b3a88;
+  border-radius: 14px;
+  background: var(--panel);
+  transition: padding 0.12s ease;
+}
+.stack-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #c58b3a;
+}
+/* While dragging, the empty stack becomes an easy target. */
+body.dragging .stack-zone {
+  padding: 18px 40px;
+  border-width: 2px;
+}
+.stack-zone.drop-hover {
+  border: 2px solid var(--accent);
+  background: #3a2a12;
+}
+.stack-zone.busy {
+  padding: 8px 14px;
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px #000c;
+}
+.stack-zone .card {
+  height: 120px;
+}
+.stack-zone .card + .card {
+  margin-left: -36px;
+}
+.stack-zone .card:hover {
+  z-index: 2;
 }

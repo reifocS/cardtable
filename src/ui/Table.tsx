@@ -14,7 +14,7 @@ import { act, ask, useStore } from './store';
 import { tip } from './tip';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
-import { Board, Hand, Pile, ZoomBoard } from './Zones';
+import { Board, Hand, Pile, StackZone, ZoomBoard } from './Zones';
 
 const SIDE_PILES = ['graveyard', 'exile', 'command'];
 /** CSS grid placement for opponent `i`: columns are shared by both rows, so each row fills the width. */
@@ -316,7 +316,9 @@ export function Table() {
             ))}
           </div>
         )}
-        {opponents.length > 0 && <div className="table-divider" />}
+        <div className={`table-divider${opponents.length ? '' : ' alone'}`}>
+          <StackZone state={state} />
+        </div>
         <MyArea state={state} me={me} />
       </main>
       <SidePanel state={state} />

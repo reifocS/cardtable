@@ -1,7 +1,7 @@
 import { memo, type CSSProperties } from 'react';
 import type { Card, CardFace, Zone } from '../core/types';
 import { isPublic } from '../core/visibility';
-import { cardMenu, openMenu, toMyBattlefield } from './actions';
+import { STACK, cardMenu, castToStack, isSpell, openMenu, resolve, toMyBattlefield } from './actions';
 import { formatCounter } from './counters';
 import { onCardPointerDown } from './drag';
 import { act, useStore } from './store';
@@ -32,8 +32,11 @@ function unhover(card: Card) {
   useStore.getState().session?.hover(null);
 }
 
+/** Tap on a battlefield, resolve on the stack; from elsewhere, cast spells and play permanents. */
 function onDoubleClick(card: Card, zone: Zone) {
   if (zone.kind === 'free') act({ type: 'tap', cards: [card.id] });
+  else if (zone.id === STACK) resolve(card);
+  else if (isSpell(card) && useStore.getState().state?.zones[STACK]) castToStack([card.id]);
   else toMyBattlefield([card.id]);
 }
 

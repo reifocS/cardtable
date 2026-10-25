@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CARD_H, CARD_W } from '../core/state';
 import type { GameState, Zone } from '../core/types';
-import { draw, openMenu, openViewer, zoneMenu } from './actions';
+import { STACK, draw, openMenu, openViewer, zoneMenu } from './actions';
 import { CardBack, CardView, FaceView } from './CardView';
 import { onBoardPointerDown } from './drag';
 import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
@@ -305,4 +305,32 @@ export function Hand({ zone, state, compact }: { zone: Zone; state: GameState; c
 /** Small static card picture, for previews and pickers. */
 export function CardImage({ faces, faceDown }: { faces: { name: string; image?: string; text?: string }[]; faceDown?: boolean }) {
   return <div className="card static">{faces[0] && !faceDown ? <FaceView face={faces[0]} /> : <CardBack />}</div>;
+}
+
+/**
+ * The table's stack, over the line between the opponents and me. A small drop target while empty
+ * (larger while dragging); a band of cards while spells are waiting, last cast on top.
+ * Every new spell shows in everyone's preview.
+ */
+export function StackZone({ state }: { state: GameState }) {
+  const zone = state.zones[STACK];
+  const top = zone?.cards[0];
+  useEffect(() => {
+    if (!top) return;
+    const { hovered } = useStore.getState();
+    if (!hovered) useStore.setState({ previewId: top });
+  }, [top]);
+  if (!zone) return null;
+  // Oldest on the left, so the last cast (top of the stack) ends on the right, in front.
+  const ids = [...zone.cards].reverse();
+  // A plain pile for drops (no list index): a cast spell always goes on top.
+  return (
+    <div className={`stack-zone${ids.length ? ' busy' : ''}`} data-drop-zone={zone.id}>
+      <span className="stack-label">Stack</span>
+      {ids.map((id) => {
+        const c = state.cards[id];
+        return c && <CardView key={id} card={c} zone={zone} />;
+      })}
+    </div>
+  );
 }

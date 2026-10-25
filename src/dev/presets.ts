@@ -6,7 +6,7 @@
 import { parseDeck } from '../cards/deckParser';
 import { lookupKey, resolveCards } from '../cards/scryfall';
 import { apply, type Op } from '../core/ops';
-import { addPlayer, createGame, zoneId } from '../core/state';
+import { TABLE, addPlayer, createGame, zoneId } from '../core/state';
 import type { CardFace, CardId, GameState, PlayerId } from '../core/types';
 import type { Store } from '../ui/store';
 
@@ -188,7 +188,10 @@ function duelBoards(b: Builder, me: PlayerId, opp: PlayerId) {
   b.play(opp, 'Shivan Dragon', { x: 600, y: 0 });
   b.to(opp, ['Lightning Bolt', 'Lightning Bolt', 'Fire // Ice'], 'graveyard');
   b.draw(opp, 5);
-  b.op(opp, { type: 'arrow', from: b.find(opp, 'Shivan Dragon', 'battlefield'), to: angel });
+  // A spell waiting on the stack, aimed at my Angel.
+  const bolt = b.find(opp, 'Lightning Bolt');
+  b.op(opp, { type: 'move', cards: [bolt], to: zoneId(TABLE, 'stack') });
+  b.op(opp, { type: 'arrow', from: bolt, to: angel });
   b.op(opp, { type: 'tracker', player: me, key: 'Life', delta: -7 });
 }
 
@@ -203,7 +206,7 @@ export const PRESETS: DevPreset[] = [
   {
     id: 'duel',
     name: 'Duel, midgame',
-    covers: 'Tapped, counters, face down, token, attachment, transformed DFC, piles, arrow, log',
+    covers: 'Tapped, counters, face down, token, attachment, transformed DFC, piles, a spell on the stack, arrow, log',
     decks: [WHITE, RED],
     build(b) {
       const me = b.player('Alice');

@@ -20,12 +20,17 @@ export const MTG: Preset = {
     { role: 'command', name: 'Command', kind: 'pile', visibility: 'public' },
     { role: 'sideboard', name: 'Sideboard', kind: 'pile', visibility: 'owner' },
   ],
+  // Spells being cast, in the middle where everyone sees them. Top (index 0) = last cast.
+  shared: [{ role: 'stack', name: 'Stack', kind: 'pile', visibility: 'public' }],
 };
+
+/** Owner of the table's shared zones. */
+export const TABLE = 'table';
 
 const COLORS = ['#e8a33d', '#4fa3e0', '#d0605e', '#5dbb7a', '#a67fd6', '#d98bb5', '#4cc2c0', '#c7b65a'];
 
 export function createGame(preset: Preset = MTG): GameState {
-  return {
+  return withSharedZones({
     version: 1,
     preset,
     seats: [],
@@ -36,7 +41,20 @@ export function createGame(preset: Preset = MTG): GameState {
     arrows: [],
     log: [],
     nextId: 1,
-  };
+  });
+}
+
+/**
+ * Adds the table's shared zones if missing (games saved before they existed), refreshing the
+ * built-in preset so old saves pick up its new zones too. Returns the same object if unchanged.
+ */
+export function withSharedZones(s: GameState): GameState {
+  const preset = s.preset.id === MTG.id && !s.preset.shared ? { ...s.preset, shared: MTG.shared } : s.preset;
+  const missing = (preset.shared ?? []).filter((spec) => !s.zones[zoneId(TABLE, spec.role)]);
+  if (!missing.length && preset === s.preset) return s;
+  const zones = { ...s.zones };
+  for (const spec of missing) zones[zoneId(TABLE, spec.role)] = { ...spec, id: zoneId(TABLE, spec.role), owner: TABLE, cards: [] };
+  return { ...s, preset, zones };
 }
 
 /** Mutates `s`. */

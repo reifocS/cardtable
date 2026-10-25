@@ -1,4 +1,4 @@
-import { BOARD_H, BOARD_W, CARD_H, CARD_W, zoneId } from './state';
+import { BOARD_H, BOARD_W, CARD_H, CARD_W, TABLE, zoneId } from './state';
 import type { Card, CardFace, CardId, GameState, PlayerId, Zone, ZoneId } from './types';
 import { isPublic } from './visibility';
 
@@ -381,6 +381,7 @@ class Mutation {
   }
 
   private zoneLabel(z: Zone) {
+    if (z.owner === TABLE) return `the ${z.name}`;
     return z.owner === this.actor ? z.name : `${this.playerName(z.owner)}'s ${z.name}`;
   }
 
@@ -560,6 +561,10 @@ class Mutation {
     const labels = cards.map((c, i) => (wasPublic[i] || isPublic(c, to) ? cardName(c) : null));
     const sources = [...new Set(from)];
     const fromLabel = sources.length === 1 ? this.zoneLabel(sources[0]) : 'several zones';
+    if (to.role === 'stack') {
+      const fromHand = sources.length === 1 && sources[0].role === 'hand';
+      return this.log(`cast ${listLabel(labels)}${fromHand ? '' : ` from ${fromLabel}`}`);
+    }
     const bottom = to.kind === 'pile' && opts.index === -1 ? ' (bottom)' : '';
     const tax = taxed.length ? ` (commander tax now ${taxed.map((c) => c.tax).join(', ')})` : '';
     this.log(`moved ${listLabel(labels)} from ${fromLabel} to ${this.zoneLabel(to)}${bottom}${tax}`);

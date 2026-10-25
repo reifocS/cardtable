@@ -1,5 +1,5 @@
 import { apply, type Op } from './ops';
-import { addPlayer, createGame } from './state';
+import { addPlayer, createGame, withSharedZones } from './state';
 import type { GameState, PlayerId } from './types';
 
 const HISTORY = 100;
@@ -13,7 +13,7 @@ export class Engine {
   private subs = new Set<() => void>();
 
   constructor(state?: GameState) {
-    this.state = state ?? createGame();
+    this.state = state ? withSharedZones(state) : createGame();
   }
 
   subscribe(fn: () => void) {

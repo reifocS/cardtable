@@ -62,6 +62,8 @@ export interface Preset {
   id: string;
   name: string;
   zones: ZoneSpec[];
+  /** Zones shared by the whole table (owned by TABLE), e.g. Magic's stack. */
+  shared?: ZoneSpec[];
   trackers: Record<string, number>;
   handSize: number;
 }

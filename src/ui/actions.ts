@@ -1,5 +1,5 @@
 import type React from 'react';
-import { zoneId } from '../core/state';
+import { TABLE, zoneId } from '../core/state';
 import type { Card, CardId, Zone } from '../core/types';
 import { fetchCard } from '../cards/scryfall';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
@@ -18,6 +18,28 @@ export function sendToOwners(ids: CardId[], role: string, index?: number) {
   for (const [owner, cards] of byOwner) {
     const to = state.zones[zoneId(owner, role)];
     if (to) act({ type: 'move', cards, to: to.id, index });
+  }
+}
+
+export const STACK = zoneId(TABLE, 'stack');
+
+/** Instants and sorceries go to the graveyard when they resolve; everything else stays in play. */
+const typeOf = (c: Card) => c.faces[c.face]?.type ?? c.faces[0]?.type ?? '';
+export const isSpell = (c: Card) => /\b(instant|sorcery)\b/i.test(typeOf(c));
+/** Lands are played, not cast; cards with no type line (other games) can always be cast. */
+const isLand = (c: Card) => /\bland\b/i.test(typeOf(c));
+
+export function castToStack(ids: CardId[]) {
+  const { state } = useStore.getState();
+  if (state?.zones[STACK] && ids.length) act({ type: 'move', cards: ids, to: STACK });
+}
+
+/** Resolves a spell from the stack: to its owner's graveyard, or battlefield for permanents. */
+export function resolve(card: Card) {
+  if (isSpell(card)) sendToOwners([card.id], 'graveyard');
+  else {
+    const bf = useStore.getState().state?.zones[zoneId(card.owner, 'battlefield')];
+    if (bf) act({ type: 'move', cards: [card.id], to: bf.id });
   }
 }
 
@@ -140,6 +162,11 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
   }
   if (card.revealedTo.length) items.push({ label: 'Stop revealing', action: () => act({ type: 'hide', cards: ids }) });
 
+  if (zone.id === STACK) {
+    items.unshift({ label: isSpell(card) ? 'Resolve → graveyard' : 'Resolve → battlefield', hint: 'dbl-click', action: () => resolve(card) });
+  } else if (state.zones[STACK] && !isLand(card)) {
+    items.push({ label: `Cast (to the stack)${many}`, action: () => castToStack(ids) });
+  }
   items.push({ label: 'Move to', heading: true });
   if (!(onBoard && zone.owner === me)) {
     items.push({ label: 'Battlefield', hint: 'B', action: () => toMyBattlefield(ids) });
