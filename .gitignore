@@ -1,3 +1,5 @@
 node_modules
 dist
 .vercel
+# Worktrees made by coding agents
+.claude/

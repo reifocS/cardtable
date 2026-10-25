@@ -1,3 +1,4 @@
+import { configDefaults } from 'vitest/config';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -26,4 +27,6 @@ function devApi(): Plugin {
 
 export default defineConfig({
   plugins: [react(), devApi()],
+  // Agents' worktrees hold copies of the tests.
+  test: { exclude: [...configDefaults.exclude, '.claude/**'] },
 });
