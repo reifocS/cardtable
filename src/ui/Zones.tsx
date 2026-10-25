@@ -52,7 +52,7 @@ function Surface({ zone, state, flipped, width, scale, top = 0, children }: Surf
     >
       {zone.cards.map((id) => {
         const c = state.cards[id];
-        return c && <CardView key={id} card={c} zone={zone} style={{ left: viewX(c.x, width), top: viewY(flipped ? mirrorY(c.y) : c.y) }} />;
+        return c && <CardView key={id} card={c} zone={zone} left={viewX(c.x, width)} top={viewY(flipped ? mirrorY(c.y) : c.y)} />;
       })}
       <BoardPings zone={zone} state={state} flipped={flipped} width={width} />
       {children}

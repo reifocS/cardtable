@@ -456,6 +456,22 @@ describe('visibility', () => {
   });
 });
 
+describe('patches', () => {
+  it('rebuild the next view while keeping what did not change', () => {
+    const { e, a } = twoPlayers();
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'library'), to: zoneId(a, 'battlefield'), n: 2 });
+    const prev = redact(e.state, a);
+    const [moved, still] = prev.zones[zoneId(a, 'battlefield')].cards;
+    e.dispatch(a, { type: 'tap', cards: [moved] });
+    const next = redact(e.state, a);
+    const shared = applyPatch(prev, diffState(prev, next));
+    expect(shared).toEqual(next);
+    expect(shared.cards[still]).toBe(prev.cards[still]);
+    expect(shared.cards[moved]).not.toBe(prev.cards[moved]);
+    expect(shared.zones[zoneId(a, 'hand')]).toBe(prev.zones[zoneId(a, 'hand')]);
+  });
+});
+
 describe('engine', () => {
   it('undoes only your own latest action', () => {
     const { e, a, b } = twoPlayers();

@@ -68,6 +68,8 @@ export interface Store {
   leave(): void;
 }
 
+const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
+
 export const useStore = create<Store>((set, get) => ({
   session: null,
   state: null,
@@ -97,18 +99,21 @@ export const useStore = create<Store>((set, get) => ({
   connect(session) {
     const sync = () => {
       const state = session.getState();
+      const prev = get();
       // A selection belongs to one seat's view: switching seats starts afresh.
-      const selection = state && session.me === get().me ? get().selection.filter((id) => state.cards[id]) : [];
+      const selection = state && session.me === prev.me ? prev.selection.filter((id) => state.cards[id]) : [];
+      const controlled = session.controlled ?? (session.me ? [session.me] : []);
       set({
         state,
         me: session.me,
         status: session.status,
         error: session.error,
         route: session.route,
-        controlled: session.controlled ?? (session.me ? [session.me] : []),
+        // Same contents, same array: whatever reads these doesn't render again for nothing.
+        controlled: sameIds(controlled, prev.controlled) ? prev.controlled : controlled,
         hovers: session.hovers,
         pings: session.pings,
-        selection,
+        selection: sameIds(selection, prev.selection) ? prev.selection : selection,
       });
     };
     session.subscribe(sync);

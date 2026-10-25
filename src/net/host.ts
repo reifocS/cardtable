@@ -1,5 +1,5 @@
 import Peer, { type DataConnection } from 'peerjs';
-import { diffState } from '../core/diff';
+import { applyPatch, diffState } from '../core/diff';
 import { Engine } from '../core/engine';
 import type { Op } from '../core/ops';
 import type { GameState, PlayerId } from '../core/types';
@@ -194,7 +194,9 @@ export class HostSession extends Emitter implements Session {
 
   private onChange() {
     const s = this.engine.state;
-    this.view = redact(s, this.me);
+    // The engine rebuilds every object on each op; keep the unchanged ones, as a client's patches do,
+    // so only what changed renders again.
+    this.view = applyPatch(this.view, diffState(this.view, redact(s, this.me)));
     for (const [conn, pid] of this.conns) if (pid) this.sync(conn, pid);
     clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => this.save(), 500);

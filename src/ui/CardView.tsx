@@ -1,4 +1,4 @@
-import { memo, type CSSProperties } from 'react';
+import { memo } from 'react';
 import type { Card, CardFace, Zone } from '../core/types';
 import { isPublic } from '../core/visibility';
 import { STACK, cardMenu, castToStack, isSpell, openMenu, resolve, toMyBattlefield } from './actions';
@@ -46,12 +46,14 @@ function onDoubleClick(card: Card, zone: Zone) {
 interface Props {
   card: Card;
   zone: Zone;
-  style?: CSSProperties;
+  /** Position on a board, in pixels. Plain numbers, not a style object, so memo can skip unchanged cards. */
+  left?: number;
+  top?: number;
   /** Shown as the top of a pile: right-click and double-click belong to the pile, not the card. */
   pileTop?: boolean;
 }
 
-export const CardView = memo(function CardView({ card, zone, style, pileTop }: Props) {
+export const CardView = memo(function CardView({ card, zone, left, top, pileTop }: Props) {
   const selected = useStore((s) => s.selection.includes(card.id));
   const me = useStore((s) => s.me);
   const sleeve = useStore((s) => s.state?.players[card.owner]?.sleeve);
@@ -74,7 +76,7 @@ export const CardView = memo(function CardView({ card, zone, style, pileTop }: P
       className={classes.filter(Boolean).join(' ')}
       data-card-id={card.id}
       style={{
-        ...style,
+        ...(left != null && { left, top }),
         ...(onBoard && card.rotation ? { transform: `rotate(${card.rotation}deg)` } : null),
         ...(watchers ? ({ '--watch': watchers.split(' ')[0] } as React.CSSProperties) : null),
       }}
