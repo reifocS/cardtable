@@ -80,7 +80,7 @@ export const CardView = memo(function CardView({ card, zone, left, top, pileTop 
         ...(onBoard && card.rotation ? { transform: `rotate(${card.rotation}deg)` } : null),
         ...(watchers ? ({ '--watch': watchers.split(' ')[0] } as React.CSSProperties) : null),
       }}
-      onPointerDown={(e) => onCardPointerDown(e, card, zone)}
+      onPointerDown={(e) => onCardPointerDown(e, card)}
       onPointerEnter={() => hover(card, zone)}
       onPointerLeave={() => unhover(card)}
       onDoubleClick={pileTop ? undefined : () => onDoubleClick(card, zone)}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { GameState } from '../core/types';
+import type { Card, GameState } from '../core/types';
 import { FaceView } from './CardView';
 import { formatCounter } from './counters';
 import { act, useStore } from './store';
@@ -7,11 +7,6 @@ import { act, useStore } from './store';
 function Preview({ state }: { state: GameState }) {
   const previewId = useStore((s) => s.previewId);
   const card = previewId ? state.cards[previewId] : undefined;
-  const [face, setFace] = useState<number | null>(null);
-  useEffect(() => {
-    setFace(null);
-  }, [previewId]);
-
   if (!card?.faces.length) {
     return (
       <div className="preview empty">
@@ -20,6 +15,12 @@ function Preview({ state }: { state: GameState }) {
       </div>
     );
   }
+  // A new card starts on the face it shows on the table.
+  return <PreviewCard key={card.id} card={card} />;
+}
+
+function PreviewCard({ card }: { card: Card }) {
+  const [face, setFace] = useState<number | null>(null);
   const shown = face ?? card.face;
   const counters = Object.entries(card.counters);
   return (
@@ -42,7 +43,7 @@ function Preview({ state }: { state: GameState }) {
       {card.faces.length > 1 && (
         <div className="preview-faces">
           {card.faces.map((f, i) => (
-            <button key={i} className={i === shown ? 'on' : ''} onClick={() => setFace(i)}>
+            <button key={f.name} className={i === shown ? 'on' : ''} onClick={() => setFace(i)}>
               {f.name}
             </button>
           ))}
@@ -107,8 +108,8 @@ export function ZoomOverlay({ state }: { state: GameState }) {
   if (!zoom || !card?.faces.length) return null;
   return (
     <div className="zoom">
-      {card.faces.map((f, i) => (
-        <div key={i} className="zoom-card">
+      {card.faces.map((f) => (
+        <div key={f.name} className="zoom-card">
           <FaceView face={f} large />
         </div>
       ))}

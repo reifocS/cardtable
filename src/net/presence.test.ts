@@ -3,7 +3,7 @@ import { Presence } from './presence';
 
 describe('Presence', () => {
   it('tracks one hovered card per player and only notifies on change', () => {
-    const changed = vi.fn();
+    const changed = vi.fn<() => void>();
     const p = new Presence(changed);
     p.setHover('p1', 'c1');
     p.setHover('p1', 'c1');

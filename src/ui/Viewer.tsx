@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import type { Card, GameState } from '../core/types';
+import { useState } from 'react';
+import type { Card, GameState, Zone } from '../core/types';
 import { closeViewer } from './actions';
 import { CardView } from './CardView';
-import { act, useStore } from './store';
+import { act, useStore, type Store } from './store';
 
 /** Every word must appear in the name, type line or rules text of some face: "basic land", "creature flying". */
 function matches(card: Card, query: string) {
@@ -15,15 +15,15 @@ function matches(card: Card, query: string) {
 /** Floating list of a zone's cards: filter, drag them out, reorder them, right-click for actions. */
 export function Viewer({ state }: { state: GameState }) {
   const viewer = useStore((s) => s.viewer);
+  const zone = viewer ? state.zones[viewer.zone] : undefined;
+  if (!viewer || !zone) return null;
+  // Another zone opens with an empty filter.
+  return <ViewerPanel key={zone.id} state={state} viewer={viewer} zone={zone} />;
+}
+
+function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNullable<Store['viewer']>; zone: Zone }) {
   const me = useStore((s) => s.me);
   const [query, setQuery] = useState('');
-  useEffect(() => {
-    setQuery('');
-  }, [viewer?.zone]);
-
-  if (!viewer) return null;
-  const zone = state.zones[viewer.zone];
-  if (!zone) return null;
   const ids = viewer.ids ? zone.cards.filter((id) => viewer.ids!.includes(id)) : zone.cards;
   const shown = ids.filter((id) => state.cards[id] && matches(state.cards[id], query));
   const filtering = shown.length !== ids.length;

@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "import",
+    "vitest"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "react/hooks": "error",
+    "react/refs": "error",
+    "react/purity": "error",
+    "react/immutability": "error",
+    "react/globals": "error",
+    "react/set-state-in-render": "error",
+    "react/set-state-in-effect": "error",
+    "react/static-components": "error",
+    "react/use-memo": "error",
+    "react/preserve-manual-memoization": "error",
+    "react/incompatible-library": "error",
+    "react/error-boundaries": "error",
+    "react/no-deriving-state-in-effects": "error",
+    "react/unsupported-syntax": "error",
+    "react/no-unstable-nested-components": "error",
+    "react/no-array-index-key": "off",
+    "react/jsx-key": "error",
+    "react/only-export-components": "off"
+  },
+  "ignorePatterns": [
+    "dist/**"
+  ]
+}

@@ -21,14 +21,12 @@ export function Arrows({ state }: { state: GameState }) {
   // The zoomed board covers the table, where arrows would point at hidden cards.
   const focus = useStore((s) => s.focus);
   const [lines, setLines] = useState<Line[]>([]);
-  const arrows = focus ? [] : state.arrows;
-  const active = arrows.length > 0 || !!targeting;
+  const active = (!focus && state.arrows.length > 0) || !!targeting;
 
+  // Follows the elements every frame: cards move, boards resize and scroll.
   useEffect(() => {
-    if (!active) {
-      setLines([]);
-      return;
-    }
+    if (!active) return;
+    const arrows = focus ? [] : state.arrows;
     let mouse = { x: 0, y: 0 };
     const onMove = (e: PointerEvent) => (mouse = { x: e.clientX, y: e.clientY });
     window.addEventListener('pointermove', onMove);
@@ -45,19 +43,21 @@ export function Arrows({ state }: { state: GameState }) {
       setLines(next);
       raf = requestAnimationFrame(tick);
     };
-    tick();
+    raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('pointermove', onMove);
     };
   }, [active, state, targeting, me, focus]);
 
-  if (!lines.length) return null;
+  if (!active || !lines.length) return null;
+  // The line being drawn has no ends yet; real arrows are unique by their ends.
+  const keyOf = (l: Line) => (l.from && l.to ? `${l.from}>${l.to}` : 'drawing');
   return (
     <svg className="arrows">
       <defs>
         {lines.map((l, i) => (
-          <marker key={i} id={`head-${i}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <marker key={keyOf(l)} id={`head-${i}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
             <path d="M0,0 L10,5 L0,10 z" fill={l.color} />
           </marker>
         ))}
@@ -65,9 +65,9 @@ export function Arrows({ state }: { state: GameState }) {
       {lines.map((l, i) => {
         const { from, to, color, ...pos } = l;
         const line = <line {...pos} stroke={color} strokeWidth={4} strokeLinecap="round" markerEnd={`url(#head-${i})`} opacity={0.9} />;
-        if (!from || !to) return <g key={i}>{line}</g>;
+        if (!from || !to) return <g key={keyOf(l)}>{line}</g>;
         return (
-          <g key={i} className="arrow" onClick={() => act({ type: 'removeArrow', from, to })}>
+          <g key={keyOf(l)} className="arrow" onClick={() => act({ type: 'removeArrow', from, to })}>
             <title>Click to remove</title>
             {/* A wide invisible stroke makes the thin arrow easy to click. */}
             <line {...pos} stroke="transparent" strokeWidth={18} strokeLinecap="round" />

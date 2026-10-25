@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 import { CARD_H, CARD_W } from '../core/state';
 import type { GameState, Zone } from '../core/types';
 import { STACK, draw, openMenu, openViewer, zoneMenu } from './actions';
@@ -6,27 +6,20 @@ import { CardBack, CardView, FaceView } from './CardView';
 import { onBoardPointerDown } from './drag';
 import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
 import { matLook } from './playmats';
-import { useStore } from './store';
+import { setBoardWidth, useStore } from './store';
 import { tip } from './tip';
 
-/** Size of an element, kept up to date. */
-function useSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+/** Size of the element `ref` points at, kept up to date. */
+function useSize(ref: React.RefObject<HTMLElement | null>) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const el = ref.current!;
     const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
-  return [ref, size] as const;
+  }, [ref]);
+  return size;
 }
-
-/**
- * Logical width each battlefield was last laid out at on this screen. The zoomed view reuses it,
- * so cards keep exactly the same arrangement instead of re-spreading over a different width.
- */
-const laidOutWidth = new Map<string, number>();
 
 interface SurfaceProps {
   zone: Zone;
@@ -90,9 +83,13 @@ function BoardPings({ zone, state, flipped, width }: { zone: Zone; state: GameSt
  * `flipped` mirrors it top to bottom, for an opponent sitting across the table.
  */
 export function Board({ zone, state, flipped, children }: { zone: Zone; state: GameState; flipped?: boolean; children?: React.ReactNode }) {
-  const [wrap, size] = useSize<HTMLDivElement>();
+  const wrap = useRef<HTMLDivElement>(null);
+  const size = useSize(wrap);
   const { scale, width, top } = fitBoard(size.w, size.h);
-  if (size.w) laidOutWidth.set(zone.id, width);
+  // The zoomed view reuses this width, so its cards keep exactly the same arrangement.
+  useLayoutEffect(() => {
+    if (size.w) setBoardWidth(zone.id, width);
+  }, [zone.id, width, size.w]);
   const mat = matLook(state.players[zone.owner]?.playmat);
   return (
     <div className={`board-wrap ${mat.className}`} style={mat.style} ref={wrap}>
@@ -140,14 +137,14 @@ function cardsBox(zone: Zone, state: GameState, width: number, flipped?: boolean
  * buttons, and scroll once zoomed in.
  */
 export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameState; flipped?: boolean }) {
-  const [wrap, size] = useSize<HTMLDivElement>();
-  // Pixels per board unit; null until measured, then it starts fitted to the cards.
+  const wrap = useRef<HTMLDivElement>(null);
+  const size = useSize(wrap);
+  // Pixels per board unit, once a zoom is picked; until then it follows the cards, fitted.
   const [chosen, setChosen] = useState<number | null>(null);
-  // Scroll position to apply after the next render (a fit, or keeping a point under the cursor).
+  // Scroll position for the next scale, applied once it's on screen.
   const pending = useRef<{ left: number; top: number } | null>(null);
-  const [renders, setRenders] = useState(0);
 
-  const width = laidOutWidth.get(zone.id) ?? 1000;
+  const width = useStore((s) => s.boardWidths[zone.id]) ?? 1000;
   const box = cardsBox(zone, state, width, flipped);
   const mat = matLook(state.players[zone.owner]?.playmat);
   const measured = size.w > 0 && size.h > 0;
@@ -157,58 +154,68 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
   const maxScale = Math.max(fitBoardScale, fitCardsScale) * ZOOM_RANGE;
   const scale = chosen ?? fitCardsScale;
 
+  /** Scroll that puts `target` in the middle of the view at scale `s`. */
+  const centered = (target: Box, s: number) => ({
+    // While the board is smaller than the view in a direction, it's centered and doesn't scroll.
+    left: target.x * s - Math.max(0, (size.w - target.w * s) / 2),
+    top: target.y * s - Math.max(0, (size.h - target.h * s) / 2),
+  });
+
+  const show = (s: number, scroll: { left: number; top: number }) => {
+    const el = wrap.current;
+    if (!el) return;
+    if (s === scale) {
+      el.scrollLeft = scroll.left;
+      el.scrollTop = scroll.top;
+      return;
+    }
+    pending.current = scroll;
+    setChosen(s);
+  };
+
   /** Zoom so `target` fills the view, centered on it. */
   const fitTo = (target: Box) => {
     const s = Math.min(size.w / target.w, size.h / target.h);
-    // While the board is smaller than the view in a direction, it's centered and doesn't scroll.
-    pending.current = {
-      left: target.x * s - Math.max(0, (size.w - target.w * s) / 2),
-      top: target.y * s - Math.max(0, (size.h - target.h * s) / 2),
-    };
-    setChosen(s);
-    setRenders((n) => n + 1);
+    show(s, centered(target, s));
   };
 
-  const zoomTo = (next: number, px = size.w / 2, py = size.h / 2) => {
+  const zoomTo = (next: number, px: number, py: number) => {
     const el = wrap.current;
     if (!el) return;
     const s = Math.min(maxScale, Math.max(minScale, next));
     // Keep the point under the cursor where it is.
     const x = (el.scrollLeft + px) / scale;
     const y = (el.scrollTop + py) / scale;
-    pending.current = { left: x * s - px, top: y * s - py };
-    setChosen(s);
-    setRenders((n) => n + 1);
+    show(s, { left: x * s - px, top: y * s - py });
   };
+  const zoomAtCenter = (next: number) => zoomTo(next, size.w / 2, size.h / 2);
 
-  // Once the area is measured, open fitted to the cards (later card moves don't refit).
-  useLayoutEffect(() => {
-    if (measured && chosen === null) fitTo(box);
-  }, [measured]);
-
+  // A new scale is on screen: scroll to where it was asked for, or keep the fitted cards centered.
+  const fitted = chosen === null && measured ? centered(box, scale) : null;
+  const fitLeft = fitted?.left;
+  const fitTop = fitted?.top;
   useLayoutEffect(() => {
     const el = wrap.current;
-    const p = pending.current;
+    const p = pending.current ?? (fitLeft === undefined || fitTop === undefined ? null : { left: fitLeft, top: fitTop });
     if (!el || !p) return;
     el.scrollLeft = p.left;
     el.scrollTop = p.top;
     pending.current = null;
-  }, [renders, wrap]);
+  }, [scale, fitLeft, fitTop]);
 
   // Pinch on a trackpad arrives as Ctrl + wheel; it must be non-passive to stop the page zooming.
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
+  const onWheel = useEffectEvent((e: WheelEvent) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const r = wrap.current!.getBoundingClientRect();
+    zoomTo(scale * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+  });
   useEffect(() => {
     const el = wrap.current!;
-    const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      const r = el.getBoundingClientRect();
-      zoomTo(scaleRef.current * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  });
+    const handler = (e: WheelEvent) => onWheel(e);
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
 
   return (
     <div className="zoom-board">
@@ -218,11 +225,11 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
         </div>
       </div>
       <div className="zoom-controls">
-        <button onClick={() => zoomTo(scale / 1.25)} disabled={scale <= minScale + 1e-6} {...tip('Zoom out')}>
+        <button onClick={() => zoomAtCenter(scale / 1.25)} disabled={scale <= minScale + 1e-6} {...tip('Zoom out')}>
           −
         </button>
         <span className="zoom-level">{Math.round(scale * 100)}%</span>
-        <button onClick={() => zoomTo(scale * 1.25)} disabled={scale >= maxScale - 1e-6} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
+        <button onClick={() => zoomAtCenter(scale * 1.25)} disabled={scale >= maxScale - 1e-6} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
           +
         </button>
         <button onClick={() => fitTo(box)} {...tip('Fit the cards', 'end')}>
@@ -244,16 +251,18 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
   const onClick = () => (isMyLibrary ? draw() : openViewer(zone));
 
   // A freshly loaded deck: draw the eye to the library, where drawing starts.
+  const count = zone.cards.length;
+  const [seen, setSeen] = useState(count);
   const [attention, setAttention] = useState(false);
-  const count = useRef(zone.cards.length);
+  if (count !== seen) {
+    setSeen(count);
+    if (isMyLibrary && (count > seen + 10 || (seen === 0 && count > 0))) setAttention(true);
+  }
   useEffect(() => {
-    const before = count.current;
-    count.current = zone.cards.length;
-    if (!isMyLibrary || !(zone.cards.length > before + 10 || (before === 0 && zone.cards.length > 0))) return;
-    setAttention(true);
+    if (!attention) return;
     const t = setTimeout(() => setAttention(false), 3200);
     return () => clearTimeout(t);
-  }, [zone.cards.length, isMyLibrary]);
+  }, [attention]);
 
   return (
     <div

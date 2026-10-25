@@ -1,4 +1,4 @@
-import { Component, Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import { Component, Suspense, lazy, useEffect, useEffectEvent, useState, type ReactNode } from 'react';
 import { ClientSession } from '../net/client';
 import { HostSession, deleteSavedGame, listSavedGames, type SavedGame } from '../net/host';
 import type { Session } from '../net/session';
@@ -67,10 +67,13 @@ function Lobby() {
   const join = () => code.trim() && start((n) => new ClientSession(n, code.trim().toLowerCase()));
 
   // A reload while seated at a table goes straight back to it.
-  useEffect(() => {
+  const rejoin = useEffectEvent(() => {
     if (autoJoined || !code || !sessionStorage.getItem(`cardtable:seat:${code}`)) return;
     autoJoined = true;
     join();
+  });
+  useEffect(() => {
+    rejoin();
   }, []);
 
   return (

@@ -1,7 +1,7 @@
 import type React from 'react';
 import { CARD_H, CARD_W } from '../core/state';
 import { VIEW_H, mirrorY, storeX, storeY } from './fit';
-import type { Card, CardId, Zone } from '../core/types';
+import type { Card, CardId } from '../core/types';
 import { act, setSelection, useStore } from './store';
 
 const DRAG_THRESHOLD = 5;
@@ -35,7 +35,7 @@ export function finishTargeting(to: string) {
  * Click selects, drag moves. Dragging a selected card drags the whole selection;
  * cards keep their relative layout when they land on a battlefield.
  */
-export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card, zone: Zone) {
+export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card) {
   if (e.button !== 0) return;
   e.stopPropagation();
   const store = useStore.getState();

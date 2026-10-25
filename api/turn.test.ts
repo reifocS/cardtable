@@ -28,7 +28,7 @@ describe('/api/turn', () => {
   });
 
   it('asks Cloudflare with the secret and returns ice servers without port 53', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn<typeof fetch>(async () =>
       Response.json({
         iceServers: [
           { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.cloudflare.com:53'] },

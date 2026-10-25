@@ -37,7 +37,7 @@ describe('/api/deck', () => {
   });
 
   it('fetches Archidekt decks by link', async () => {
-    const fetchMock = vi.fn(async () => Response.json(DECK));
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json(DECK));
     vi.stubGlobal('fetch', fetchMock);
     const res = await GET(req('https://archidekt.com/decks/1/fun_with_fungus'));
     expect((fetchMock.mock.calls[0] as unknown as [string])[0]).toBe('https://archidekt.com/api/decks/1/');

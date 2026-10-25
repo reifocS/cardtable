@@ -287,16 +287,16 @@ export function Table() {
   const attaching = useStore((s) => s.targetMode === 'attach');
   const offline = useStore((s) => s.session?.role === 'client' && s.status !== 'connected');
 
-  // Bring my preferred playmat to this table, once (changing it later saves a new preference).
-  const myMat = useStore((s) => (s.me ? s.state?.players[s.me]?.playmat : undefined));
-  const mySleeve = useStore((s) => (s.me ? s.state?.players[s.me]?.sleeve : undefined));
+  // Bring my preferred playmat and sleeves to this table, once (changing them later saves new preferences).
   const seated = useStore((s) => !!(s.me && s.state?.players[s.me]));
   useEffect(() => {
     if (!seated) return;
+    const { me, state } = useStore.getState();
+    const player = me ? state?.players[me] : undefined;
     const mat = loadPlaymatPref();
-    if (mat && mat !== myMat) act({ type: 'setPlaymat', mat });
+    if (mat && mat !== player?.playmat) act({ type: 'setPlaymat', mat });
     const sleeve = loadSleevePref();
-    if (sleeve && sleeve !== mySleeve) act({ type: 'setSleeve', sleeve });
+    if (sleeve && sleeve !== player?.sleeve) act({ type: 'setSleeve', sleeve });
   }, [seated]);
 
   useEffect(() => {

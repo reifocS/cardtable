@@ -2,11 +2,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { parseDeck, withPrinting, type DeckLine, type Section } from '../cards/deckParser';
 import { deleteDeck, editLastDeck, guessDeckName, listDecks, loadLastDeck, saveDeck, saveLastDeck } from '../cards/decks';
 import { lookupKey, printingsOf, resolveCards, searchCards, type Printing } from '../cards/scryfall';
-import type { CardFace } from '../core/types';
+import type { Card, CardFace } from '../core/types';
 import { CardImage } from './Zones';
 import { createTokens } from './actions';
 import { GithubLink } from './Icon';
-import { act, useStore } from './store';
+import { act, useStore, type Prompt } from './store';
 import { tip } from './tip';
 
 export function ContextMenu() {
@@ -100,11 +100,12 @@ export function ConfirmDialog() {
 
 export function PromptDialog() {
   const prompt = useStore((s) => s.prompt);
-  const [value, setValue] = useState('');
-  useEffect(() => {
-    setValue(prompt?.value ?? '');
-  }, [prompt]);
-  if (!prompt) return null;
+  // Each prompt starts from its own value.
+  return prompt ? <PromptForm key={`${prompt.title}\n${prompt.value}`} prompt={prompt} /> : null;
+}
+
+function PromptForm({ prompt }: { prompt: Prompt }) {
+  const [value, setValue] = useState(prompt.value);
   const close = () => useStore.setState({ prompt: null });
   return (
     <Modal title={prompt.title} onClose={close}>
@@ -133,21 +134,21 @@ Any other game: name | image URL
 
 export function ImportDialog() {
   const open = useStore((s) => s.dialog === 'import');
-  const [text, setText] = useState(loadLastDeck);
-  // Follow the last imported list when it changes elsewhere (a new art), unless it was edited here.
-  const shown = useRef(text);
-  useEffect(() => {
-    if (!open) return;
-    const last = loadLastDeck();
-    if (text === shown.current) setText(last);
-    shown.current = last;
-  }, [open]);
+  return open ? <ImportForm /> : null;
+}
+
+function ImportForm() {
+  // An edit not imported yet survives closing; otherwise the last imported list (it may have new art).
+  const [text, setTextState] = useState(() => useStore.getState().deckDraft ?? loadLastDeck());
+  const setText = (value: string) => {
+    setTextState(value);
+    useStore.setState({ deckDraft: value });
+  };
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [decks, setDecks] = useState(listDecks);
   const [name, setName] = useState('');
   const [link, setLink] = useState('');
-  if (!open) return null;
 
   const fetchLink = async () => {
     if (!link.trim()) return;
@@ -190,7 +191,7 @@ export function ImportDialog() {
       for (const l of lines) for (let i = 0; i < l.count; i++) out[l.section].push(facesFor(l));
       act({ type: 'loadDeck', sections: out });
       saveLastDeck(text);
-      shown.current = text;
+      useStore.setState({ deckDraft: null });
       if (missing.length) {
         setProblem(`Imported, but not found on Scryfall (added as text cards): ${missing.join(', ')}`);
       } else {
@@ -259,15 +260,16 @@ export function ImportDialog() {
 /** Pick another printing of one of your cards; for all copies, the deck list remembers it. */
 export function ArtDialog() {
   const card = useStore((s) => (s.artFor ? s.state?.cards[s.artFor] : undefined));
-  const name = card?.faces[0]?.name;
+  return card?.faces[0] ? <ArtPicker key={card.id} card={card} /> : null;
+}
+
+function ArtPicker({ card }: { card: Card }) {
+  const name = card.faces[0].name;
   const [prints, setPrints] = useState<Printing[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [all, setAll] = useState(true);
   useEffect(() => {
-    if (!name) return;
     let live = true;
-    setPrints(null);
-    setProblem(null);
     printingsOf(name).then(
       (p) => live && setPrints(p),
       (e: Error) => live && setProblem(e.message),
@@ -276,7 +278,6 @@ export function ArtDialog() {
       live = false;
     };
   }, [name]);
-  if (!card || !name) return null;
 
   const close = () => useStore.setState({ artFor: null });
   const pick = (p: Printing) => {
@@ -353,7 +354,7 @@ export function CreateDialog() {
           </form>
           <div className="results">
             {results.map((faces, i) => (
-              <button key={i} className="result" title={`Create ${faces[0].name}`} onClick={() => create(faces)}>
+              <button key={faces[0].image ?? `${faces[0].name}:${i}`} className="result" title={`Create ${faces[0].name}`} onClick={() => create(faces)}>
                 <CardImage faces={faces} />
               </button>
             ))}
