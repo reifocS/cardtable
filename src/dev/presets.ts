@@ -161,6 +161,8 @@ export interface DevPreset {
   covers: string;
   decks: string[];
   build(b: Builder): PlayerId;
+  /** Every seat is played from this browser (two-seat practice). */
+  controlsAll?: boolean;
   /** Open UI state once the table is up (a viewer, the zoomed board…). */
   after?(ctx: { me: PlayerId; state: GameState; dispatch: (op: Op) => void; set: (s: Partial<Store>) => void }): void;
 }
@@ -317,6 +319,14 @@ export const PRESETS: DevPreset[] = [
       b.draw(me, 7).draw(misty, 7);
       return me;
     },
+  },
+  {
+    id: 'selfplay',
+    name: 'Two-seat practice',
+    covers: 'Playing both sides: seat switcher in the top bar (or `)',
+    decks: [WHITE, RED],
+    controlsAll: true,
+    build: (b) => PRESETS.find((p) => p.id === 'duel')!.build(b),
   },
   {
     id: 'viewer',

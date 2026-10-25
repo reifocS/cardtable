@@ -80,6 +80,13 @@ export function editNote(ids: CardId[], current = '') {
   if (ids.length) ask('Note on the card (empty to clear)', current, (text) => act({ type: 'annotate', cards: ids, text }));
 }
 
+/** Two-seat practice: act as the next seat I control. */
+export function switchToNextSeat() {
+  const { session, controlled, me } = useStore.getState();
+  if (!session?.switchSeat || controlled.length < 2 || !me) return;
+  session.switchSeat(controlled[(controlled.indexOf(me) + 1) % controlled.length]);
+}
+
 export function startTargeting(from: string) {
   useStore.setState({ targeting: from, targetMode: 'arrow', menu: null });
 }
@@ -354,6 +361,7 @@ export function onKeyDown(e: KeyboardEvent) {
     u: () => act({ type: 'untapAll' }),
     m: () => act({ type: 'mulligan' }),
     c: () => useStore.setState({ dialog: 'create' }),
+    '`': () => switchToNextSeat(),
     C: () => createAnotherToken(),
     '?': () => useStore.setState({ dialog: 'help' }),
     z: () => useStore.setState({ zoom: true }),

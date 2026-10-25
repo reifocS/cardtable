@@ -84,6 +84,18 @@ function Lobby() {
       <button className="primary big" onClick={() => start((n) => new HostSession(n))}>
         Create a table
       </button>
+      <button
+        onClick={() =>
+          start((n) => {
+            const session = new HostSession(n);
+            session.addSeat('Practice opponent');
+            return session;
+          })
+        }
+        title="One table, two seats you play yourself: test a deck against another"
+      >
+        Practice: play both sides
+      </button>
       {saved.length > 0 && (
         <div className="saved">
           <div className="or">or resume one you hosted</div>

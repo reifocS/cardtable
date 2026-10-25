@@ -35,6 +35,8 @@ export interface Store {
   status: Status;
   error: string | null;
   route: Route;
+  /** Seats I play myself (more than one when practicing both sides). */
+  controlled: PlayerId[];
   /** Card each other player is hovering, and live pings (ephemeral, see net/presence). */
   hovers: Record<PlayerId, CardId>;
   pings: Ping[];
@@ -71,6 +73,7 @@ export const useStore = create<Store>((set, get) => ({
   status: 'connecting',
   error: null,
   route: null,
+  controlled: [],
   hovers: {},
   pings: [],
   selection: [],
@@ -91,13 +94,15 @@ export const useStore = create<Store>((set, get) => ({
   connect(session) {
     const sync = () => {
       const state = session.getState();
-      const selection = state ? get().selection.filter((id) => state.cards[id]) : [];
+      // A selection belongs to one seat's view: switching seats starts afresh.
+      const selection = state && session.me === get().me ? get().selection.filter((id) => state.cards[id]) : [];
       set({
         state,
         me: session.me,
         status: session.status,
         error: session.error,
         route: session.route,
+        controlled: session.controlled ?? (session.me ? [session.me] : []),
         hovers: session.hovers,
         pings: session.pings,
         selection,

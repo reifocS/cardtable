@@ -1610,3 +1610,10 @@ body.dragging .stack-zone {
 .mat > .board {
   background: transparent;
 }
+
+/* ---- two-seat practice ---- */
+
+.seat-switch {
+  font-weight: 700;
+  background: var(--panel-2);
+}

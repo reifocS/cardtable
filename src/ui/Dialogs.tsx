@@ -356,6 +356,7 @@ const SHORTCUTS: [string, string][] = [
   ['C', 'Create card / token'],
   ['Del', 'Delete token'],
   ['⌘/Ctrl Z', 'Undo your last action'],
+  ['`', 'Two-seat practice: switch to your other seat'],
   ['Esc', 'Cancel / close / deselect'],
 ];
 

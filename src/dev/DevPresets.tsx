@@ -15,7 +15,8 @@ export default function DevPresets() {
     setBusy(p.id);
     try {
       const { state, me } = await buildPreset(p);
-      const session = new HostSession(state.players[me].name, { code: makeCode(), me, state, savedAt: Date.now() }, { persist: false, keepPresence: true });
+      const saved = { code: makeCode(), me, state, savedAt: Date.now(), controlled: p.controlsAll ? state.seats : undefined };
+      const session = new HostSession(state.players[me].name, saved, { persist: false, keepPresence: true });
       useStore.getState().connect(session);
       history.replaceState(null, '', `?preset=${p.id}`);
       requestAnimationFrame(() =>

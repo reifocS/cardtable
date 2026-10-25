@@ -17,6 +17,8 @@ export interface SavedGame {
   me: PlayerId;
   state: GameState;
   savedAt: number;
+  /** Seats this browser plays itself (two-seat practice); `me` is the active one. */
+  controlled?: PlayerId[];
 }
 
 export function deleteSavedGame(code: string) {
@@ -56,7 +58,10 @@ export function listSavedGames(): SavedGame[] {
 export class HostSession extends Emitter implements Session {
   readonly role = 'host';
   readonly code: string;
-  readonly me: PlayerId;
+  /** The seat I'm acting as right now (one of `controlled`). */
+  me: PlayerId;
+  /** Seats I play myself: mine, plus any added for practice. */
+  controlled: PlayerId[];
   status: Status = 'connecting';
   error: string | null = null;
   readonly route = null;
@@ -82,6 +87,8 @@ export class HostSession extends Emitter implements Session {
     this.engine = new Engine(saved?.state);
     if (!opts.keepPresence) for (const id of Object.keys(this.engine.state.players)) this.engine.setConnected(id, false, true);
     this.me = this.engine.join(name, saved?.me);
+    this.controlled = [...new Set([this.me, ...(saved?.controlled ?? [])])].filter((p) => this.engine.state.players[p]);
+    for (const p of this.controlled) this.engine.setConnected(p, true);
     this.view = redact(this.engine.state, this.me);
     this.engine.subscribe(() => this.onChange());
     this.save();
@@ -156,7 +163,8 @@ export class HostSession extends Emitter implements Session {
 
   private receive(conn: DataConnection, msg: ToHost) {
     if (msg?.t === 'hello') {
-      const want = msg.playerId && msg.playerId !== this.me ? msg.playerId : undefined;
+      // Nobody else may take a seat I play myself.
+      const want = msg.playerId && !this.controlled.includes(msg.playerId) ? msg.playerId : undefined;
       const pid = this.engine.join(String(msg.name || 'Player').slice(0, 32), want);
       this.conns.set(conn, pid);
       this.sent.delete(conn);
@@ -196,7 +204,7 @@ export class HostSession extends Emitter implements Session {
   private save() {
     if (this.opts.persist === false) return;
     try {
-      const saved: SavedGame = { code: this.code, me: this.me, state: this.engine.state, savedAt: Date.now() };
+      const saved: SavedGame = { code: this.code, me: this.me, state: this.engine.state, savedAt: Date.now(), controlled: this.controlled };
       localStorage.setItem(SAVE_PREFIX + this.code, JSON.stringify(saved));
     } catch {
       // Storage full or blocked: the game still works, it just won't survive a reload.
@@ -227,6 +235,25 @@ export class HostSession extends Emitter implements Session {
 
   point(target: PointTarget) {
     this.relayPoint(this.me, target);
+  }
+
+  /** Adds a seat at the table that I play myself (practice against my own second deck). */
+  addSeat(name: string): PlayerId {
+    const id = this.engine.join(name.trim().slice(0, 32) || 'Opponent');
+    this.controlled = [...this.controlled, id];
+    this.save();
+    this.emit();
+    return id;
+  }
+
+  /** Acts as another seat I control: the view turns to that side of the table. */
+  switchSeat(id: PlayerId) {
+    if (!this.controlled.includes(id) || id === this.me) return;
+    this.hover(null);
+    this.me = id;
+    this.view = redact(this.engine.state, this.me);
+    this.save();
+    this.emit();
   }
 
   getState() {

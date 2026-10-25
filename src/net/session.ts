@@ -52,6 +52,10 @@ export interface Session {
   /** Share the card I'm hovering (only public cards should be passed). */
   hover(card: CardId | null): void;
   point(target: PointTarget): void;
+  /** Seats this browser plays (host only; more than one in two-seat practice). */
+  readonly controlled?: PlayerId[];
+  addSeat?(name: string): PlayerId;
+  switchSeat?(id: PlayerId): void;
   subscribe(fn: () => void): () => void;
   close(): void;
 }

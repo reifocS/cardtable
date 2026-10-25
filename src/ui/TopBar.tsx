@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GameState } from '../core/types';
 import { Icon } from './Icon';
+import { openMenu, switchToNextSeat } from './actions';
 import { act, ask, useStore } from './store';
 import { tip } from './tip';
 
@@ -11,7 +12,18 @@ export function TopBar({ state }: { state: GameState }) {
   const error = useStore((s) => s.error);
   const route = useStore((s) => s.route);
   const me = useStore((s) => s.me)!;
+  const controlled = useStore((s) => s.controlled);
   const [copied, setCopied] = useState(false);
+
+  const seatsMenu = (e: React.MouseEvent) =>
+    openMenu(e, [
+      { label: 'Seats you play', heading: true },
+      ...controlled.map((pid) => ({
+        label: `${pid === me ? '✓ ' : ''}${state.players[pid]?.name ?? pid}`,
+        action: () => session.switchSeat?.(pid),
+      })),
+      { label: 'Add a seat you play yourself…', action: () => ask('Name of the seat', 'Opponent', (name) => session.addSeat?.(name)) },
+    ]);
 
   const confirmLeave = () =>
     useStore.setState({
@@ -44,6 +56,21 @@ export function TopBar({ state }: { state: GameState }) {
         {error && ` · ${error}`}
       </span>
       <div className="spacer" />
+      {controlled.length > 1 && (
+        <button
+          className="seat-switch"
+          style={{ color: state.players[me]?.color }}
+          onClick={() => switchToNextSeat()}
+          {...tip('Switch to your other seat (`)')}
+        >
+          Playing as {state.players[me]?.name} ⇄
+        </button>
+      )}
+      {session.role === 'host' && (
+        <button className="icon-btn" onClick={seatsMenu} {...tip('Seats you play yourself', 'end')}>
+          <Icon name="seats" />
+        </button>
+      )}
       <button
         className="icon-btn"
         {...tip('Rename me', 'end')}
