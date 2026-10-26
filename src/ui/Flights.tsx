@@ -21,7 +21,7 @@ function placeOf(id: CardId, zone: ZoneId) {
  * Sends a copy of the card from where it was to where it is now, the real card hidden until it lands.
  * The copy flies over everything, so boards that clip their cards don't cut it off.
  */
-function fly(el: HTMLElement, from: DOMRect, to: DOMRect, delay: number, landing: boolean) {
+function fly(el: HTMLElement, from: DOMRect, to: DOMRect, delay: number, onLand?: (at: DOMRect) => void) {
   const w = el.offsetWidth;
   const h = el.offsetHeight;
   if (!w || !h) return;
@@ -49,7 +49,7 @@ function fly(el: HTMLElement, from: DOMRect, to: DOMRect, delay: number, landing
   flight.onfinish = flight.oncancel = () => {
     copy.remove();
     el.style.visibility = '';
-    if (landing) dust(to, el);
+    onLand?.(to);
   };
 }
 
@@ -114,6 +114,85 @@ function dust(card: DOMRect, el: HTMLElement) {
   Promise.allSettled(done).then(() => layer.remove());
 }
 
+/** How long a legendary entrance lasts, in ms. */
+const HERALD_MS = 1500;
+
+/**
+ * A legendary card's entrance: on the playmat under it, a sheaf of golden rays turning slowly and a
+ * golden shockwave running out over the table; on the card, a golden glow that swells once; above
+ * it, a few golden motes rising and going out.
+ */
+function herald(card: DOMRect, el: HTMLElement) {
+  const host = el.closest<HTMLElement>('.board-wrap');
+  const origin = host?.getBoundingClientRect() ?? { left: 0, top: 0 };
+  const cx = card.left + card.width / 2 - origin.left;
+  const cy = card.top + card.height / 2 - origin.top;
+  const reach = Math.max(card.width, card.height);
+  const layer = document.createElement('div');
+  layer.className = `land-dust${host ? '' : ' floating'}`;
+  (host ?? document.body).appendChild(layer);
+  const place = (node: HTMLElement, size: number) => {
+    node.style.cssText = `left:${cx - size / 2}px;top:${cy - size / 2}px;width:${size}px;height:${size}px`;
+    layer.append(node);
+    return node;
+  };
+  const done = [
+    place(document.createElement('div'), reach * 2.6).animate(
+      [
+        { transform: 'rotate(0deg) scale(0.4)', opacity: 0 },
+        { transform: 'rotate(25deg) scale(1)', opacity: 1, offset: 0.25 },
+        { transform: 'rotate(70deg) scale(1.1)', opacity: 0 },
+      ],
+      { duration: HERALD_MS, easing: 'ease-out', fill: 'forwards' },
+    ).finished,
+    place(document.createElement('div'), reach * 1.2).animate(
+      [
+        { transform: 'scale(0.6)', opacity: 0.9 },
+        { transform: 'scale(2.6)', opacity: 0 },
+      ],
+      { duration: 700, easing: 'cubic-bezier(0.1, 0.7, 0.3, 1)', fill: 'forwards' },
+    ).finished,
+  ];
+  layer.children[0].className = 'herald-rays';
+  layer.children[1].className = 'herald-wave';
+
+  // The card itself glows, over whatever shadow it already has.
+  const base = getComputedStyle(el).boxShadow;
+  const glow = (r: number, a: string) => `0 0 ${r}px ${r / 3}px #f4c75a${a}${base !== 'none' ? `, ${base}` : ''}`;
+  el.animate([{ boxShadow: glow(0, '00') }, { boxShadow: glow(26, 'cc'), offset: 0.25 }, { boxShadow: glow(10, '00') }], {
+    duration: HERALD_MS,
+    easing: 'ease-out',
+  });
+
+  // Motes rising off it, over the table.
+  const motes = document.createElement('div');
+  motes.className = 'land-dust floating';
+  document.body.appendChild(motes);
+  for (let k = 0; k < 14; k++) {
+    const mote = document.createElement('i');
+    mote.className = 'herald-mote';
+    const x = card.left + Math.random() * card.width;
+    const y = card.top + card.height * (0.3 + Math.random() * 0.7);
+    mote.style.cssText = `left:${x}px;top:${y}px`;
+    motes.append(mote);
+    const rise = card.height * (0.5 + Math.random() * 0.6);
+    done.push(
+      mote.animate(
+        [
+          { transform: 'translate(0, 0) scale(0.5)', opacity: 0 },
+          { transform: `translate(${(Math.random() - 0.5) * 20}px, ${-rise * 0.4}px) scale(1)`, opacity: 1, offset: 0.3 },
+          { transform: `translate(${(Math.random() - 0.5) * 40}px, ${-rise}px) scale(0.3)`, opacity: 0 },
+        ],
+        { duration: 900 + Math.random() * 600, delay: Math.random() * 300, easing: 'ease-out', fill: 'both' },
+      ).finished,
+    );
+  }
+  Promise.allSettled(done).then(() => {
+    layer.remove();
+    motes.remove();
+  });
+}
+
 /**
  * Cards that change zone fly there: drawn to the hand, played to a battlefield, put in a graveyard,
  * mine or anyone's. Each update notes where every card is, then moves the ones whose zone changed from
@@ -132,13 +211,19 @@ export function Flights({ state }: { state: GameState }) {
       if (rect) now.set(card.id, { zone: card.zone, rect });
       const was = before?.get(card.id);
       if (!was || !el || !rect || was.zone === card.zone || still) continue;
-      const landing = state.zones[card.zone]?.kind === 'free';
-      // Dropped by hand: already in place, so no flight, but it still lands with a puff of dust.
-      if (justDropped.has(card.id)) {
-        if (landing) dust(rect, el);
-        continue;
-      }
-      fly(el, was.rect, rect, n++ * STAGGER_MS, landing);
+      // Landing on a battlefield raises dust; a legendary card, face up, makes an entrance too.
+      const face = card.faceDown ? undefined : card.faces[card.face];
+      const legendary = /\bLegendary\b/i.test(face?.type ?? '');
+      const onLand =
+        state.zones[card.zone]?.kind === 'free'
+          ? (at: DOMRect) => {
+              dust(at, el);
+              if (legendary) herald(at, el);
+            }
+          : undefined;
+      // Dropped by hand: already in place, so no flight, but it still lands.
+      if (justDropped.has(card.id)) onLand?.(rect);
+      else fly(el, was.rect, rect, n++ * STAGGER_MS, onLand);
     }
     justDropped.clear();
     seen.current = now;
