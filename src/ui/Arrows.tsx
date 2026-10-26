@@ -14,23 +14,42 @@ function center(id: string): { x: number; y: number } | null {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-/** Head length and half-width, in pixels. */
-const HEAD = 16;
-const HEAD_W = 7;
+/** Sizes in pixels: the broadhead's length and half-width, the fletching's length and spread. */
+const HEAD = 18;
+const HEAD_W = 6;
+const FLETCH = 22;
+const FLETCH_W = 5;
 
-/** A straight line from one end to the other, stopping at the base of its arrowhead. */
+/**
+ * An archer's arrow, straight from one end to the other: a leaf-shaped steel broadhead with two barbs at
+ * the target, a shaft, and fletching at the start (two vanes, and the cock feather down the middle).
+ */
 function arc({ x1, y1, x2, y2 }: Line) {
   const len = Math.hypot(x2 - x1, y2 - y1) || 1;
   const ux = (x2 - x1) / len;
   const uy = (y2 - y1) / len;
-  const bx = x2 - ux * HEAD;
-  const by = y2 - uy * HEAD;
-  const d = `M${x1},${y1} L${bx},${by}`;
-  // A barbed iron head: its barbs swept back past the base, a notch where the shaft meets it.
-  const tx = bx - ux * 3;
-  const ty = by - uy * 3;
-  const head = `M${x2},${y2} L${tx - uy * HEAD_W},${ty + ux * HEAD_W} L${bx + ux * 3},${by + uy * 3} L${tx + uy * HEAD_W},${ty - ux * HEAD_W} Z`;
-  return { d, head };
+  // A point `along` the arrow from (x, y) and `side` to its left.
+  const at = (x: number, y: number, along: number, side: number) => `${x + ux * along - uy * side},${y + uy * along + ux * side}`;
+  const d = `M${at(x1, y1, 2, 0)} L${at(x2, y2, -HEAD + 4, 0)}`;
+  // Tip, the widest point, the barbs swept back past the base, and a notch where the shaft goes in.
+  const head = [
+    `M${x2},${y2}`,
+    `Q${at(x2, y2, -HEAD * 0.45, HEAD_W * 1.1)} ${at(x2, y2, -HEAD * 0.82, HEAD_W)}`,
+    `L${at(x2, y2, -HEAD, HEAD_W * 0.95)}`,
+    `L${at(x2, y2, -HEAD * 0.72, 1.5)}`,
+    `L${at(x2, y2, -HEAD * 0.72, -1.5)}`,
+    `L${at(x2, y2, -HEAD, -HEAD_W * 0.95)}`,
+    `L${at(x2, y2, -HEAD * 0.82, -HEAD_W)}`,
+    `Q${at(x2, y2, -HEAD * 0.45, -HEAD_W * 1.1)} ${x2},${y2}`,
+    'Z',
+  ].join(' ');
+  // Each vane, as on a real arrow: a long slope up from the shaft, a flat back, then a short drop to it.
+  const vane = (side: number) =>
+    `M${at(x1, y1, 4 + FLETCH, 0)} Q${at(x1, y1, 4 + FLETCH * 0.75, side * FLETCH_W * 0.6)} ${at(x1, y1, 4 + FLETCH * 0.45, side * FLETCH_W)} L${at(x1, y1, 4 + FLETCH * 0.1, side * FLETCH_W)} L${at(x1, y1, 4, side * 1)} Z`;
+  const fletching = vane(1) + vane(-1);
+  // The nock: a small notch past the fletching.
+  const nock = `M${at(x1, y1, 0, 2.5)} L${at(x1, y1, 3.5, 0)} L${at(x1, y1, 0, -2.5)}`;
+  return { d, head, fletching, nock };
 }
 
 /** Draws target arrows over the whole table, tracking the elements they point at. */
@@ -76,15 +95,14 @@ export function Arrows({ state }: { state: GameState }) {
     <svg className="arrows">
       {lines.map((l) => {
         const { from, to, color } = l;
-        const { d, head } = arc(l);
+        const { d, head, fletching, nock } = arc(l);
         const drawn = (
           <>
-            {/* An iron shaft with its owner's colour inlaid down the middle, a steel head, a rivet where it starts. */}
+            {/* A dark wooden shaft, a steel broadhead, and fletching in its owner's colour. */}
             <path className="arrow-edge" d={d} />
-            <path className="arrow-iron" d={d} />
-            <path className="arrow-line" d={d} stroke={color} />
-            <circle className="arrow-rivet" cx={l.x1} cy={l.y1} r={4.5} />
-            <circle cx={l.x1} cy={l.y1} r={1.8} fill={color} />
+            <path className="arrow-shaft" d={d} />
+            <path className="arrow-fletching" d={fletching} fill={color} />
+            <path className="arrow-nock" d={nock} />
             <path className="arrow-head" d={head} />
           </>
         );

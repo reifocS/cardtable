@@ -1710,29 +1710,30 @@ body.dragging * {
 .arrows .arrow-edge {
   fill: none;
   stroke: #050608;
-  stroke-width: 5px;
+  stroke-width: 4.5px;
   stroke-linecap: round;
 }
-.arrows .arrow-iron {
+.arrows .arrow-shaft {
   fill: none;
-  stroke: #5d6068;
-  stroke-width: 3px;
+  stroke: #6b4a2b;
+  stroke-width: 2.2px;
   stroke-linecap: round;
 }
-.arrows .arrow-line {
-  fill: none;
-  stroke-width: 1.2px;
-  stroke-linecap: round;
-}
-.arrows .arrow-rivet {
-  fill: #3a3c42;
+.arrows .arrow-fletching {
   stroke: #050608;
-  stroke-width: 1.5px;
+  stroke-width: 0.8px;
+  stroke-linejoin: round;
+}
+.arrows .arrow-nock {
+  fill: none;
+  stroke: #050608;
+  stroke-width: 2px;
+  stroke-linecap: round;
 }
 .arrows .arrow-head {
-  fill: #9a9ea8;
+  fill: #a7abb4;
   stroke: #050608;
-  stroke-width: 1.5px;
+  stroke-width: 1.3px;
   stroke-linejoin: round;
 }
 /* A little see-through: many arrows mustn't hide the table. */
@@ -1742,8 +1743,11 @@ body.dragging * {
 .arrows .arrow:hover {
   opacity: 1;
 }
-.arrows .arrow:hover .arrow-iron {
-  stroke: #8a8e98;
+.arrows .arrow:hover .arrow-shaft {
+  stroke: #8a6239;
+}
+.arrows .arrow:hover .arrow-head {
+  fill: #cfd2d8;
 }
 
 .credits {
