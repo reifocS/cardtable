@@ -14,8 +14,8 @@ function center(id: string): { x: number; y: number } | null {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-/** How often a bolt is struck anew, in ms: it crackles at about ten new shapes a second. */
-const STRIKE_MS = 90;
+/** How often a bolt is struck anew, in ms: it crackles at a few new shapes a second. */
+const STRIKE_MS = 130;
 
 /** A small seeded random generator, so a bolt keeps its shape until its next strike. */
 function random(seed: number) {
@@ -34,7 +34,8 @@ function jag(x1: number, y1: number, x2: number, y2: number, rand: () => number,
     [x1, y1],
     [x2, y2],
   ];
-  let push = Math.hypot(x2 - x1, y2 - y1) * 0.1;
+  // Kept close to the straight line: a few pixels either side, however long the bolt.
+  let push = Math.min(Math.hypot(x2 - x1, y2 - y1) * 0.04, 14);
   for (let i = 0; i < depth; i++) {
     const next = [pts[0]];
     for (let k = 1; k < pts.length; k++) {
@@ -50,22 +51,10 @@ function jag(x1: number, y1: number, x2: number, y2: number, rand: () => number,
   return pts;
 }
 
-/**
- * A lightning bolt from one end to the other, struck anew every STRIKE_MS (only once when the system asks
- * for less motion), now and then with a fork off its middle.
- */
+/** A lightning bolt from one end to the other, struck anew every STRIKE_MS (only once for less motion). */
 function bolt({ x1, y1, x2, y2 }: Line, seed: number) {
-  const rand = random(seed);
-  const main = jag(x1, y1, x2, y2, rand);
-  const toPath = (pts: number[][]) => `M${pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L')}`;
-  let d = toPath(main);
-  if (rand() < 0.6) {
-    const [fx, fy] = main[Math.floor(main.length * (0.3 + rand() * 0.4))];
-    const len = Math.hypot(x2 - x1, y2 - y1) * (0.15 + rand() * 0.15);
-    const angle = Math.atan2(y2 - y1, x2 - x1) + (rand() < 0.5 ? -1 : 1) * (0.4 + rand() * 0.5);
-    d += ' ' + toPath(jag(fx, fy, fx + Math.cos(angle) * len, fy + Math.sin(angle) * len, rand, 4));
-  }
-  return d;
+  const pts = jag(x1, y1, x2, y2, random(seed));
+  return `M${pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L')}`;
 }
 
 /** Draws target arrows over the whole table, tracking the elements they point at. */
@@ -129,8 +118,8 @@ export function Arrows({ state }: { state: GameState }) {
         return (
           <g key={keyOf(l)} className="arrow" onClick={() => act({ type: 'removeArrow', from, to })}>
             <title>Click to remove</title>
-            {/* A wide invisible stroke makes the thin bolt easy to click. */}
-            <path d={d} stroke="transparent" strokeWidth={16} fill="none" />
+            {/* A wide, still, straight band to click: the bolt itself is thin and keeps moving. */}
+            <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="transparent" strokeWidth={20} strokeLinecap="round" />
             {drawn}
           </g>
         );
