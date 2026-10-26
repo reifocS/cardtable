@@ -1707,48 +1707,36 @@ body.dragging * {
   pointer-events: stroke;
   cursor: pointer;
 }
-/* The shot's path: short blood-red dashes edged in black, marching toward the target. */
-.arrows .shot-edge,
-.arrows .shot {
+/* Lightning: a wide blue glow, a pale core and a white filament along the same jagged line. */
+.arrows .bolt-glow,
+.arrows .bolt-core,
+.arrows .bolt-filament {
   fill: none;
-  stroke-linecap: butt;
-  stroke-dasharray: 7 6;
-  animation: shot-march 1.6s linear infinite;
-}
-.arrows .shot-edge {
-  stroke: #050608;
-  stroke-width: 4.5px;
-}
-.arrows .shot {
-  stroke: #b3261e;
-  stroke-width: 2px;
-}
-@keyframes shot-march {
-  to {
-    stroke-dashoffset: -13;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .arrows .shot-edge,
-  .arrows .shot {
-    animation: none;
-  }
-}
-.arrows .shot-impact-edge {
-  fill: none;
-  stroke: #050608;
-  stroke-width: 4.5px;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.arrows .shot-impact {
-  fill: none;
-  stroke: #b3261e;
-  stroke-width: 2px;
-  stroke-linecap: round;
+.arrows .bolt-glow {
+  stroke: #3d7bff;
+  stroke-width: 7px;
+  opacity: 0.35;
+  filter: blur(2px);
 }
-.arrows .shot-core {
-  stroke: #050608;
+.arrows .bolt-core {
+  stroke: #9cc6ff;
+  stroke-width: 2.6px;
+}
+.arrows .bolt-filament {
+  stroke: #fff;
   stroke-width: 1px;
+}
+/* Where it strikes: a soft flash round a white spark. */
+.arrows .bolt-flash {
+  fill: #6fa4ff;
+  opacity: 0.45;
+  filter: blur(4px);
+}
+.arrows .bolt-spark {
+  fill: #fff;
 }
 /* A little see-through: many arrows mustn't hide the table. */
 .arrows .arrow {
@@ -1757,9 +1745,8 @@ body.dragging * {
 .arrows .arrow:hover {
   opacity: 1;
 }
-.arrows .arrow:hover .shot,
-.arrows .arrow:hover .shot-impact {
-  stroke: #e2453a;
+.arrows .arrow:hover .bolt-glow {
+  opacity: 0.6;
 }
 
 .credits {
