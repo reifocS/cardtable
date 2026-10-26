@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { GameState } from '../core/types';
-import { pokeMedallion } from './eggs';
 import { Icon } from './Icon';
 import { openMenu, switchToNextSeat } from './actions';
 import { act, ask, useStore } from './store';
@@ -53,7 +52,6 @@ export function TopBar({ state }: { state: GameState }) {
       <div
         className="turn-medal"
         style={{ '--player': turnPlayer?.color ?? '#555' } as React.CSSProperties}
-        onClick={pokeMedallion}
         {...tip(turnPlayer ? `Turn ${state.turn.number}: ${turnPlayer.name}` : `Turn ${state.turn.number}`)}
       >
         <span>{state.turn.number}</span>

@@ -1,14 +1,13 @@
 /**
- * Easter eggs, for fun only: they never touch the game, and only the player who finds one sees it.
- * Warcraft III's cheat codes typed in the chat answer "Cheat Enabled!", each with a little something;
- * the turn medallion, clicked over and over, gets annoyed.
+ * An easter egg, for fun only: it never touches the game, and only the player who finds it sees it.
+ * Warcraft III's gold cheat typed in the chat answers "Cheat Enabled!" and rains gold.
  */
 
 /** Text shown low over the table for a few seconds, like Warcraft's in-game messages. */
-export function announce(text: string, kind: 'cheat' | 'quip' = 'cheat') {
-  document.querySelector(`.egg-message.${kind}`)?.remove();
+function announce(text: string) {
+  document.querySelector('.egg-message')?.remove();
   const el = document.createElement('div');
-  el.className = `egg-message ${kind}`;
+  el.className = 'egg-message';
   el.textContent = text;
   document.body.appendChild(el);
   el.animate(
@@ -44,50 +43,11 @@ function goldRain() {
   Promise.allSettled(falls).then(() => layer.remove());
 }
 
-/** A pale, ghostly wash over the table for a moment, the dead looking on. */
-function ghosts() {
-  const veil = document.createElement('div');
-  veil.className = 'egg-layer egg-ghosts';
-  document.body.appendChild(veil);
-  veil.animate([{ opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: 2600 }).finished.finally(() =>
-    veil.remove(),
-  );
-}
-
-/** Night falls, then day returns. */
-function night() {
-  const veil = document.createElement('div');
-  veil.className = 'egg-layer egg-night';
-  document.body.appendChild(veil);
-  veil.animate([{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.65 }, { opacity: 0 }], { duration: 3600 }).finished.finally(() =>
-    veil.remove(),
-  );
-}
-
-/** A golden flash across the whole table. */
-function flash() {
-  const veil = document.createElement('div');
-  veil.className = 'egg-layer egg-flash';
-  document.body.appendChild(veil);
-  veil.animate([{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 0 }], { duration: 900 }).finished.finally(() => veil.remove());
-}
-
 const CHEATS: Record<string, () => void> = {
-  whosyourdaddy: flash,
   greedisgood: goldRain,
-  iseedeadpeople: ghosts,
-  riseandshine: flash,
-  lightsout: night,
-  thereisnospoon: flash,
-  allyourbasearebelongtous: flash,
-  somebodysetusupthebomb: flash,
-  pointbreak: flash,
-  warpten: flash,
-  keysersoze: goldRain,
-  leafittome: goldRain,
 };
 
-/** Runs a cheat if `text` is one (case and spaces don't matter); says whether it was. */
+/** Runs the cheat if `text` is it (case, spaces and an amount don't matter); says whether it was. */
 export function cheat(text: string): boolean {
   const code = text.toLowerCase().replace(/\s+/g, '').replace(/\d+$/, '');
   const effect = CHEATS[code];
@@ -95,29 +55,4 @@ export function cheat(text: string): boolean {
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) effect();
   announce('Cheat Enabled!');
   return true;
-}
-
-/** What the turn medallion says when it's clicked once too often. Our own lines, in that spirit. */
-const QUIPS = [
-  'Yes?',
-  'Turn order. Very important. Clearly.',
-  'I only count turns.',
-  'Clicking me does not end your turn faster.',
-  'Ready to… keep counting.',
-  'I was forged for this, apparently.',
-  'Stop poking the medallion.',
-  'Fine. It is still the same turn.',
-  'I have a family of coins, you know.',
-  'One more click and I start counting backwards.',
-];
-
-let clicks = 0;
-let last = 0;
-
-/** A click on the turn medallion: after a few in quick succession, it starts talking back. */
-export function pokeMedallion() {
-  const now = performance.now();
-  clicks = now - last < 900 ? clicks + 1 : 1;
-  last = now;
-  if (clicks >= 4) announce(QUIPS[Math.min(clicks - 4, QUIPS.length - 1)], 'quip');
 }

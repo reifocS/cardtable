@@ -275,8 +275,6 @@ kbd {
     radial-gradient(circle, #1c1d21 0 38%, color-mix(in srgb, var(--player) 45%, #0b0c0e) 52%, #050608 62%);
   filter: drop-shadow(0 3px 4px #000c);
   pointer-events: auto;
-  cursor: pointer;
-  user-select: none;
 }
 .topbar > .turn-medal > span {
   font-family: 'Grenze', Georgia, serif;
@@ -1907,7 +1905,7 @@ body.dragging * {
 
 /* ---- easter eggs (ui/eggs.ts) ---- */
 
-/* Low over the table, like Warcraft's in-game messages: yellow for a cheat, pale for a quip. */
+/* Low over the table, like Warcraft's in-game messages. */
 .egg-message {
   position: fixed;
   left: 24px;
@@ -1919,18 +1917,6 @@ body.dragging * {
   text-shadow:
     0 2px 0 #000,
     0 0 6px #000;
-}
-.egg-message.quip {
-  left: 50%;
-  bottom: auto;
-  top: 72px;
-  translate: -50% 0;
-  font-size: 17px;
-  color: #f0e6cf;
-  padding: 4px 12px;
-  background: var(--stone);
-  border: 1px solid #000;
-  box-shadow: var(--iron-rule);
 }
 .egg-layer {
   position: fixed;
@@ -1950,21 +1936,6 @@ body.dragging * {
     inset 0 0 0 2px #8a6122,
     0 2px 4px #0008;
 }
-.egg-ghosts {
-  background:
-    radial-gradient(ellipse at 30% 60%, #b9e6ff33, transparent 50%),
-    radial-gradient(ellipse at 70% 40%, #b9e6ff2a, transparent 45%),
-    #0a1a2a66;
-  backdrop-filter: grayscale(0.85) brightness(0.9);
-}
-.egg-night {
-  background: radial-gradient(ellipse at center, #0a102066, #02040acc 80%);
-}
-.egg-flash {
-  background: radial-gradient(ellipse at center, #fff3c4aa, #f4c75a44 50%, transparent 80%);
-  mix-blend-mode: screen;
-}
-
 /* ---- removable arrows ---- */
 
 .arrows .arrow {
