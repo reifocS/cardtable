@@ -1711,14 +1711,22 @@ body.dragging * {
   box-shadow: 0 14px 30px #000c;
 }
 .land-dust {
+  position: absolute;
+  inset: 0;
+  /* On the playmat, under the cards. */
+  z-index: 0;
+  pointer-events: none;
+}
+.land-dust.floating {
   position: fixed;
   z-index: 940;
-  pointer-events: none;
+}
+/* Puffs of dust: pale and soft, blurred enough to run together into a cloud. */
+.dust-puff {
+  position: absolute;
   border-radius: 50%;
-  border: 3px solid #c9b48a99;
-  box-shadow:
-    0 0 12px #c9b48a66,
-    inset 0 0 12px #c9b48a44;
+  background: radial-gradient(closest-side, #f0e6d0 0%, #ddcfb0aa 50%, #ddcfb000);
+  filter: blur(5px);
 }
 
 /* Over the middle of the table (the side panel keeps its place), above the cards. */

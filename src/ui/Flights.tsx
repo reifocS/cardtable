@@ -49,25 +49,71 @@ function fly(el: HTMLElement, from: DOMRect, to: DOMRect, delay: number, landing
   flight.onfinish = flight.oncancel = () => {
     copy.remove();
     el.style.visibility = '';
-    if (landing) dust(cx, cy, Math.max(w, h));
+    if (landing) dust(to, el);
   };
 }
 
-/** Where a card lands on a battlefield: a ring of dust spreading and fading. */
-function dust(x: number, y: number, size: number) {
-  const ring = document.createElement('div');
-  ring.className = 'land-dust';
-  ring.style.cssText = `left:${x - size / 2}px;top:${y - size / 2}px;width:${size}px;height:${size}px`;
-  document.body.appendChild(ring);
-  ring
-    .animate(
+/** How many puffs of dust a landing raises, all round the card. */
+const PUFFS = 16;
+
+/**
+ * Where a card lands on a battlefield, the air it pushes out raises dust along its edges: puffs blown
+ * outward low over the table, stretched along their way, that slow, swell, blur into one cloud and
+ * hang a moment before they thin out. Drawn on the playmat under the cards (the board clips it), or
+ * over the table where a card has no board.
+ */
+function dust(card: DOMRect, el: HTMLElement) {
+  const host = el.closest<HTMLElement>('.board-wrap');
+  const origin = host?.getBoundingClientRect() ?? { left: 0, top: 0 };
+  const cx = card.left + card.width / 2 - origin.left;
+  const cy = card.top + card.height / 2 - origin.top;
+  const reach = Math.min(card.width, card.height);
+  const layer = document.createElement('div');
+  layer.className = `land-dust${host ? '' : ' floating'}`;
+  (host ?? document.body).appendChild(layer);
+
+  const left = card.left - origin.left;
+  const top = card.top - origin.top;
+  const done: Promise<unknown>[] = [];
+  for (let k = 0; k < PUFFS; k++) {
+    // A point on the card's edge, and out from the centre through it.
+    const t = (k + Math.random() * 0.8) / PUFFS;
+    const along = t * 2 * (card.width + card.height);
+    const [ex, ey] =
+      along < card.width
+        ? [left + along, top]
+        : along < card.width + card.height
+          ? [left + card.width, top + along - card.width]
+          : along < 2 * card.width + card.height
+            ? [left + card.width - (along - card.width - card.height), top + card.height]
+            : [left, top + card.height - (along - 2 * card.width - card.height)];
+    const len = Math.hypot(ex - cx, ey - cy) || 1;
+    const ux = (ex - cx) / len;
+    const uy = (ey - cy) / len;
+    const dist = reach * (0.35 + Math.random() * 0.4);
+    const size = reach * (0.28 + Math.random() * 0.22);
+    const puff = document.createElement('div');
+    puff.className = 'dust-puff';
+    puff.style.cssText = `left:${ex - size / 2}px;top:${ey - size / 2}px;width:${size}px;height:${size}px`;
+    layer.append(puff);
+    const angle = (Math.atan2(uy, ux) * 180) / Math.PI;
+    const grow = 1.6 + Math.random() * 0.8;
+    // Thrown out fast and quickly slowed, stretched along its way, then rounding out as it spreads; it
+    // thins out slowly, hanging in the air.
+    const duration = 800 + Math.random() * 500;
+    puff.animate(
       [
-        { transform: 'scale(0.5)', opacity: 0.8 },
-        { transform: 'scale(1.35)', opacity: 0 },
+        { transform: `translate(0, 0) rotate(${angle}deg) scale(0.4, 0.25)` },
+        { transform: `translate(${ux * dist * 0.7}px, ${uy * dist * 0.7}px) rotate(${angle}deg) scale(1.3, 0.65)`, offset: 0.3 },
+        { transform: `translate(${ux * dist}px, ${uy * dist}px) rotate(${angle}deg) scale(${grow}, ${grow * 0.85})` },
       ],
-      { duration: 420, easing: 'ease-out' },
-    )
-    .finished.finally(() => ring.remove());
+      { duration, easing: 'cubic-bezier(0.1, 0.8, 0.25, 1)' },
+    );
+    done.push(
+      puff.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.1 }, { opacity: 0.55, offset: 0.5 }, { opacity: 0 }], { duration }).finished,
+    );
+  }
+  Promise.allSettled(done).then(() => layer.remove());
 }
 
 /**
@@ -91,7 +137,7 @@ export function Flights({ state }: { state: GameState }) {
       const landing = state.zones[card.zone]?.kind === 'free';
       // Dropped by hand: already in place, so no flight, but it still lands with a puff of dust.
       if (justDropped.has(card.id)) {
-        if (landing) dust(rect.left + rect.width / 2, rect.top + rect.height / 2, Math.max(el.offsetWidth, el.offsetHeight));
+        if (landing) dust(rect, el);
         continue;
       }
       fly(el, was.rect, rect, n++ * STAGGER_MS, landing);
