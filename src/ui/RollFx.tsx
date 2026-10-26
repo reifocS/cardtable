@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { throwDie } from './dice3d';
+import { useStore } from './store';
 import type { GameState } from '../core/types';
 
 /** How long a roll stays on the table once it has come to rest, in ms. */
 const SHOWN_MS = 2600;
 
-type Roll = { id: number; who: string; color: string; sides: number; value: number };
+type Roll = { id: number; who: string; color: string; sides: number; value: number; mine: boolean };
 
 /** A roll or a flip, read back from its log line ("rolled a d20: 14", "flipped a coin: heads"). */
 function parse(text: string): { sides: number; value: number } | null {
@@ -20,7 +21,7 @@ function Thrown({ roll, onRest }: { roll: Roll; onRest: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const thrown = throwDie(roll.sides, roll.value, roll.sides === 2 ? 84 : 78, still);
+    const thrown = throwDie(roll.sides, roll.value, roll.sides === 2 ? 84 : 78, still, !roll.mine);
     ref.current!.append(thrown.element);
     const rest = setTimeout(onRest, thrown.seconds * 1000);
     return () => {
@@ -39,6 +40,7 @@ function Thrown({ roll, onRest }: { roll: Roll; onRest: () => void }) {
  * replayed. Click to dismiss.
  */
 export function RollFx({ state }: { state: GameState }) {
+  const me = useStore((s) => s.me);
   const lastId = state.log[state.log.length - 1]?.id ?? 0;
   const seen = useRef(lastId);
   const [roll, setRoll] = useState<Roll | null>(null);
@@ -51,14 +53,14 @@ export function RollFx({ state }: { state: GameState }) {
       if (e.id <= seen.current || e.kind) continue;
       const r = parse(e.text);
       const p = e.by ? state.players[e.by] : undefined;
-      if (r) latest = { id: e.id, who: p?.name ?? '', color: p?.color ?? '#ddd', ...r };
+      if (r) latest = { id: e.id, who: p?.name ?? '', color: p?.color ?? '#ddd', mine: e.by === me, ...r };
     }
     seen.current = lastId;
     if (latest) {
       setRoll(latest);
       setRested(false);
     }
-  }, [lastId, state.log, state.players]);
+  }, [lastId, state.log, state.players, me]);
 
   useEffect(() => {
     if (!rested) return;

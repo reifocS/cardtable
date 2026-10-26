@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { CardId, GameState, ZoneId } from '../core/types';
 
-/** Cards I just dropped by hand: they're already where they land, so they don't fly there. */
+/** Cards I just dropped by hand: they're already where they land, so they don't fly there (but still raise dust). */
 export const justDropped = new Set<CardId>();
 
 const FLIGHT_MS = 420;
@@ -87,8 +87,14 @@ export function Flights({ state }: { state: GameState }) {
       const { el, rect } = placeOf(card.id, card.zone);
       if (rect) now.set(card.id, { zone: card.zone, rect });
       const was = before?.get(card.id);
-      if (!was || !el || !rect || was.zone === card.zone || still || justDropped.has(card.id)) continue;
-      fly(el, was.rect, rect, n++ * STAGGER_MS, state.zones[card.zone]?.kind === 'free');
+      if (!was || !el || !rect || was.zone === card.zone || still) continue;
+      const landing = state.zones[card.zone]?.kind === 'free';
+      // Dropped by hand: already in place, so no flight, but it still lands with a puff of dust.
+      if (justDropped.has(card.id)) {
+        if (landing) dust(rect.left + rect.width / 2, rect.top + rect.height / 2, Math.max(el.offsetWidth, el.offsetHeight));
+        continue;
+      }
+      fly(el, was.rect, rect, n++ * STAGGER_MS, landing);
     }
     justDropped.clear();
     seen.current = now;

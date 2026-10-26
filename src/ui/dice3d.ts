@@ -171,10 +171,11 @@ const LEAN: Mat = mul(rotation([1, 0, 0], 0.42), rotation([0, 1, 0], -0.32));
 export type Thrown = { element: HTMLElement; seconds: number; stop: () => void };
 
 /**
- * Builds a die (or a coin, for two sides) showing `value` once it rests, and throws it onto the table:
- * the element returned holds the shadow and the solid; `seconds` is how long until it rests.
+ * Builds a die (or a coin, for two sides) showing `value` once it rests, and throws it onto the table
+ * from the thrower's seat: from below the screen for me, from above for someone across the table. The
+ * element returned holds the shadow and the solid; `seconds` is how long until it rests.
  */
-export function throwDie(sides: number, value: number, size: number, still: boolean): Thrown {
+export function throwDie(sides: number, value: number, size: number, still: boolean, fromAbove = false): Thrown {
   const coin = sides === 2;
   const faces = hull(coin ? coinCorners() : corners(sides));
   // The face it lands on: the coin's front for heads, its back for tails; a die's face numbered `value`.
@@ -218,14 +219,18 @@ export function throwDie(sides: number, value: number, size: number, still: bool
 
   // At rest: the landing face toward the viewer, its number upright.
   const rest: Mat = [landing.u, landing.w, landing.n];
-  const toss: Toss = coin
-    ? { from: [0, 160], spinAxis: norm([1, 0.08, 0]), spinTurns: 6, up: 1050 }
-    : {
-        from: [Math.random() < 0.5 ? -300 : 300, -60 + Math.random() * 120],
-        spinAxis: norm([Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5]),
-        spinTurns: 2.5 + Math.random() * 1.5,
-        up: 950,
-      };
+  const side = fromAbove ? -1 : 1;
+  const from: [number, number] = coin ? [0, side * 170] : [(Math.random() - 0.5) * 220, side * 330];
+  // It rolls forward along its way: on a table facing the viewer, spinning about (way × out of the table).
+  // (The spin unwinds toward rest, hence the way × z rather than z × way.)
+  const way = norm([-from[0], -from[1], 0]);
+  const wobble = coin ? 0.05 : 0.25;
+  const toss: Toss = {
+    from,
+    spinAxis: norm([...cross(way, [0, 0, 1]).slice(0, 2), 0].map((v) => v + (Math.random() - 0.5) * wobble) as Vec),
+    spinTurns: coin ? 6 : 2 + Math.random() * 1.2,
+    up: coin ? 1050 : 950,
+  };
   const { heights, seconds } = still ? { heights: [0], seconds: 0 } : bounces(toss.up);
 
   const frame = (t: number) => {
