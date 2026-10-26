@@ -66,9 +66,16 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
       document.body.classList.add('dragging');
       for (const id of ids) document.querySelectorAll(`[data-card-id="${id}"]`).forEach((n) => n.classList.add('drag-source'));
     }
+    // A tapped ghost is turned like its card, about its middle: place it by the box it fills on screen.
     const w = ghost.offsetWidth;
     const h = ghost.offsetHeight;
-    ghost.style.transform = `translate(${ev.clientX - fx * w}px, ${ev.clientY - fy * h}px)`;
+    const turn = ghost.dataset.turn ?? '';
+    const sideways = turn !== '' && Number(turn) % 180 !== 0;
+    const shownW = sideways ? h : w;
+    const shownH = sideways ? w : h;
+    const x = ev.clientX - fx * shownW - (w - shownW) / 2;
+    const y = ev.clientY - fy * shownH - (h - shownH) / 2;
+    ghost.style.transform = `translate(${x}px, ${y}px)${turn ? ` rotate(${turn}deg)` : ''}`;
     const t = dropTargetAt(ev.clientX, ev.clientY);
     if (t !== hoverTarget) {
       hoverTarget?.classList.remove('drop-hover');
@@ -113,8 +120,10 @@ function makeGhost(el: HTMLElement, count: number): HTMLElement {
   const ghost = el.cloneNode(true) as HTMLElement;
   ghost.className = 'card ghost';
   ghost.removeAttribute('data-card-id');
-  // A tapped card's bounding box is rotated; the ghost is drawn upright.
+  // A tapped card's bounding box is turned: the ghost takes the card's own size, and its turn.
   ghost.style.cssText = `width:${tapped ? r.height : r.width}px;height:${tapped ? r.width : r.height}px`;
+  const turn = tapped && /rotate\((-?[\d.]+)deg\)/.exec(el.style.transform)?.[1];
+  if (turn) ghost.dataset.turn = turn;
   if (count > 1) {
     const badge = document.createElement('div');
     badge.className = 'ghost-count';
