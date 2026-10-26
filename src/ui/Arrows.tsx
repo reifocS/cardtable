@@ -14,6 +14,22 @@ function center(id: string): { x: number; y: number } | null {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
+/** Head length and half-width, in pixels. */
+const HEAD = 10;
+const HEAD_W = 5;
+
+/** A straight line from one end to the other, stopping at the base of its arrowhead. */
+function arc({ x1, y1, x2, y2 }: Line) {
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const ux = (x2 - x1) / len;
+  const uy = (y2 - y1) / len;
+  const bx = x2 - ux * HEAD;
+  const by = y2 - uy * HEAD;
+  const d = `M${x1},${y1} L${bx},${by}`;
+  const head = `M${x2},${y2} L${bx - uy * HEAD_W},${by + ux * HEAD_W} L${bx + ux * 2},${by + uy * 2} L${bx + uy * HEAD_W},${by - ux * HEAD_W} Z`;
+  return { d, head };
+}
+
 /** Draws target arrows over the whole table, tracking the elements they point at. */
 export function Arrows({ state }: { state: GameState }) {
   const targeting = useStore((s) => s.targeting);
@@ -55,23 +71,26 @@ export function Arrows({ state }: { state: GameState }) {
   const keyOf = (l: Line) => (l.from && l.to ? `${l.from}>${l.to}` : 'drawing');
   return (
     <svg className="arrows">
-      <defs>
-        {lines.map((l, i) => (
-          <marker key={keyOf(l)} id={`head-${i}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-            <path d="M0,0 L10,5 L0,10 z" fill={l.color} />
-          </marker>
-        ))}
-      </defs>
-      {lines.map((l, i) => {
-        const { from, to, color, ...pos } = l;
-        const line = <line {...pos} stroke={color} strokeWidth={4} strokeLinecap="round" markerEnd={`url(#head-${i})`} opacity={0.9} />;
-        if (!from || !to) return <g key={keyOf(l)}>{line}</g>;
+      {lines.map((l) => {
+        const { from, to, color } = l;
+        const { d, head } = arc(l);
+        const drawn = (
+          <>
+            {/* A dark edge under the colour, so the arrow reads on any card or playmat. */}
+            <path className="arrow-edge" d={d} />
+            <path className="arrow-line" d={d} stroke={color} />
+            <circle className="arrow-edge" cx={l.x1} cy={l.y1} r={3.5} />
+            <circle cx={l.x1} cy={l.y1} r={2.5} fill={color} />
+            <path className="arrow-head" d={head} fill={color} />
+          </>
+        );
+        if (!from || !to) return <g key={keyOf(l)}>{drawn}</g>;
         return (
           <g key={keyOf(l)} className="arrow" onClick={() => act({ type: 'removeArrow', from, to })}>
             <title>Click to remove</title>
             {/* A wide invisible stroke makes the thin arrow easy to click. */}
-            <line {...pos} stroke="transparent" strokeWidth={18} strokeLinecap="round" />
-            {line}
+            <path d={d} stroke="transparent" strokeWidth={18} fill="none" />
+            {drawn}
           </g>
         );
       })}

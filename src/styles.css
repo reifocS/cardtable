@@ -1707,9 +1707,38 @@ body.dragging * {
   pointer-events: stroke;
   cursor: pointer;
 }
-.arrows .arrow:hover line + line {
-  stroke-width: 7px;
+.arrows .arrow-line {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linecap: round;
+}
+/* A thin dark iron edge, and the whole arrow a little see-through: many arrows mustn't hide the table. */
+.arrows .arrow {
+  opacity: 0.72;
+}
+.arrows .arrow-edge {
+  fill: none;
+  stroke: #0b0c0ecc;
+  stroke-width: 4.5px;
+  stroke-linecap: round;
+}
+.arrows circle.arrow-edge {
+  fill: #0b0c0ecc;
+  stroke: none;
+}
+.arrows .arrow-head {
+  stroke: #0b0c0ecc;
+  stroke-width: 1px;
+  stroke-linejoin: round;
+}
+.arrows .arrow:hover {
   opacity: 1;
+}
+.arrows .arrow:hover .arrow-line {
+  stroke-width: 3px;
+}
+.arrows .arrow:hover .arrow-edge {
+  stroke-width: 5.5px;
 }
 .credits {
   font-size: 12px;
