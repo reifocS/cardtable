@@ -14,42 +14,17 @@ function center(id: string): { x: number; y: number } | null {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-/** Sizes in pixels: the broadhead's length and half-width, the fletching's length and spread. */
-const HEAD = 18;
-const HEAD_W = 6;
-const FLETCH = 22;
-const FLETCH_W = 5;
-
 /**
- * An archer's arrow, straight from one end to the other: a leaf-shaped steel broadhead with two barbs at
- * the target, a shaft, and fletching at the start (two vanes, and the cock feather down the middle).
+ * A ballistic shot from one end to the other: the arc of something lobbed, rising above the straight
+ * line by a fifth of its length (at most 120px), whichever way it travels. Ends just short of the target.
  */
 function arc({ x1, y1, x2, y2 }: Line) {
   const len = Math.hypot(x2 - x1, y2 - y1) || 1;
-  const ux = (x2 - x1) / len;
-  const uy = (y2 - y1) / len;
-  // A point `along` the arrow from (x, y) and `side` to its left.
-  const at = (x: number, y: number, along: number, side: number) => `${x + ux * along - uy * side},${y + uy * along + ux * side}`;
-  const d = `M${at(x1, y1, 2, 0)} L${at(x2, y2, -HEAD + 4, 0)}`;
-  // Tip, the widest point, the barbs swept back past the base, and a notch where the shaft goes in.
-  const head = [
-    `M${x2},${y2}`,
-    `Q${at(x2, y2, -HEAD * 0.45, HEAD_W * 1.1)} ${at(x2, y2, -HEAD * 0.82, HEAD_W)}`,
-    `L${at(x2, y2, -HEAD, HEAD_W * 0.95)}`,
-    `L${at(x2, y2, -HEAD * 0.72, 1.5)}`,
-    `L${at(x2, y2, -HEAD * 0.72, -1.5)}`,
-    `L${at(x2, y2, -HEAD, -HEAD_W * 0.95)}`,
-    `L${at(x2, y2, -HEAD * 0.82, -HEAD_W)}`,
-    `Q${at(x2, y2, -HEAD * 0.45, -HEAD_W * 1.1)} ${x2},${y2}`,
-    'Z',
-  ].join(' ');
-  // Each vane, as on a real arrow: a long slope up from the shaft, a flat back, then a short drop to it.
-  const vane = (side: number) =>
-    `M${at(x1, y1, 4 + FLETCH, 0)} Q${at(x1, y1, 4 + FLETCH * 0.75, side * FLETCH_W * 0.6)} ${at(x1, y1, 4 + FLETCH * 0.45, side * FLETCH_W)} L${at(x1, y1, 4 + FLETCH * 0.1, side * FLETCH_W)} L${at(x1, y1, 4, side * 1)} Z`;
-  const fletching = vane(1) + vane(-1);
-  // The nock: a small notch past the fletching.
-  const nock = `M${at(x1, y1, 0, 2.5)} L${at(x1, y1, 3.5, 0)} L${at(x1, y1, 0, -2.5)}`;
-  return { d, head, fletching, nock };
+  const rise = Math.min(len * 0.2, 120);
+  const cx = (x1 + x2) / 2;
+  const cy = Math.min(y1, y2) - rise;
+  const d = `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+  return { d, x2, y2 };
 }
 
 /** Draws target arrows over the whole table, tracking the elements they point at. */
@@ -95,23 +70,23 @@ export function Arrows({ state }: { state: GameState }) {
     <svg className="arrows">
       {lines.map((l) => {
         const { from, to, color } = l;
-        const { d, head, fletching, nock } = arc(l);
+        const { d } = arc(l);
         const drawn = (
           <>
-            {/* A dark wooden shaft, a steel broadhead, and fletching in its owner's colour. */}
-            <path className="arrow-edge" d={d} />
-            <path className="arrow-shaft" d={d} />
-            <path className="arrow-fletching" d={fletching} fill={color} />
-            <path className="arrow-nock" d={nock} />
-            <path className="arrow-head" d={head} />
+            {/* Dots marching along the arc in its owner's colour, each ringed dark; a ring where it lands. */}
+            <path className="shot-edge" d={d} />
+            <path className="shot" d={d} stroke={color} />
+            <circle className="shot-impact-edge" cx={l.x2} cy={l.y2} r={7} />
+            <circle className="shot-impact" cx={l.x2} cy={l.y2} r={7} stroke={color} />
+            <circle cx={l.x2} cy={l.y2} r={2.2} fill={color} />
           </>
         );
         if (!from || !to) return <g key={keyOf(l)}>{drawn}</g>;
         return (
           <g key={keyOf(l)} className="arrow" onClick={() => act({ type: 'removeArrow', from, to })}>
             <title>Click to remove</title>
-            {/* A wide invisible stroke makes the thin arrow easy to click. */}
-            <path d={d} stroke="transparent" strokeWidth={18} fill="none" />
+            {/* A wide invisible stroke makes the dotted line easy to click. */}
+            <path d={d} stroke="transparent" strokeWidth={16} fill="none" />
             {drawn}
           </g>
         );

@@ -1707,34 +1707,40 @@ body.dragging * {
   pointer-events: stroke;
   cursor: pointer;
 }
-.arrows .arrow-edge {
+/* Dots: zero-length dashes with round caps, each a dark ring round a coloured centre. */
+.arrows .shot-edge,
+.arrows .shot {
   fill: none;
-  stroke: #050608;
-  stroke-width: 4.5px;
   stroke-linecap: round;
+  stroke-dasharray: 0 11;
+  animation: shot-march 1.4s linear infinite;
 }
-.arrows .arrow-shaft {
+.arrows .shot-edge {
+  stroke: #050608cc;
+  stroke-width: 7px;
+}
+.arrows .shot {
+  stroke-width: 4px;
+}
+@keyframes shot-march {
+  to {
+    stroke-dashoffset: -11;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrows .shot-edge,
+  .arrows .shot {
+    animation: none;
+  }
+}
+.arrows .shot-impact-edge {
   fill: none;
-  stroke: #6b4a2b;
-  stroke-width: 2.2px;
-  stroke-linecap: round;
+  stroke: #050608cc;
+  stroke-width: 4px;
 }
-.arrows .arrow-fletching {
-  stroke: #050608;
-  stroke-width: 0.8px;
-  stroke-linejoin: round;
-}
-.arrows .arrow-nock {
+.arrows .shot-impact {
   fill: none;
-  stroke: #050608;
-  stroke-width: 2px;
-  stroke-linecap: round;
-}
-.arrows .arrow-head {
-  fill: #a7abb4;
-  stroke: #050608;
-  stroke-width: 1.3px;
-  stroke-linejoin: round;
+  stroke-width: 1.8px;
 }
 /* A little see-through: many arrows mustn't hide the table. */
 .arrows .arrow {
@@ -1743,11 +1749,8 @@ body.dragging * {
 .arrows .arrow:hover {
   opacity: 1;
 }
-.arrows .arrow:hover .arrow-shaft {
-  stroke: #8a6239;
-}
-.arrows .arrow:hover .arrow-head {
-  fill: #cfd2d8;
+.arrows .arrow:hover .shot {
+  stroke-width: 5px;
 }
 
 .credits {
