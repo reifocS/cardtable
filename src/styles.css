@@ -10,14 +10,16 @@
   --accent: #e8a33d;
   --select: #5fb3ff;
   --card-radius: 4.5%;
-  /* Warcraft-style chrome: gold lettering, dark bronze, stone panels in bronze frames (ui/chrome). */
-  --gold: #f4c75a;
-  --bronze: #6e5226;
-  --bronze-hi: #b8913f;
+  /* Warcraft-style chrome (ui/chrome): dark stone panels, riveted iron frames on the big ones, a thin
+     iron rule on the rest, blue enamel buttons; gold only for headings. */
+  --gold: #e8c46a;
+  --bronze: #2b2c31;
+  --bronze-hi: #5d6068;
+  --enamel: linear-gradient(#2c4f9a, #12285c);
+  --enamel-hi: linear-gradient(#3a62b8, #183474);
+  --iron-rule: 0 0 0 1px #000, inset 0 0 0 1px #3a3c42, inset 0 1px 0 1px #ffffff10;
   --stone: linear-gradient(#0a0c1170, #0a0c11a8), url('./ui/chrome/stone.jpg');
-  --frame: url('./ui/chrome/frame.webp') 26;
-  /* A gauntlet pointing, as in Warcraft III; the system cursors stay for dragging, targeting and text. */
-  --cursor: url('./ui/chrome/cursor.png') 2 2;
+  --frame: url('./ui/chrome/frame.webp') 38 round;
   color-scheme: dark;
   font-family: 'Marcellus', 'Grenze', Georgia, serif;
   font-size: 15px;
@@ -34,14 +36,14 @@ body,
   margin: 0;
   height: 100%;
   background: var(--bg);
-  overflow: hidden;  cursor: var(--cursor), auto;
+  overflow: hidden;
 }
 
-/* Bevelled plates of dark bronze, lit from above; they warm to gold under the pointer. */
+/* Blue enamel plates in a steel rim, lit from above, as in Warcraft III's menus. */
 button {
   font: inherit;
-  color: var(--text);
-  background: linear-gradient(#2e261c, #16120d);
+  color: #f0d99c;
+  background: var(--enamel);
   border: 1px solid var(--bronze);
   border-radius: 3px;
   padding: 4px 10px;
@@ -49,35 +51,35 @@ button {
     inset 0 1px 0 #ffffff1c,
     inset 0 -1px 0 #0009,
     0 1px 2px #0009;
-  cursor: var(--cursor), pointer;
+  cursor: pointer;
 }
 button:hover:not(:disabled) {
-  color: var(--gold);
-  border-color: var(--bronze-hi);
-  background: linear-gradient(#3a3022, #1d1711);
+  color: #fff1c2;
+  border-color: #8a8e98;
+  background: var(--enamel-hi);
   box-shadow:
-    inset 0 1px 0 #ffffff24,
+    inset 0 1px 0 #ffffff2a,
     inset 0 -1px 0 #0009,
-    0 0 7px #f4c75a40;
+    0 0 7px #8fb6ff40;
 }
 button:active:not(:disabled) {
-  background: linear-gradient(#120e0a, #241d15);
+  background: linear-gradient(#0f2048, #1d3a7c);
   box-shadow: inset 0 1px 3px #000c;
 }
 button:disabled {
   opacity: 0.5;
-  cursor: var(--cursor), default;
+  cursor: default;
 }
-/* The main action: a war-banner red plate with gold lettering. */
+/* The main action, green like "Find match". */
 button.primary {
-  background: linear-gradient(#8a2414, #4a0e07);
-  border-color: var(--bronze-hi);
-  color: var(--gold);
+  background: linear-gradient(#3f9a2c, #19500f);
+  border-color: #8a8e98;
+  color: #f4f0d8;
   text-shadow: 0 1px 1px #000;
 }
 button.primary:hover:not(:disabled) {
-  color: #ffe7a3;
-  background: linear-gradient(#a32d19, #57110a);
+  color: #fff;
+  background: linear-gradient(#4cb336, #1f6214);
 }
 
 input,
@@ -99,7 +101,7 @@ textarea:focus {
 kbd {
   font: 11px ui-monospace, monospace;
   color: var(--gold);
-  background: linear-gradient(#2e261c, #16120d);
+  background: linear-gradient(#24262b, #0e0f12);
   border: 1px solid var(--bronze);
   border-radius: 2px;
   padding: 1px 5px;
@@ -120,7 +122,7 @@ kbd {
   overflow-y: auto;
   /* A dark hall, lit from above the menu. */
   background:
-    radial-gradient(ellipse 60% 50% at 50% 30%, #3a2c1a66, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 50% 30%, #2a334566, transparent 70%),
     radial-gradient(ellipse at center, transparent 40%, #000c 100%),
     linear-gradient(#000a, #000a),
     url('./ui/chrome/stone.jpg');
@@ -146,7 +148,7 @@ kbd {
   letter-spacing: 0.06em;
   text-shadow:
     0 2px 0 #3b2709,
-    0 0 18px #f4c75a55;
+    0 0 18px #8fb6ff55;
 }
 .lobby > p {
   text-align: center;
@@ -232,8 +234,8 @@ kbd {
   gap: 8px;
   padding: 0 4px;
   background: var(--stone);
-  border: 8px solid;
-  border-image: var(--frame);
+  border-bottom: 2px solid #000;
+  box-shadow: var(--iron-rule);
   /* Sizes its items to its own width, like my bar below. */
   container-type: inline-size;
 }
@@ -339,7 +341,7 @@ kbd {
   align-items: center;
   padding: 0 16px;
   /* A bronze rail across the table. */
-  background: linear-gradient(#3a2c17, #1a130a 45%, #2c2112);
+  background: linear-gradient(#2c2d32, #111215 45%, #202126);
   border-block: 1px solid var(--bronze-hi);
   box-shadow: 0 2px 6px #000a, 0 -2px 6px #000a;
 }
@@ -353,7 +355,7 @@ kbd {
   border-radius: 2px;
   background: #0008;
   box-shadow: inset 0 1px 3px #000c;
-  cursor: var(--cursor), default;
+  cursor: default;
 }
 .mana-total {
   font-weight: 700;
@@ -434,7 +436,7 @@ kbd {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 170px;
-  background: linear-gradient(#2e261c, #16120d);
+  background: linear-gradient(#24262b, #0e0f12);
   border: 1px solid var(--bronze);
   border-left: 3px solid var(--owner, var(--bronze));
   border-radius: 2px;
@@ -496,8 +498,8 @@ kbd {
   gap: 10px;
   padding: 0 6px;
   background: var(--stone);
-  border: 7px solid;
-  border-image: var(--frame);
+  border-block: 1px solid #000;
+  box-shadow: var(--iron-rule);
   min-height: 34px;
 }
 /* Whose turn it is: their colour rises from the left of their bar, like a banner. */
@@ -532,12 +534,12 @@ kbd {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  background: linear-gradient(#f9dc8a, #c8952f);
-  border: 1px solid #5b4220;
-  color: #2a1a06;
+  background: var(--enamel);
+  border: 1px solid #000;
+  color: #f0d99c;
   padding: 1px 6px;
   border-radius: 2px;
-  box-shadow: 0 0 6px #f4c75a55;
+  box-shadow: 0 0 6px #8fb6ff55;
 }
 .trackers {
   display: flex;
@@ -850,7 +852,7 @@ body.dragging * {
   width: 86px;
   aspect-ratio: 63 / 88;
   border-radius: 5px;
-  cursor: var(--cursor), pointer;
+  cursor: pointer;
 }
 .pile-slot .card {
   width: 100%;
@@ -906,7 +908,7 @@ body.dragging * {
   display: flex;
   padding: 3px;
   border-radius: 2px;
-  background: radial-gradient(circle at 50% 35%, #2b241b, #0d0b08 80%);
+  background: radial-gradient(circle at 50% 35%, #26282d, #0b0c0e 80%);
   color: #e9dcc0;
   box-shadow:
     0 0 0 1px #000,
@@ -1063,7 +1065,7 @@ body.dragging * {
   display: flex;
   flex-direction: column;
   background: var(--stone);
-  border: 10px solid;
+  border: 20px solid;
   border-image: var(--frame);
   min-height: 0;
 }
@@ -1088,9 +1090,9 @@ body.dragging * {
   background: #000;
   /* Set in the bronze like a hero's portrait, sunk below the panel. */
   box-shadow:
-    0 0 0 3px #120d07,
+    0 0 0 3px #08090b,
     0 0 0 5px var(--bronze-hi),
-    0 0 0 7px #2a1e0e,
+    0 0 0 7px #1f2024,
     0 6px 18px #000;
 }
 /* An ornament between the portrait and the log: a bronze rule with a gem in the middle. */
@@ -1105,7 +1107,7 @@ body.dragging * {
   bottom: -4px;
   height: 7px;
   background:
-    radial-gradient(circle, #c4321a 0 3px, #f4c75a 3.5px 4.5px, transparent 5px) center / 12px 7px no-repeat,
+    radial-gradient(circle, #3a6fd0 0 3px, #9aa0aa 3.5px 4.5px, transparent 5px) center / 12px 7px no-repeat,
     linear-gradient(90deg, transparent, var(--bronze-hi) 15%, var(--bronze-hi) 85%, transparent) center / 100% 2px no-repeat;
   pointer-events: none;
 }
@@ -1194,7 +1196,7 @@ body.dragging * {
   display: flex;
   flex-direction: column;
   background: var(--stone);
-  border: 12px solid;
+  border: 14px solid;
   border-image: var(--frame);
   box-shadow: 0 12px 40px #000c;
 }
@@ -1311,9 +1313,8 @@ body.dragging * {
   overflow-y: auto;
   padding: 4px;
   background: var(--stone);
-  border: 8px solid;
-  border-image: var(--frame);
-  box-shadow: 0 10px 30px #000b;
+  border: 1px solid #000;
+  box-shadow: var(--iron-rule), 0 10px 30px #000b;
 }
 .menu button {
   display: flex;
@@ -1328,7 +1329,7 @@ body.dragging * {
   border-radius: 2px;
 }
 .menu button:hover:not(:disabled) {
-  background: #f4c75a1a;
+  background: #8fb6ff1a;
   box-shadow: none;
 }
 .menu-heading {
@@ -1364,7 +1365,7 @@ body.dragging * {
   max-height: calc(100vh - 32px);
   overflow-y: auto;
   background: var(--stone);
-  border: 14px solid;
+  border: 18px solid;
   border-image: var(--frame);
   padding: 6px 8px 8px;
   display: flex;
@@ -1452,7 +1453,7 @@ body.dragging * {
 .tabs button.on {
   color: var(--gold);
   border-color: var(--bronze-hi);
-  background: linear-gradient(#4a3a24, #241c12);
+  background: linear-gradient(#1b1d22, #0c0d10);
   box-shadow: inset 0 1px 0 #ffffff24;
 }
 .results {
@@ -1468,7 +1469,7 @@ body.dragging * {
 }
 .result .card {
   width: 100%;
-  cursor: var(--cursor), pointer;
+  cursor: pointer;
 }
 .result {
   box-shadow: none;
@@ -1480,7 +1481,7 @@ body.dragging * {
 .result:hover .card,
 .result.on .card {
   outline: 1px solid var(--gold);
-  box-shadow: 0 0 10px #f4c75a80;
+  box-shadow: 0 0 10px #8fb6ff80;
 }
 .check {
   display: flex;
@@ -1504,7 +1505,7 @@ body.dragging * {
 .help td {
   padding: 3px 8px 3px 0;
   vertical-align: top;
-  border-bottom: 1px solid #6e522640;
+  border-bottom: 1px solid #3a3c4240;
 }
 .help td:first-child {
   white-space: nowrap;
@@ -1558,7 +1559,7 @@ body.dragging * {
   min-width: 36px;
   height: 36px;
   padding: 0 8px;
-  background: radial-gradient(circle at 50% 35%, #2b241b, #0d0b08 75%);
+  background: radial-gradient(circle at 50% 35%, #26282d, #0b0c0e 75%);
   border: 1px solid #000;
   border-radius: 2px;
   box-shadow:
@@ -1578,17 +1579,17 @@ body.dragging * {
     inset 0 0 0 1px var(--gold),
     inset 0 2px 0 #ffffff1c,
     inset 0 -4px 7px #000c,
-    0 0 9px #f4c75a66;
+    0 0 9px #8fb6ff66;
 }
 .actions .action:hover:not(:disabled) svg {
   color: var(--gold);
 }
 .actions .action.primary {
   padding: 0 12px;
-  background: linear-gradient(#8a2414, #4a0e07);
+  background: linear-gradient(#3f9a2c, #19500f);
 }
 .actions .action.primary svg {
-  color: var(--gold);
+  color: #f4f0d8;
 }
 .actions .action-label:not(.pass-label) {
   display: none;
@@ -1681,8 +1682,8 @@ body.dragging * {
   gap: 12px;
   padding: 2px 6px;
   background: var(--stone);
-  border: 7px solid;
-  border-image: var(--frame);
+  border-bottom: 1px solid #000;
+  box-shadow: var(--iron-rule);
   font-size: 16px;
 }
 .board-focus-head .muted {
@@ -1698,7 +1699,7 @@ body.dragging * {
 
 .arrows .arrow {
   pointer-events: stroke;
-  cursor: var(--cursor), pointer;
+  cursor: pointer;
 }
 .arrows .arrow:hover line + line {
   stroke-width: 7px;
@@ -1747,9 +1748,8 @@ body.dragging * {
   gap: 2px;
   padding: 2px;
   background: var(--stone);
-  border: 6px solid;
-  border-image: var(--frame);
-  box-shadow: 0 4px 14px #0008;
+  border: 1px solid #000;
+  box-shadow: var(--iron-rule), 0 4px 14px #0008;
 }
 .zoom-controls button {
   min-width: 34px;
@@ -1969,7 +1969,10 @@ button.danger:hover:not(:disabled) {
   align-items: flex-start;
   gap: 1px;
   text-align: left;
-  padding: 6px 10px;
+  padding: 6px 10px;  color: var(--text);
+  background: linear-gradient(#24262b, #0e0f12);
+  border-color: #000;
+  box-shadow: var(--iron-rule);
 }
 .dev-preset .muted {
   font-size: 12px;
@@ -1993,6 +1996,11 @@ button.danger:hover:not(:disabled) {
   align-items: baseline;
   gap: 3px;
   padding: 1px 6px;
+  /* A counter, not an action: a dark iron slot. */
+  color: var(--text);
+  background: linear-gradient(#24262b, #0e0f12);
+  border-color: #000;
+  box-shadow: var(--iron-rule);
 }
 .trackers {
   align-items: center;
@@ -2015,7 +2023,7 @@ button.danger:hover:not(:disabled) {
   padding: 1px 5px;
 }
 .tracker-group .tracker-chip + .tracker-chip {
-  border-left: 1px solid #6e522680;
+  border-left: 1px solid #3a3c4280;
   border-radius: 0;
 }
 .tracker-group .tracker-value {
@@ -2051,10 +2059,9 @@ button.danger:hover:not(:disabled) {
   align-items: center;
   gap: 8px;
   padding: 0 8px;
-  border: 6px solid;
-  border-image: var(--frame);
+  border: 1px solid #000;
   background: var(--stone);
-  box-shadow: 0 2px 8px #000c;
+  box-shadow: var(--iron-rule), 0 2px 8px #000c;
   transition: padding 0.12s ease;
 }
 .stack-label {
@@ -2070,9 +2077,9 @@ body.dragging .stack-zone {
 }
 .stack-zone.drop-hover {
   background:
-    radial-gradient(ellipse, #f4c75a40, transparent 70%),
+    radial-gradient(ellipse, #8fb6ff40, transparent 70%),
     var(--stone);
-  box-shadow: 0 0 16px #f4c75a80;
+  box-shadow: 0 0 16px #8fb6ff80;
 }
 .stack-zone.busy {
   padding: 6px 12px;
