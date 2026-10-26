@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Card, GameState } from '../core/types';
 import { FaceView } from './CardView';
 import { formatCounter } from './counters';
+import { cheat } from './eggs';
 import { act, useStore } from './store';
 
 function Preview({ state }: { state: GameState }) {
@@ -81,7 +82,8 @@ function Log({ state }: { state: GameState }) {
         className="chat"
         onSubmit={(e) => {
           e.preventDefault();
-          act({ type: 'chat', text });
+          // A Warcraft cheat code plays out for me alone instead of going to the chat.
+          if (!cheat(text)) act({ type: 'chat', text });
           setText('');
         }}
       >

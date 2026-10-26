@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { throwDie } from './dice3d';
+import { herald } from './herald';
 import { useStore } from './store';
 import type { GameState } from '../core/types';
 
@@ -23,14 +24,22 @@ function Thrown({ roll, onRest }: { roll: Roll; onRest: () => void }) {
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const thrown = throwDie(roll.sides, roll.value, roll.sides === 2 ? 84 : 78, still, !roll.mine);
     ref.current!.append(thrown.element);
-    const rest = setTimeout(onRest, thrown.seconds * 1000);
+    const rest = setTimeout(() => {
+      onRest();
+      // A natural 20 comes to rest in a legendary's light; a natural 1 cracks.
+      if (roll.sides === 20 && roll.value === 20 && !still) {
+        const box = ref.current!.getBoundingClientRect();
+        herald(new DOMRect(box.left + box.width * 0.2, box.top + box.height * 0.2, box.width * 0.6, box.height * 0.6), true);
+      }
+      ref.current!.classList.add('rested');
+    }, thrown.seconds * 1000);
     return () => {
       thrown.stop();
       clearTimeout(rest);
       thrown.element.remove();
     };
   }, [roll, onRest]);
-  return <div className="roll-throw" ref={ref} />;
+  return <div className={`roll-throw${roll.sides === 20 && roll.value === 1 ? ' fumble' : ''}`} ref={ref} />;
 }
 
 /**
@@ -76,6 +85,8 @@ export function RollFx({ state }: { state: GameState }) {
       <div className="roll-caption">
         <b style={{ color: roll.color }}>{roll.who}</b> {roll.sides === 2 ? 'flips a coin' : `rolls a d${roll.sides}`}
         {rested && <span className="roll-result">{result}</span>}
+        {rested && roll.sides === 20 && roll.value === 20 && <span className="roll-result crit">Critical!</span>}
+        {rested && roll.sides === 20 && roll.value === 1 && <span className="roll-result fumble">Fumble…</span>}
       </div>
     </div>
   );

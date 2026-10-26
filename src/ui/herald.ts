@@ -21,6 +21,7 @@ uniform vec2 uSize;   // canvas, px
 uniform vec2 uHalf;   // card half-size, px (the card is centred)
 uniform float uT;     // 0..1 through the entrance
 uniform float uSeed;
+uniform float uRound; // 1 for a round light (a die), 0 for a card's rounded rectangle
 out vec4 color;
 
 float hash(vec2 p) {
@@ -41,7 +42,8 @@ float fbm(vec2 p) {
 // Signed distance to the card's rounded rectangle.
 float card(vec2 p) {
   vec2 q = abs(p) - uHalf + 6.0;
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 6.0;
+  float box = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 6.0;
+  return mix(box, length(p) - min(uHalf.x, uHalf.y), uRound);
 }
 // Warm light: deep amber, gold, then white-hot.
 vec3 warm(float x) {
@@ -114,8 +116,8 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   return null;
 }
 
-/** Plays the entrance over `card` (a screen rect). Without WebGL, nothing happens. */
-export function herald(card: DOMRect) {
+/** Plays the entrance over `card` (a screen rect), or round for a die. Without WebGL, nothing happens. */
+export function herald(card: DOMRect, round = false) {
   const span = Math.max(card.width, card.height);
   const half = span * (REACH + 0.5);
   const canvas = document.createElement('canvas');
@@ -141,6 +143,7 @@ export function herald(card: DOMRect) {
   gl.uniform2f(gl.getUniformLocation(program, 'uSize'), canvas.width, canvas.height);
   gl.uniform2f(gl.getUniformLocation(program, 'uHalf'), (card.width / 2) * px, (card.height / 2) * px);
   gl.uniform1f(gl.getUniformLocation(program, 'uSeed'), Math.random() * 10);
+  gl.uniform1f(gl.getUniformLocation(program, 'uRound'), round ? 1 : 0);
   const uT = gl.getUniformLocation(program, 'uT');
   document.body.appendChild(canvas);
 
