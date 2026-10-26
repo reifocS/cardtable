@@ -101,7 +101,7 @@ export function Board({ zone, state, flipped, children }: { zone: Zone; state: G
   const shader = matShader(playmat);
   return (
     <div className={`board-wrap ${mat.className}`} style={mat.style} ref={wrap}>
-      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} paused={covered} />}
+      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} textures={shader.textures} paused={covered} />}
       <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} top={top}>
         {children}
       </Surface>
@@ -232,7 +232,7 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
 
   return (
     <div className="zoom-board">
-      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} track={sizer} zoom={scale / (layout?.scale ?? 1)} />}
+      {shader && <ShaderMat fragment={shader.fragment} moving={shader.moving} textures={shader.textures} track={sizer} zoom={scale / (layout?.scale ?? 1)} />}
       <div className={`zoom-scroll ${mat.className}`} style={mat.style} ref={wrap}>
         <div className="zoom-sizer" ref={sizer} style={{ width: width * scale, height: VIEW_H * scale }}>
           <Surface zone={zone} state={state} flipped={flipped} width={width} scale={scale} />

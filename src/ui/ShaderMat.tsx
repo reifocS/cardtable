@@ -55,6 +55,8 @@ interface Props {
   zoom?: number;
   /** Covered (by the zoomed view): no need to draw. */
   paused?: boolean;
+  /** Images the shader samples, by sampler uniform: tiled and mipmapped. */
+  textures?: Record<string, string>;
 }
 
 /**
@@ -62,7 +64,7 @@ interface Props {
  * screen and shows a still frame when playmat animations are off (or the system asks for less
  * motion). Without WebGL the CSS look stays.
  */
-export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false }: Props) {
+export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false, textures }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   // Read every frame, so zooming or covering doesn't rebuild the WebGL context.
   const live = useRef({ zoom, paused });
@@ -78,8 +80,12 @@ export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false }:
     if (!gl || !program) return;
     const host = ref.current!;
     host.append(canvas);
-    // Tells the CSS the shader is on, so a theme's own animated layers stand aside.
-    host.dataset.live = '';
+    // Shown once its images are in; until then the CSS look stays.
+    const ready = () => {
+      canvas.style.visibility = '';
+      // Tells the CSS the shader is on, so a theme's own animated layers stand aside.
+      host.dataset.live = '';
+    };
     gl.bindVertexArray(gl.createVertexArray());
     const uSize = gl.getUniformLocation(program, 'uSize');
     const uOrigin = gl.getUniformLocation(program, 'uOrigin');
@@ -128,6 +134,31 @@ export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false }:
       place();
       if (!moving && !track) draw(STILL_TIME);
     };
+    const images = Object.entries(textures ?? {});
+    let loading = images.length;
+    if (loading) canvas.style.visibility = 'hidden';
+    else ready();
+    images.forEach(([name, url], unit) => {
+      const texture = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniform1i(gl.getUniformLocation(program, name), unit);
+      const image = new Image();
+      image.onload = () => {
+        if (gl.isContextLost()) return;
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        stale = true;
+        if (--loading) return;
+        ready();
+        if (!moving && !track) draw(STILL_TIME);
+      };
+      image.src = url;
+    });
+
     const sized = new ResizeObserver(resize);
     sized.observe(canvas);
     const seen = new IntersectionObserver(([entry]) => (onScreen = entry.isIntersecting));
@@ -160,7 +191,7 @@ export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false }:
       canvas.remove();
       delete host.dataset.live;
     };
-  }, [fragment, moving, track]);
+  }, [fragment, moving, track, textures]);
 
   return <div ref={ref} className="shader-mat" aria-hidden />;
 }

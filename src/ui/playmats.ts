@@ -3,6 +3,9 @@ import { ARCANE } from './shaders/arcane';
 import { FELT } from './shaders/felt';
 import { FUTURISTIC } from './shaders/futuristic';
 import { HIGHLANDS } from './shaders/highlands';
+import mordorHeat from './shaders/mordor-heat.jpg';
+import mordorRock from './shaders/mordor-rock.jpg';
+import { MORDOR } from './shaders/mordor';
 import { STONE } from './shaders/stone';
 import { STORM } from './shaders/storm';
 import { TAVERN } from './shaders/tavern';
@@ -16,6 +19,7 @@ export const PLAYMATS = [
   { id: 'stone', name: 'Stone' },
   { id: 'highlands', name: 'Highlands' },
   { id: 'storm', name: 'Stormy sea' },
+  { id: 'mordor', name: 'Mordor' },
 ] as const;
 
 /** Built-in sleeves (card backs), drawn in CSS (see .sleeve-* in styles.css). */
@@ -52,7 +56,7 @@ export function matLook(mat: string | undefined): { className: string; style?: R
 }
 
 /** Playmats painted live by a fragment shader (see ShaderMat); their CSS look is the fallback. */
-const SHADERS: Record<string, { fragment: string; moving: boolean }> = {
+const SHADERS: Record<string, { fragment: string; moving: boolean; textures?: Record<string, string> }> = {
   felt: { fragment: FELT, moving: false },
   futuristic: { fragment: FUTURISTIC, moving: true },
   tavern: { fragment: TAVERN, moving: true },
@@ -60,6 +64,7 @@ const SHADERS: Record<string, { fragment: string; moving: boolean }> = {
   stone: { fragment: STONE, moving: false },
   highlands: { fragment: HIGHLANDS, moving: true },
   storm: { fragment: STORM, moving: true },
+  mordor: { fragment: MORDOR, moving: true, textures: { uRock: mordorRock, uHeat: mordorHeat } },
 };
 
 /** The shader for a playmat: unknown themes are felt, as in matLook; custom images have none. */

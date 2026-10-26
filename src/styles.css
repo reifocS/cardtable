@@ -1990,6 +1990,14 @@ body.dragging .stack-zone {
     radial-gradient(ellipse at center, transparent 50%, #01080cb3 100%),
     radial-gradient(ellipse at 35% 30%, #12404c, #04161e 75%);
 }
+/* Mordor: painted by a shader (ui/shaders/mordor.ts); without WebGL, dark rock under a red sky. */
+.mat-mordor {
+  background:
+    radial-gradient(ellipse at center, transparent 45%, #050202cc 100%),
+    radial-gradient(ellipse 80% 45% at 50% -5%, #6a140699, transparent 70%),
+    radial-gradient(ellipse 30% 12% at 40% 70%, #b8350a40, transparent 70%),
+    radial-gradient(ellipse at center, #1e1512, #0d0908 80%);
+}
 .shader-mat {
   position: absolute;
   inset: 0;
