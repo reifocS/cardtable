@@ -16,6 +16,8 @@
   --bronze-hi: #b8913f;
   --stone: linear-gradient(#0a0c1170, #0a0c11a8), url('./ui/chrome/stone.jpg');
   --frame: url('./ui/chrome/frame.webp') 26;
+  /* A gilded pointer; the system ones stay for dragging, targeting and text. */
+  --cursor: url('./ui/chrome/cursor.png') 2 2;
   color-scheme: dark;
   font-family: 'Marcellus', 'Grenze', Georgia, serif;
   font-size: 15px;
@@ -32,7 +34,7 @@ body,
   margin: 0;
   height: 100%;
   background: var(--bg);
-  overflow: hidden;
+  overflow: hidden;  cursor: var(--cursor), auto;
 }
 
 /* Bevelled plates of dark bronze, lit from above; they warm to gold under the pointer. */
@@ -47,7 +49,7 @@ button {
     inset 0 1px 0 #ffffff1c,
     inset 0 -1px 0 #0009,
     0 1px 2px #0009;
-  cursor: pointer;
+  cursor: var(--cursor), pointer;
 }
 button:hover:not(:disabled) {
   color: var(--gold);
@@ -64,7 +66,7 @@ button:active:not(:disabled) {
 }
 button:disabled {
   opacity: 0.5;
-  cursor: default;
+  cursor: var(--cursor), default;
 }
 /* The main action: a war-banner red plate with gold lettering. */
 button.primary {
@@ -220,6 +222,8 @@ kbd {
   height: 100%;
 }
 .topbar {
+  position: relative;
+  z-index: 50;
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
@@ -246,6 +250,33 @@ kbd {
   .topbar .brand {
     display: none;
   }
+}
+/* Hangs below the bar, over the table's top edge; it's only a display, so clicks go through to the table. */
+.turn-medal {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  z-index: 40;
+  width: 58px;
+  height: 58px;
+  translate: -50% 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    url('./ui/chrome/medal.webp') center / contain no-repeat,
+    radial-gradient(circle, color-mix(in srgb, var(--player) 70%, #000) 30%, #050608 62%);
+  filter: drop-shadow(0 3px 4px #000c);
+  pointer-events: auto;
+}
+.turn-medal > span {
+  font-family: 'Grenze', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold);
+  text-shadow:
+    0 1px 2px #000,
+    0 0 8px #000;
 }
 .brand {
   color: var(--gold);
@@ -319,7 +350,7 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #0003;
-  cursor: default;
+  cursor: var(--cursor), default;
 }
 .mana-total {
   font-weight: 700;
@@ -814,7 +845,7 @@ body.dragging * {
   width: 86px;
   aspect-ratio: 63 / 88;
   border-radius: 5px;
-  cursor: pointer;
+  cursor: var(--cursor), pointer;
 }
 .pile-slot .card {
   width: 100%;
@@ -1027,8 +1058,7 @@ body.dragging * {
   min-height: 0;
 }
 .preview {
-  padding: 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 12px 14px;
 }
 .preview.empty {
   height: 300px;
@@ -1046,6 +1076,28 @@ body.dragging * {
   border-radius: 14px;
   overflow: hidden;
   background: #000;
+  /* Set in the bronze like a hero's portrait, sunk below the panel. */
+  box-shadow:
+    0 0 0 3px #120d07,
+    0 0 0 5px var(--bronze-hi),
+    0 0 0 7px #2a1e0e,
+    0 6px 18px #000;
+}
+/* An ornament between the portrait and the log: a bronze rule with a gem in the middle. */
+.preview {
+  position: relative;
+}
+.preview::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: -4px;
+  height: 7px;
+  background:
+    radial-gradient(circle, #c4321a 0 3px, #f4c75a 3.5px 4.5px, transparent 5px) center / 12px 7px no-repeat,
+    linear-gradient(90deg, transparent, var(--bronze-hi) 15%, var(--bronze-hi) 85%, transparent) center / 100% 2px no-repeat;
+  pointer-events: none;
 }
 .preview-card img,
 .preview-card .text-card {
@@ -1385,7 +1437,7 @@ body.dragging * {
 }
 .result .card {
   width: 100%;
-  cursor: pointer;
+  cursor: var(--cursor), pointer;
 }
 .result:hover .card,
 .result.on .card {
@@ -1604,7 +1656,7 @@ body.dragging * {
 
 .arrows .arrow {
   pointer-events: stroke;
-  cursor: pointer;
+  cursor: var(--cursor), pointer;
 }
 .arrows .arrow:hover line + line {
   stroke-width: 7px;

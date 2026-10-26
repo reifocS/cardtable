@@ -44,8 +44,18 @@ export function TopBar({ state }: { state: GameState }) {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const turnPlayer = state.turn.player ? state.players[state.turn.player] : undefined;
+
   return (
     <header className="topbar">
+      {/* The turn, in a medallion hanging from the middle of the bar, in the colour of whose turn it is. */}
+      <div
+        className="turn-medal"
+        style={{ '--player': turnPlayer?.color ?? '#555' } as React.CSSProperties}
+        {...tip(turnPlayer ? `Turn ${state.turn.number}: ${turnPlayer.name}` : `Turn ${state.turn.number}`)}
+      >
+        <span>{state.turn.number}</span>
+      </div>
       <span className="brand">Cardtable</span>
       <button className="code" onClick={copyInvite} {...tip('Copy the invite link')}>
         {copied ? (
