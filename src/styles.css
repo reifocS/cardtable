@@ -16,7 +16,7 @@
   --bronze-hi: #b8913f;
   --stone: linear-gradient(#0a0c1170, #0a0c11a8), url('./ui/chrome/stone.jpg');
   --frame: url('./ui/chrome/frame.webp') 26;
-  /* A gilded pointer; the system ones stay for dragging, targeting and text. */
+  /* A gauntlet pointing, as in Warcraft III; the system cursors stay for dragging, targeting and text. */
   --cursor: url('./ui/chrome/cursor.png') 2 2;
   color-scheme: dark;
   font-family: 'Marcellus', 'Grenze', Georgia, serif;
@@ -347,9 +347,10 @@ kbd {
   align-items: center;
   gap: 3px;
   padding: 1px 6px 1px 4px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #0003;
+  border: 1px solid var(--bronze);
+  border-radius: 2px;
+  background: #0008;
+  box-shadow: inset 0 1px 3px #000c;
   cursor: var(--cursor), default;
 }
 .mana-total {
@@ -414,7 +415,8 @@ kbd {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--muted);
+  color: var(--gold);
+  text-shadow: 0 1px 1px #000;
   white-space: nowrap;
   margin-right: 2px;
 }
@@ -430,9 +432,11 @@ kbd {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 170px;
-  background: var(--panel);
-  border: 1px solid var(--owner, var(--line));
-  border-left-width: 3px;
+  background: linear-gradient(#2e261c, #16120d);
+  border: 1px solid var(--bronze);
+  border-left: 3px solid var(--owner, var(--bronze));
+  border-radius: 2px;
+  box-shadow: 0 1px 3px #000a;
 }
 .reminder-step {
   color: var(--muted);
@@ -450,7 +454,6 @@ kbd {
 }
 .reminder.more {
   border-left-width: 1px;
-  border-radius: 6px;
   color: var(--muted);
 }
 .table-divider::before {
@@ -873,8 +876,11 @@ body.dragging * {
   line-height: 1.25;
   font-weight: 700;
   padding: 0 6px;
-  border-radius: 5px;
-  box-shadow: 0 0 0 1px #ffffff26;
+  border-radius: 2px;
+  color: var(--gold);
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 0 0 1px var(--bronze);
   pointer-events: none;
 }
 .pile-label {
@@ -897,10 +903,12 @@ body.dragging * {
   left: 3px;
   display: flex;
   padding: 3px;
-  border-radius: 5px;
-  background: #000d;
-  color: #e9e2d0;
-  box-shadow: 0 0 0 1px #ffffff26;
+  border-radius: 2px;
+  background: radial-gradient(circle at 50% 35%, #2b241b, #0d0b08 80%);
+  color: #e9dcc0;
+  box-shadow:
+    0 0 0 1px #000,
+    inset 0 0 0 1px var(--bronze);
   pointer-events: none;
 }
 .pile.small .pile-icon {
@@ -1639,8 +1647,10 @@ body.dragging * {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
-  background: #0004;
+  padding: 2px 6px;
+  background: var(--stone);
+  border: 7px solid;
+  border-image: var(--frame);
   font-size: 16px;
 }
 .board-focus-head .muted {
@@ -1703,16 +1713,14 @@ body.dragging * {
   bottom: 14px;
   display: flex;
   gap: 2px;
-  padding: 3px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  padding: 2px;
+  background: var(--stone);
+  border: 6px solid;
+  border-image: var(--frame);
   box-shadow: 0 4px 14px #0008;
 }
 .zoom-controls button {
   min-width: 34px;
-  background: none;
-  border-color: transparent;
 }
 .zoom-level {
   min-width: 46px;
@@ -1964,9 +1972,10 @@ button.danger:hover:not(:disabled) {
 .tracker-group {
   display: inline-flex;
   align-items: baseline;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #0003;
+  border: 1px solid var(--bronze);
+  border-radius: 2px;
+  background: #0008;
+  box-shadow: inset 0 1px 3px #000c;
 }
 .tracker-group .tracker-chip {
   background: none;
@@ -1974,7 +1983,7 @@ button.danger:hover:not(:disabled) {
   padding: 1px 5px;
 }
 .tracker-group .tracker-chip + .tracker-chip {
-  border-left: 1px solid var(--line);
+  border-left: 1px solid #6e522680;
   border-radius: 0;
 }
 .tracker-group .tracker-value {
@@ -2009,31 +2018,32 @@ button.danger:hover:not(:disabled) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 12px;
-  border: 1px dashed #c58b3a88;
-  border-radius: 14px;
-  background: var(--panel);
+  padding: 0 8px;
+  border: 6px solid;
+  border-image: var(--frame);
+  background: var(--stone);
+  box-shadow: 0 2px 8px #000c;
   transition: padding 0.12s ease;
 }
 .stack-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #c58b3a;
+  color: var(--gold);
+  text-shadow: 0 1px 1px #000;
 }
 /* While dragging, the empty stack becomes an easy target. */
 body.dragging .stack-zone {
-  padding: 18px 40px;
-  border-width: 2px;
+  padding: 16px 36px;
 }
 .stack-zone.drop-hover {
-  border: 2px solid var(--accent);
-  background: #3a2a12;
+  background:
+    radial-gradient(ellipse, #f4c75a40, transparent 70%),
+    var(--stone);
+  box-shadow: 0 0 16px #f4c75a80;
 }
 .stack-zone.busy {
-  padding: 8px 14px;
-  border-style: solid;
-  border-color: var(--accent);
+  padding: 6px 12px;
   box-shadow: 0 10px 30px #000c;
 }
 .stack-zone .card {
