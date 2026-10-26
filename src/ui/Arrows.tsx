@@ -88,7 +88,7 @@ export function Arrows({ state }: { state: GameState }) {
         const { d } = arc(l);
         const drawn = (
           <>
-            {/* Iron shot marching along the arc; where it lands, an iron crosshair round its owner's colour. */}
+            {/* Red dashes marching along the arc; where it lands, a red crosshair round its owner's colour. */}
             <path className="shot-edge" d={d} />
             <path className="shot" d={d} />
             <path className="shot-impact-edge" d={crosshair(l.x2, l.y2)} />

@@ -1707,25 +1707,25 @@ body.dragging * {
   pointer-events: stroke;
   cursor: pointer;
 }
-/* Iron shot: zero-length dashes with round caps, steel balls ringed in black, like the frames' rivets. */
+/* The shot's path: short blood-red dashes edged in black, marching toward the target. */
 .arrows .shot-edge,
 .arrows .shot {
   fill: none;
-  stroke-linecap: round;
-  stroke-dasharray: 0 10;
+  stroke-linecap: butt;
+  stroke-dasharray: 7 6;
   animation: shot-march 1.6s linear infinite;
 }
 .arrows .shot-edge {
   stroke: #050608;
-  stroke-width: 6.5px;
+  stroke-width: 4.5px;
 }
 .arrows .shot {
-  stroke: #8a8e98;
-  stroke-width: 4px;
+  stroke: #b3261e;
+  stroke-width: 2px;
 }
 @keyframes shot-march {
   to {
-    stroke-dashoffset: -10;
+    stroke-dashoffset: -13;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1742,7 +1742,7 @@ body.dragging * {
 }
 .arrows .shot-impact {
   fill: none;
-  stroke: #8a8e98;
+  stroke: #b3261e;
   stroke-width: 2px;
   stroke-linecap: round;
 }
@@ -1759,7 +1759,7 @@ body.dragging * {
 }
 .arrows .arrow:hover .shot,
 .arrows .arrow:hover .shot-impact {
-  stroke: #c4c7ce;
+  stroke: #e2453a;
 }
 
 .credits {
