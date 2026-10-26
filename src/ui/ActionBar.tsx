@@ -101,6 +101,9 @@ export function ActionBar({ state }: { state: GameState }) {
       <button className="action" onClick={() => act({ type: 'undo' })} {...tip('Undo your last action (Ctrl/⌘Z)')}>
         <Icon name="undo" />
       </button>
+      <button className="action" onClick={() => me && useStore.setState({ focus: me })} {...tip('See your battlefield in big')}>
+        <Icon name="expand" />
+      </button>
       <button className="action" onClick={looks} {...tip('Playmat and sleeves')}>
         <Icon name="playmat" />
       </button>

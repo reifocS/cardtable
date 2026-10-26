@@ -236,20 +236,22 @@ function MyArea({ state, me }: { state: GameState; me: PlayerId }) {
   );
 }
 
-/** One opponent's battlefield over the whole table, for reading a busy board. */
+/** One battlefield over the whole table, for reading a busy board: an opponent's, or my own. */
 function FocusBoard({ state }: { state: GameState }) {
   const focus = useStore((s) => s.focus);
+  const me = useStore((s) => s.me);
   const bf = focus ? zoneOf(state, focus, 'battlefield') : undefined;
   if (!focus || !bf || !state.players[focus]) return null;
+  const mine = focus === me;
   return (
     <div className="board-focus">
       <div className="board-focus-head">
-        <b style={{ color: state.players[focus].color }}>{state.players[focus].name}'s battlefield</b>
+        <b style={{ color: state.players[focus].color }}>{mine ? 'Your battlefield' : `${state.players[focus].name}'s battlefield`}</b>
         <span className="muted">Pinch or Ctrl/⌘ + wheel to zoom · scroll to move · Esc to close</span>
         <div className="spacer" />
         <button onClick={() => useStore.setState({ focus: null })}>Close</button>
       </div>
-      <ZoomBoard key={focus} zone={bf} state={state} flipped />
+      <ZoomBoard key={focus} zone={bf} state={state} flipped={!mine} />
     </div>
   );
 }
