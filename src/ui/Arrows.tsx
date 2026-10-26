@@ -73,12 +73,12 @@ export function Arrows({ state }: { state: GameState }) {
         const { d } = arc(l);
         const drawn = (
           <>
-            {/* Dots marching along the arc in its owner's colour, each ringed dark; a ring where it lands. */}
+            {/* Iron shot marching along the arc; where it lands, an iron ring round its owner's colour. */}
             <path className="shot-edge" d={d} />
-            <path className="shot" d={d} stroke={color} />
-            <circle className="shot-impact-edge" cx={l.x2} cy={l.y2} r={7} />
-            <circle className="shot-impact" cx={l.x2} cy={l.y2} r={7} stroke={color} />
-            <circle cx={l.x2} cy={l.y2} r={2.2} fill={color} />
+            <path className="shot" d={d} />
+            <circle className="shot-impact-edge" cx={l.x2} cy={l.y2} r={8} />
+            <circle className="shot-impact" cx={l.x2} cy={l.y2} r={8} />
+            <circle className="shot-core" cx={l.x2} cy={l.y2} r={4} fill={color} />
           </>
         );
         if (!from || !to) return <g key={keyOf(l)}>{drawn}</g>;

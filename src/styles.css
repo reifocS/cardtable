@@ -1707,24 +1707,25 @@ body.dragging * {
   pointer-events: stroke;
   cursor: pointer;
 }
-/* Dots: zero-length dashes with round caps, each a dark ring round a coloured centre. */
+/* Iron shot: zero-length dashes with round caps, steel balls ringed in black, like the frames' rivets. */
 .arrows .shot-edge,
 .arrows .shot {
   fill: none;
   stroke-linecap: round;
-  stroke-dasharray: 0 11;
-  animation: shot-march 1.4s linear infinite;
+  stroke-dasharray: 0 10;
+  animation: shot-march 1.6s linear infinite;
 }
 .arrows .shot-edge {
-  stroke: #050608cc;
-  stroke-width: 7px;
+  stroke: #050608;
+  stroke-width: 6.5px;
 }
 .arrows .shot {
+  stroke: #8a8e98;
   stroke-width: 4px;
 }
 @keyframes shot-march {
   to {
-    stroke-dashoffset: -11;
+    stroke-dashoffset: -10;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1735,12 +1736,17 @@ body.dragging * {
 }
 .arrows .shot-impact-edge {
   fill: none;
-  stroke: #050608cc;
-  stroke-width: 4px;
+  stroke: #050608;
+  stroke-width: 5px;
 }
 .arrows .shot-impact {
   fill: none;
-  stroke-width: 1.8px;
+  stroke: #5d6068;
+  stroke-width: 2.5px;
+}
+.arrows .shot-core {
+  stroke: #050608;
+  stroke-width: 1px;
 }
 /* A little see-through: many arrows mustn't hide the table. */
 .arrows .arrow {
@@ -1749,8 +1755,9 @@ body.dragging * {
 .arrows .arrow:hover {
   opacity: 1;
 }
-.arrows .arrow:hover .shot {
-  stroke-width: 5px;
+.arrows .arrow:hover .shot,
+.arrows .arrow:hover .shot-impact {
+  stroke: #c4c7ce;
 }
 
 .credits {
