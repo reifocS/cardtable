@@ -1737,12 +1737,14 @@ body.dragging * {
 .arrows .shot-impact-edge {
   fill: none;
   stroke: #050608;
-  stroke-width: 5px;
+  stroke-width: 4.5px;
+  stroke-linecap: round;
 }
 .arrows .shot-impact {
   fill: none;
-  stroke: #5d6068;
-  stroke-width: 2.5px;
+  stroke: #8a8e98;
+  stroke-width: 2px;
+  stroke-linecap: round;
 }
 .arrows .shot-core {
   stroke: #050608;

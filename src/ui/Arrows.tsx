@@ -27,6 +27,21 @@ function arc({ x1, y1, x2, y2 }: Line) {
   return { d, x2, y2 };
 }
 
+/** An impact marker at (x, y): a ring, crossed by four arms that stop short of the middle. */
+function crosshair(x: number, y: number) {
+  const r = 9;
+  const ring = `M${x - r},${y} a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0`;
+  const arms = [
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+  ]
+    .map(([dx, dy]) => `M${x + dx * 4.5},${y + dy * 4.5} L${x + dx * 15},${y + dy * 15}`)
+    .join(' ');
+  return `${ring} ${arms}`;
+}
+
 /** Draws target arrows over the whole table, tracking the elements they point at. */
 export function Arrows({ state }: { state: GameState }) {
   const targeting = useStore((s) => s.targeting);
@@ -73,12 +88,12 @@ export function Arrows({ state }: { state: GameState }) {
         const { d } = arc(l);
         const drawn = (
           <>
-            {/* Iron shot marching along the arc; where it lands, an iron ring round its owner's colour. */}
+            {/* Iron shot marching along the arc; where it lands, an iron crosshair round its owner's colour. */}
             <path className="shot-edge" d={d} />
             <path className="shot" d={d} />
-            <circle className="shot-impact-edge" cx={l.x2} cy={l.y2} r={8} />
-            <circle className="shot-impact" cx={l.x2} cy={l.y2} r={8} />
-            <circle className="shot-core" cx={l.x2} cy={l.y2} r={4} fill={color} />
+            <path className="shot-impact-edge" d={crosshair(l.x2, l.y2)} />
+            <path className="shot-impact" d={crosshair(l.x2, l.y2)} />
+            <circle className="shot-core" cx={l.x2} cy={l.y2} r={2.5} fill={color} />
           </>
         );
         if (!from || !to) return <g key={keyOf(l)}>{drawn}</g>;
