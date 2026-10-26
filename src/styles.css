@@ -257,11 +257,11 @@ kbd {
     display: none;
   }
 }
-/* Hangs below the bar, over the table's top edge; it's only a display, so clicks go through to the table. */
-.turn-medal {
+/* Centred on the bar, hanging a little below it. (.topbar raises it over [data-tip]'s position.) */
+.topbar > .turn-medal {
   position: absolute;
   left: 50%;
-  top: -2px;
+  top: 2px;
   z-index: 40;
   width: 58px;
   height: 58px;
@@ -269,17 +269,21 @@ kbd {
   display: grid;
   place-items: center;
   border-radius: 50%;
+  /* Dark iron inside; whose turn it is shows as a faint glow of their colour round the rim. */
   background:
     url('./ui/chrome/medal.webp') center / contain no-repeat,
-    radial-gradient(circle, color-mix(in srgb, var(--player) 70%, #000) 30%, #050608 62%);
+    radial-gradient(circle, #1c1d21 0 38%, color-mix(in srgb, var(--player) 45%, #0b0c0e) 52%, #050608 62%);
   filter: drop-shadow(0 3px 4px #000c);
   pointer-events: auto;
 }
-.turn-medal > span {
+.topbar > .turn-medal > span {
   font-family: 'Grenze', Georgia, serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
-  color: var(--gold);
+  line-height: 1;
+  /* Grenze's figures sit low in their box: lift them to the middle. */
+  translate: 0 -1px;
+  color: #e6e1d6;
   text-shadow:
     0 1px 2px #000,
     0 0 8px #000;
