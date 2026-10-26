@@ -1,12 +1,15 @@
 import type React from 'react';
 import { ARCANE } from './shaders/arcane';
+import deskPropsA from './shaders/desk-props-a.webp';
+import deskPropsB from './shaders/desk-props-b.webp';
+import deskPropsC from './shaders/desk-props-c.webp';
+import deskPropsD from './shaders/desk-props-d.webp';
+import deskWood from './shaders/desk-wood.jpg';
 import { FELT } from './shaders/felt';
 import { FUTURISTIC } from './shaders/futuristic';
-import { HIGHLANDS } from './shaders/highlands';
 import mordorHeat from './shaders/mordor-heat.jpg';
 import mordorRock from './shaders/mordor-rock.jpg';
 import { MORDOR } from './shaders/mordor';
-import { STONE } from './shaders/stone';
 import { STORM } from './shaders/storm';
 import { TAVERN } from './shaders/tavern';
 
@@ -15,9 +18,7 @@ export const PLAYMATS = [
   { id: 'felt', name: 'Felt' },
   { id: 'futuristic', name: 'Futuristic' },
   { id: 'tavern', name: 'Tavern' },
-  { id: 'arcane', name: 'Arcane' },
-  { id: 'stone', name: 'Stone' },
-  { id: 'highlands', name: 'Highlands' },
+  { id: 'arcane', name: "Wizard's desk" },
   { id: 'storm', name: 'Stormy sea' },
   { id: 'mordor', name: 'Mordor' },
 ] as const;
@@ -37,7 +38,7 @@ const STILL_KEY = 'cardtable:stillMats';
 const SLEEVE_KEY = 'cardtable:sleeve';
 
 /** Themes that were renamed, as saved games and preferences may still name them. */
-const RENAMED: Record<string, string> = { medieval: 'tavern', grass: 'highlands' };
+const RENAMED: Record<string, string> = { medieval: 'tavern' };
 
 /** The current id of a built-in playmat (or the value itself: another theme, a custom image). */
 export const matId = (mat: string) => RENAMED[mat] ?? mat;
@@ -60,9 +61,7 @@ const SHADERS: Record<string, { fragment: string; moving: boolean; textures?: Re
   felt: { fragment: FELT, moving: false },
   futuristic: { fragment: FUTURISTIC, moving: true },
   tavern: { fragment: TAVERN, moving: true },
-  arcane: { fragment: ARCANE, moving: true },
-  stone: { fragment: STONE, moving: false },
-  highlands: { fragment: HIGHLANDS, moving: true },
+  arcane: { fragment: ARCANE, moving: true, textures: { uWood: deskWood, uPropsA: deskPropsA, uPropsB: deskPropsB, uPropsC: deskPropsC, uPropsD: deskPropsD } },
   storm: { fragment: STORM, moving: true },
   mordor: { fragment: MORDOR, moving: true, textures: { uRock: mordorRock, uHeat: mordorHeat } },
 };

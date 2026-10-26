@@ -1961,28 +1961,12 @@ body.dragging .stack-zone {
     inset 0 0 22px #0a0402cc;
 }
 .mat-arcane {
+  /* A wizard's desk, painted by a shader (ui/shaders/arcane.ts); without WebGL, warm planks by candlelight. */
   background:
-    radial-gradient(#ffffffa0 1px, transparent 1.6px) 0 0 / 70px 70px,
-    radial-gradient(#ffffff55 1px, transparent 1.6px) 35px 25px / 90px 90px,
-    radial-gradient(ellipse at 28% 38%, #6b2fa0aa, transparent 55%),
-    radial-gradient(ellipse at 72% 68%, #1e5a9a99, transparent 55%),
-    radial-gradient(ellipse at center, #1b0f2e, #0b0614 80%);
-  box-shadow: inset 0 0 40px #b07cff26;
-}
-.mat-stone {
-  background:
-    radial-gradient(ellipse at center, transparent 50%, #00000080 100%),
-    repeating-linear-gradient(0deg, #0000004d 0 2px, transparent 2px 64px),
-    repeating-linear-gradient(90deg, #00000033 0 2px, transparent 2px 128px),
-    radial-gradient(ellipse at center, #44484f, #272a30 80%);
-}
-.mat-highlands {
-  /* Painted by a shader (ui/shaders/highlands.ts); without WebGL, moorland under drifting mist. */
-  background:
-    radial-gradient(ellipse at center, transparent 45%, #08100bb3 100%),
-    radial-gradient(ellipse 30% 40% at 30% 35%, #4d6b3a, transparent 70%),
-    radial-gradient(ellipse 25% 35% at 72% 65%, #4a3a48b3, transparent 70%),
-    linear-gradient(#34502c, #263d22);
+    radial-gradient(ellipse 40% 50% at 20% 15%, #f0a04a2e, transparent 70%),
+    radial-gradient(ellipse at center, transparent 50%, #0d0603b3 100%),
+    repeating-linear-gradient(180deg, #120802b3 0 3px, transparent 3px 70px),
+    repeating-linear-gradient(180deg, #5a3519 0 70px, #4b2c15 70px 140px, #63391b 140px 210px);
 }
 /* Stormy sea: painted by a shader (ui/shaders/storm.ts); this is what shows without WebGL. */
 .mat-storm {
@@ -2049,45 +2033,6 @@ body.dragging .stack-zone {
   }
 }
 
-/* Highlands (without WebGL): two banks of mist drifting across at different speeds. The pattern repeats at half the
-   layer's width, so sliding it by half loops seamlessly. */
-.board-wrap.mat-highlands::before,
-.board-wrap.mat-highlands::after {
-  content: '';
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 200%;
-  background:
-    radial-gradient(ellipse 18% 45% at 20% 60%, #e8f4ea2e, transparent 70%),
-    radial-gradient(ellipse 22% 35% at 55% 30%, #e8f4ea24, transparent 70%),
-    radial-gradient(ellipse 16% 40% at 85% 75%, #e8f4ea29, transparent 70%);
-  background-size: 50% 100%;
-  animation: mat-drift 70s linear infinite;
-}
-.board-wrap.mat-highlands::after {
-  opacity: 0.7;
-  background-position: 30% 0;
-  transform: scaleY(-1);
-  animation: mat-drift-back 110s linear infinite;
-}
-@keyframes mat-drift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-@keyframes mat-drift-back {
-  from {
-    transform: translateX(-50%) scaleY(-1);
-  }
-  to {
-    transform: translateX(0) scaleY(-1);
-  }
-}
-
 /* Futuristic: a scan line sweeps down now and then. */
 .board-wrap.mat-futuristic::before {
   content: '';
@@ -2140,61 +2085,6 @@ body.dragging .stack-zone {
   79% {
     opacity: 0.78;
     transform: scaleY(0.98);
-  }
-}
-
-/* Arcane: extra stars drifting and twinkling, and now and then a shooting star. */
-.board-wrap.mat-arcane::before {
-  content: '';
-  top: 0;
-  bottom: 0;
-  left: 0;
-  /* Slides by a whole number of tiles (8 × 110px) to loop without a jump. */
-  width: calc(100% + 880px);
-  background: radial-gradient(#d9c2ff99 1px, transparent 1.7px) 12px 40px / 110px 80px;
-  animation:
-    mat-stars 160s linear infinite,
-    mat-twinkle 7s ease-in-out infinite alternate;
-}
-@keyframes mat-stars {
-  to {
-    transform: translateX(-880px);
-  }
-}
-@keyframes mat-twinkle {
-  from {
-    opacity: 0.35;
-  }
-  to {
-    opacity: 1;
-  }
-}
-/* A streak whose bright head leads (rotate first, so it travels along its own length). */
-.board-wrap.mat-arcane::after {
-  content: '';
-  left: 72%;
-  top: 14%;
-  width: 130px;
-  height: 2px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, #e9dcff99 70%, #fff);
-  box-shadow: 0 0 6px #cdb6ff;
-  opacity: 0;
-  animation: mat-shooting 17s ease-in infinite;
-}
-@keyframes mat-shooting {
-  0%,
-  88% {
-    opacity: 0;
-    transform: rotate(158deg) translateX(0);
-  }
-  89% {
-    opacity: 1;
-  }
-  94%,
-  100% {
-    opacity: 0;
-    transform: rotate(158deg) translateX(420px);
   }
 }
 
