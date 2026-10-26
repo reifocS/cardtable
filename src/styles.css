@@ -10,8 +10,14 @@
   --accent: #e8a33d;
   --select: #5fb3ff;
   --card-radius: 4.5%;
+  /* Warcraft-style chrome: gold lettering, dark bronze, stone panels in bronze frames (ui/chrome). */
+  --gold: #f4c75a;
+  --bronze: #6e5226;
+  --bronze-hi: #b8913f;
+  --stone: linear-gradient(#0a0c1170, #0a0c11a8), url('./ui/chrome/stone.jpg');
+  --frame: url('./ui/chrome/frame.webp') 26;
   color-scheme: dark;
-  font-family: 'Grenze', Georgia, serif;
+  font-family: 'Marcellus', 'Grenze', Georgia, serif;
   font-size: 15px;
   color: var(--text);
 }
@@ -29,45 +35,62 @@ body,
   overflow: hidden;
 }
 
+/* Bevelled plates of dark bronze, lit from above; they warm to gold under the pointer. */
 button {
   font: inherit;
   color: var(--text);
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  background: linear-gradient(#2e261c, #16120d);
+  border: 1px solid var(--bronze);
+  border-radius: 3px;
   padding: 4px 10px;
+  box-shadow:
+    inset 0 1px 0 #ffffff1c,
+    inset 0 -1px 0 #0009,
+    0 1px 2px #0009;
   cursor: pointer;
 }
 button:hover:not(:disabled) {
-  border-color: #4a5664;
-  background: #2a323d;
+  color: var(--gold);
+  border-color: var(--bronze-hi);
+  background: linear-gradient(#3a3022, #1d1711);
+  box-shadow:
+    inset 0 1px 0 #ffffff24,
+    inset 0 -1px 0 #0009,
+    0 0 7px #f4c75a40;
+}
+button:active:not(:disabled) {
+  background: linear-gradient(#120e0a, #241d15);
+  box-shadow: inset 0 1px 3px #000c;
 }
 button:disabled {
   opacity: 0.5;
   cursor: default;
 }
+/* The main action: a war-banner red plate with gold lettering. */
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #1b1307;
-  font-weight: 600;
+  background: linear-gradient(#8a2414, #4a0e07);
+  border-color: var(--bronze-hi);
+  color: var(--gold);
+  text-shadow: 0 1px 1px #000;
 }
 button.primary:hover:not(:disabled) {
-  background: #f2b354;
+  color: #ffe7a3;
+  background: linear-gradient(#a32d19, #57110a);
 }
 
 input,
 textarea {
   font: inherit;
   color: var(--text);
-  background: #0f1317;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  background: #06070a;
+  border: 1px solid var(--bronze);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 3px #000c;
   padding: 6px 8px;
 }
 input:focus,
 textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--gold);
   outline-offset: -1px;
 }
 
@@ -91,20 +114,38 @@ kbd {
 /* The page never scrolls (the table must not move), except the lobby, which can outgrow the screen. */
 #root:has(> .lobby) {
   overflow-y: auto;
+  /* A dark hall, lit from above the menu. */
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 30%, #3a2c1a66, transparent 70%),
+    radial-gradient(ellipse at center, transparent 40%, #000c 100%),
+    linear-gradient(#000a, #000a),
+    url('./ui/chrome/stone.jpg');
 }
+/* The menu: a stone tablet in a bronze frame, as in Warcraft III. */
 .lobby {
-  max-width: 420px;
-  margin: 12vh auto 0;
-  padding-bottom: 40px;
-  padding: 0 16px;
+  max-width: 460px;
+  margin: 10vh auto 40px;
+  padding: 18px 22px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  background: var(--stone);
+  border: 22px solid;
+  border-image: var(--frame);
+  box-shadow: 0 20px 60px #000;
 }
 .lobby h1 {
   margin: 0;
-  font-size: 34px;
-  letter-spacing: -0.5px;
+  font-size: 38px;
+  text-align: center;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 2px 0 #3b2709,
+    0 0 18px #f4c75a55;
+}
+.lobby > p {
+  text-align: center;
 }
 .lobby label {
   display: flex;
@@ -183,9 +224,10 @@ kbd {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 10px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  padding: 0 4px;
+  background: var(--stone);
+  border: 8px solid;
+  border-image: var(--frame);
   /* Sizes its items to its own width, like my bar below. */
   container-type: inline-size;
 }
@@ -206,7 +248,9 @@ kbd {
   }
 }
 .brand {
-  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px #000;
   margin-right: 4px;
 }
 .code {
@@ -261,7 +305,10 @@ kbd {
   display: flex;
   align-items: center;
   padding: 0 16px;
-  background: #0000004d;
+  /* A bronze rail across the table. */
+  background: linear-gradient(#3a2c17, #1a130a 45%, #2c2112);
+  border-block: 1px solid var(--bronze-hi);
+  box-shadow: 0 2px 6px #000a, 0 -2px 6px #000a;
 }
 /* The mana my untapped sources can make (ui/ManaPool.tsx). */
 .mana-pool {
@@ -397,17 +444,31 @@ kbd {
 
 /* ---- player header ---- */
 
+/* Numbers in Grenze: Marcellus draws a 1 like a capital I. */
+.tracker-value,
+.tracker-chip,
+.counter,
+.pile-count,
+.mana-total,
+.cmd-chip {
+  font-family: 'Grenze', Georgia, serif;
+}
+
 .player-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 10px;
-  background: #0003;
-  border-left: 3px solid var(--player);
+  padding: 0 6px;
+  background: var(--stone);
+  border: 7px solid;
+  border-image: var(--frame);
   min-height: 34px;
 }
+/* Whose turn it is: their colour rises from the left of their bar, like a banner. */
 .player-header.active {
-  background: color-mix(in srgb, var(--player) 18%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player) 30%, transparent), transparent 60%),
+    var(--stone);
 }
 .player-header.targetable {
   cursor: crosshair;
@@ -435,11 +496,12 @@ kbd {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  background: var(--player);
-  color: #111;
+  background: linear-gradient(#f9dc8a, #c8952f);
+  border: 1px solid #5b4220;
+  color: #2a1a06;
   padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 700;
+  border-radius: 2px;
+  box-shadow: 0 0 6px #f4c75a55;
 }
 .trackers {
   display: flex;
@@ -699,7 +761,12 @@ body.dragging * {
   display: flex;
   gap: 10px;
   padding: 6px 10px;
-  background: #0004;
+  /* The console: stone, a bronze rail along its top edge. */
+  background: var(--stone);
+  border-top: 3px solid var(--bronze);
+  box-shadow:
+    inset 0 1px 0 var(--bronze-hi),
+    inset 0 8px 12px #0009;
   min-width: 0;
   /* Piles shrink with the room the tray has (below); past that it scrolls sideways, never over the side panel. */
   container-type: inline-size;
@@ -753,7 +820,7 @@ body.dragging * {
   width: 100%;
 }
 .pile-slot.drop-hover {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--gold);
   outline-offset: 2px;
 }
 .pile-empty {
@@ -870,7 +937,7 @@ body.dragging * {
   z-index: 2;
 }
 .hand.drop-hover {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--gold);
 }
 .hand .card {
   height: var(--hand-card-h);
@@ -954,8 +1021,9 @@ body.dragging * {
   grid-column: 2;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
-  border-left: 1px solid var(--line);
+  background: var(--stone);
+  border: 10px solid;
+  border-image: var(--frame);
   min-height: 0;
 }
 .preview {
@@ -1027,7 +1095,7 @@ body.dragging * {
   flex: 1;
   overflow-y: auto;
   padding: 8px 10px;
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.45;
 }
 .log-entry {
@@ -1040,9 +1108,8 @@ body.dragging * {
 .log-turn {
   margin: 8px 0 4px;
   padding-top: 6px;
-  border-top: 1px solid var(--line);
-  font-weight: 700;
-  color: var(--accent);
+  border-top: 1px solid var(--bronze);
+  color: var(--gold);
 }
 .chat {
   padding: 8px;
@@ -1091,7 +1158,7 @@ body.dragging * {
   min-height: 80px;
 }
 .viewer-cards.drop-hover {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--gold);
   outline-offset: -4px;
 }
 .viewer-cards .card {
@@ -1173,9 +1240,9 @@ body.dragging * {
   max-height: calc(100vh - 16px);
   overflow-y: auto;
   padding: 4px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  background: var(--stone);
+  border: 8px solid;
+  border-image: var(--frame);
   box-shadow: 0 10px 30px #000b;
 }
 .menu button {
@@ -1185,20 +1252,22 @@ body.dragging * {
   gap: 16px;
   background: none;
   border: none;
+  box-shadow: none;
   text-align: left;
   padding: 5px 10px;
-  border-radius: 5px;
+  border-radius: 2px;
 }
 .menu button:hover:not(:disabled) {
-  background: var(--panel-2);
+  background: #f4c75a1a;
+  box-shadow: none;
 }
 .menu-heading {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--muted);
+  color: var(--gold);
   padding: 8px 10px 2px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--bronze);
   margin-top: 4px;
 }
 .menu-heading:first-child {
@@ -1224,10 +1293,10 @@ body.dragging * {
   max-width: 100%;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 14px 16px 16px;
+  background: var(--stone);
+  border: 14px solid;
+  border-image: var(--frame);
+  padding: 6px 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1239,11 +1308,13 @@ body.dragging * {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 16px;
+  font-size: 17px;
+  color: var(--gold);
 }
 .modal-head button {
   background: none;
   border: none;
+  box-shadow: none;
 }
 .modal-actions {
   display: flex;
@@ -1318,7 +1389,7 @@ body.dragging * {
 }
 .result:hover .card,
 .result.on .card {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--gold);
 }
 .check {
   display: flex;
@@ -1369,6 +1440,7 @@ body.dragging * {
   padding: 4px 8px;
   background: none;
   border-color: transparent;
+  box-shadow: none;
 }
 .icon-btn:hover:not(:disabled) {
   background: var(--panel-2);
@@ -1387,6 +1459,52 @@ body.dragging * {
   padding: 5px 10px;
   white-space: nowrap;
 }
+/* The command card: square, deeply bevelled plates with the icon set in them, as in Warcraft III.
+   Their names are in their tooltips; only passing the turn keeps a label. */
+.actions .action {
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  background: radial-gradient(circle at 50% 35%, #2b241b, #0d0b08 75%);
+  border: 1px solid #000;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 1px var(--bronze),
+    inset 0 2px 0 #ffffff14,
+    inset 0 -4px 7px #000c,
+    0 1px 0 #ffffff12;
+}
+.actions .action svg {
+  width: 20px;
+  height: 20px;
+  color: #e9dcc0;
+  filter: drop-shadow(0 1px 1px #000);
+}
+.actions .action:hover:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 1px var(--gold),
+    inset 0 2px 0 #ffffff1c,
+    inset 0 -4px 7px #000c,
+    0 0 9px #f4c75a66;
+}
+.actions .action:hover:not(:disabled) svg {
+  color: var(--gold);
+}
+.actions .action.primary {
+  padding: 0 12px;
+  background: linear-gradient(#8a2414, #4a0e07);
+}
+.actions .action.primary svg {
+  color: var(--gold);
+}
+.actions .action-label:not(.pass-label) {
+  display: none;
+}
+.turn {
+  font-family: 'Grenze', Georgia, serif;
+  font-size: 16px;
+}
 /* My bar sizes its buttons to its own width (the side panel takes its share of the window). */
 .area.mine > .player-header {
   container-type: inline-size;
@@ -1394,14 +1512,6 @@ body.dragging * {
 .area.mine > .player-header .player-name {
   flex-shrink: 0;
   min-width: 5ch;
-}
-@container (max-width: 1000px) {
-  .actions .action-label:not(.pass-label) {
-    display: none;
-  }
-  .actions .action {
-    padding: 5px 8px;
-  }
 }
 @container (max-width: 820px) {
   .actions .pass-label,
@@ -1414,7 +1524,7 @@ body.dragging * {
 }
 @container (max-width: 700px) {
   .actions .action {
-    padding: 5px 6px;
+    padding: 0 6px;
   }
   .area.mine > .player-header .turn-badge {
     display: none;
@@ -1427,9 +1537,7 @@ body.dragging * {
 }
 .area.mine > .player-header {
   min-height: 48px;
-  padding: 5px 10px;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
+  padding: 2px 8px;
 }
 .opponent > .player-header {
   padding: 3px 8px;
@@ -1576,9 +1684,9 @@ body.dragging * {
   transform: translateX(-50%);
   z-index: 1200;
   padding: 4px 9px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: #0b0e12;
+  border-radius: 2px;
+  border: 1px solid var(--bronze-hi);
+  background: #000000e0;
   color: var(--text);
   font-size: 13px;
   font-weight: 400;
