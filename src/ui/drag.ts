@@ -1,6 +1,7 @@
 import type React from 'react';
 import { CARD_H, CARD_W } from '../core/state';
 import { VIEW_H, mirrorY, storeX, storeY } from './fit';
+import { justDropped } from './Flights';
 import type { Card, CardId } from '../core/types';
 import { act, setSelection, useStore } from './store';
 
@@ -141,6 +142,8 @@ function drop(ev: PointerEvent, ids: CardId[], primary: Card, fx: number, fy: nu
   const zone = state.zones[target.dataset.dropZone!];
   if (!zone) return;
   const ordered = ids.filter((id) => state.cards[id]);
+  // Already where they land: they don't fly there.
+  for (const id of ordered) justDropped.add(id);
 
   if (zone.kind === 'free') {
     const r = target.getBoundingClientRect();

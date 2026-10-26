@@ -1701,6 +1701,181 @@ body.dragging * {
   }
 }
 
+/* ---- motion: cards flying between zones, dice and coins (ui/Flights.tsx, ui/RollFx.tsx) ---- */
+
+.flight {
+  position: fixed;
+  z-index: 950;
+  margin: 0;
+  pointer-events: none;
+  box-shadow: 0 14px 30px #000c;
+}
+.land-dust {
+  position: fixed;
+  z-index: 940;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 3px solid #c9b48a99;
+  box-shadow:
+    0 0 12px #c9b48a66,
+    inset 0 0 12px #c9b48a44;
+}
+
+/* Over the middle of the table (the side panel keeps its place), above the cards. */
+.roll-fx {
+  position: fixed;
+  left: 0;
+  right: 320px;
+  top: 30%;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+}
+.roll-fx > * {
+  pointer-events: auto;
+  cursor: pointer;
+}
+@media (max-width: 1300px) {
+  .roll-fx {
+    right: 260px;
+  }
+}
+.roll-caption {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 15px;
+  background: var(--stone);
+  border: 1px solid #000;
+  box-shadow: var(--iron-rule), 0 8px 20px #000c;
+  animation: roll-in 0.25s ease-out both;
+}
+.roll-result {
+  font-family: 'Grenze', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gold);
+  /* Revealed once the die or coin has landed. */
+  animation: roll-in 0.2s ease-out 0.9s both;
+}
+.roll-fx:has(.roll-coin) .roll-result {
+  animation-delay: 1.3s;
+}
+@keyframes roll-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* A bone die tumbling in, then landing with a bump. */
+.roll-die {
+  width: 92px;
+  height: 92px;
+  filter: drop-shadow(0 10px 12px #000c);
+  animation: die-tumble 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.roll-die.landed {
+  animation: die-land 0.3s ease-out both;
+}
+.roll-die-body {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 35% 30%, #fffaf0, #e6dcc6 45%, #b9ab8e 100%);
+}
+.roll-die-body > span {
+  font-family: 'Grenze', Georgia, serif;
+  font-size: 38px;
+  font-weight: 700;
+  color: #2a1f14;
+  text-shadow: 0 1px 0 #fff8;
+}
+.roll-die.landed .roll-die-body > span {
+  color: #7a1010;
+}
+@keyframes die-tumble {
+  from {
+    transform: translate(-260px, -140px) rotate(-540deg) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    transform: translate(18px, 6px) rotate(25deg) scale(1.05);
+  }
+  to {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+}
+@keyframes die-land {
+  from {
+    transform: scale(1.18);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* A bronze coin spun up into the air, turning, and dropping back on its result. */
+.roll-coin {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  transform-style: preserve-3d;
+  animation: coin-flip 1.3s cubic-bezier(0.25, 0.6, 0.35, 1) both;
+}
+.roll-coin-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  background: radial-gradient(circle at 35% 30%, #f3d48a, #c08a35 55%, #7a531c);
+  box-shadow:
+    inset 0 0 0 4px #8a6122,
+    inset 0 0 0 6px #e7c374,
+    0 8px 14px #000a;
+}
+.roll-coin-face svg {
+  width: 46px;
+  height: 46px;
+  fill: #6b4515;
+  filter: drop-shadow(0 1px 0 #ffe6a8);
+}
+.roll-coin-face.tails {
+  transform: rotateY(180deg);
+}
+@keyframes coin-flip {
+  from {
+    transform: translateY(120px) rotateY(0deg) scale(0.7);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  45% {
+    transform: translateY(-90px) rotateY(calc(var(--land) * 0.5)) scale(1.1);
+  }
+  to {
+    transform: translateY(0) rotateY(var(--land)) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .roll-die,
+  .roll-coin {
+    animation-duration: 0.01s;
+  }
+}
+
 /* ---- removable arrows ---- */
 
 .arrows .arrow {

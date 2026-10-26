@@ -7,6 +7,7 @@ import { ActionBar } from './ActionBar';
 import { Arrows } from './Arrows';
 import { ArtDialog, ConfirmDialog, ContextMenu, CreateDialog, HelpDialog, ImportDialog, PromptDialog } from './Dialogs';
 import { finishTargeting } from './drag';
+import { Flights } from './Flights';
 import { opponentLayout } from './fit';
 import { Icon } from './Icon';
 import { SidePanel, ZoomOverlay } from './SidePanel';
@@ -15,6 +16,7 @@ import { loadPlaymatPref, loadSleevePref } from './playmats';
 import { tip } from './tip';
 import { ManaPool } from './ManaPool';
 import { Reminders } from './Reminders';
+import { RollFx } from './RollFx';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
 import { Board, Hand, Pile, StackZone, ZoomBoard } from './Zones';
@@ -338,6 +340,8 @@ export function Table() {
       <FocusBoard state={state} />
       <Viewer state={state} />
       <Arrows state={state} />
+      <Flights state={state} />
+      <RollFx state={state} />
       <ZoomOverlay state={state} />
       <ContextMenu />
       <PromptDialog />
