@@ -11,12 +11,12 @@
   --select: #5fb3ff;
   --card-radius: 4.5%;
   /* Warcraft-style chrome (ui/chrome): dark stone panels, riveted iron frames on the big ones, a thin
-     iron rule on the rest, blue enamel buttons; gold only for headings. */
+     iron rule on the rest, dark iron buttons; gold only for headings. */
   --gold: #e8c46a;
   --bronze: #2b2c31;
   --bronze-hi: #5d6068;
-  --enamel: linear-gradient(#2c4f9a, #12285c);
-  --enamel-hi: linear-gradient(#3a62b8, #183474);
+  --enamel: linear-gradient(#3a3c42, #1a1b1f 55%, #111215);
+  --enamel-hi: linear-gradient(#4a4d55, #24262b 55%, #17181c);
   --iron-rule: 0 0 0 1px #000, inset 0 0 0 1px #3a3c42, inset 0 1px 0 1px #ffffff10;
   --stone: linear-gradient(#0a0c1170, #0a0c11a8), url('./ui/chrome/stone.jpg');
   --frame: url('./ui/chrome/frame.webp') 38 round;
@@ -39,31 +39,33 @@ body,
   overflow: hidden;
 }
 
-/* Blue enamel plates in a steel rim, lit from above, as in Warcraft III's menus. */
+/* Dark iron plates in a steel rim, lit from above. */
 button {
   font: inherit;
   color: #f0d99c;
   background: var(--enamel);
-  border: 1px solid var(--bronze);
+  border: 1px solid #000;
   border-radius: 3px;
   padding: 4px 10px;
   box-shadow:
-    inset 0 1px 0 #ffffff1c,
-    inset 0 -1px 0 #0009,
+    inset 0 0 0 1px #4a4d55,
+    inset 0 2px 0 #ffffff14,
+    inset 0 -2px 0 #0009,
     0 1px 2px #0009;
   cursor: pointer;
 }
 button:hover:not(:disabled) {
   color: #fff1c2;
-  border-color: #8a8e98;
+  border-color: #000;
   background: var(--enamel-hi);
   box-shadow:
-    inset 0 1px 0 #ffffff2a,
-    inset 0 -1px 0 #0009,
-    0 0 7px #8fb6ff40;
+    inset 0 0 0 1px #7c808a,
+    inset 0 2px 0 #ffffff1c,
+    inset 0 -2px 0 #0009,
+    0 0 7px #ffffff1c;
 }
 button:active:not(:disabled) {
-  background: linear-gradient(#0f2048, #1d3a7c);
+  background: linear-gradient(#0e0f12, #24262b);
   box-shadow: inset 0 1px 3px #000c;
 }
 button:disabled {
