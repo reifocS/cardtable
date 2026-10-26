@@ -15,8 +15,8 @@ function center(id: string): { x: number; y: number } | null {
 }
 
 /** Head length and half-width, in pixels. */
-const HEAD = 10;
-const HEAD_W = 5;
+const HEAD = 16;
+const HEAD_W = 7;
 
 /** A straight line from one end to the other, stopping at the base of its arrowhead. */
 function arc({ x1, y1, x2, y2 }: Line) {
@@ -26,7 +26,10 @@ function arc({ x1, y1, x2, y2 }: Line) {
   const bx = x2 - ux * HEAD;
   const by = y2 - uy * HEAD;
   const d = `M${x1},${y1} L${bx},${by}`;
-  const head = `M${x2},${y2} L${bx - uy * HEAD_W},${by + ux * HEAD_W} L${bx + ux * 2},${by + uy * 2} L${bx + uy * HEAD_W},${by - ux * HEAD_W} Z`;
+  // A barbed iron head: its barbs swept back past the base, a notch where the shaft meets it.
+  const tx = bx - ux * 3;
+  const ty = by - uy * 3;
+  const head = `M${x2},${y2} L${tx - uy * HEAD_W},${ty + ux * HEAD_W} L${bx + ux * 3},${by + uy * 3} L${tx + uy * HEAD_W},${ty - ux * HEAD_W} Z`;
   return { d, head };
 }
 
@@ -76,12 +79,13 @@ export function Arrows({ state }: { state: GameState }) {
         const { d, head } = arc(l);
         const drawn = (
           <>
-            {/* A dark edge under the colour, so the arrow reads on any card or playmat. */}
+            {/* An iron shaft with its owner's colour inlaid down the middle, a steel head, a rivet where it starts. */}
             <path className="arrow-edge" d={d} />
+            <path className="arrow-iron" d={d} />
             <path className="arrow-line" d={d} stroke={color} />
-            <circle className="arrow-edge" cx={l.x1} cy={l.y1} r={3.5} />
-            <circle cx={l.x1} cy={l.y1} r={2.5} fill={color} />
-            <path className="arrow-head" d={head} fill={color} />
+            <circle className="arrow-rivet" cx={l.x1} cy={l.y1} r={4.5} />
+            <circle cx={l.x1} cy={l.y1} r={1.8} fill={color} />
+            <path className="arrow-head" d={head} />
           </>
         );
         if (!from || !to) return <g key={keyOf(l)}>{drawn}</g>;
