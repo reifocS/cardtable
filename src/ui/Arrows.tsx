@@ -14,10 +14,10 @@ function center(id: string): { x: number; y: number } | null {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-/** How often a bolt is struck anew, in ms: it crackles at a few new shapes a second. */
-const STRIKE_MS = 130;
+/** How often the crackling filaments take a new shape, in ms: fast enough to flicker like an arc. */
+const STRIKE_MS = 45;
 
-/** A small seeded random generator, so a bolt keeps its shape until its next strike. */
+/** A small seeded random generator, so a filament keeps its shape until its next strike. */
 function random(seed: number) {
   let t = seed >>> 0;
   return () => {
@@ -28,33 +28,25 @@ function random(seed: number) {
   };
 }
 
-/** A jagged line between two points: each segment's midpoint pushed sideways, halving the push each time. */
-function jag(x1: number, y1: number, x2: number, y2: number, rand: () => number, depth = 6) {
-  let pts = [
-    [x1, y1],
-    [x2, y2],
-  ];
-  // Kept close to the straight line: a few pixels either side, however long the bolt.
-  let push = Math.min(Math.hypot(x2 - x1, y2 - y1) * 0.04, 14);
-  for (let i = 0; i < depth; i++) {
-    const next = [pts[0]];
-    for (let k = 1; k < pts.length; k++) {
-      const [ax, ay] = pts[k - 1];
-      const [bx, by] = pts[k];
-      const len = Math.hypot(bx - ax, by - ay) || 1;
-      const off = (rand() * 2 - 1) * push;
-      next.push([(ax + bx) / 2 - ((by - ay) / len) * off, (ay + by) / 2 + ((bx - ax) / len) * off], pts[k]);
-    }
-    pts = next;
-    push /= 1.75;
+/**
+ * A crackling filament along the straight line: a kink every few pixels, each pushed a little either
+ * side at random. Only fine, sharp kinks, no long waves: an electric arc, not a shaken wire.
+ */
+function filament({ x1, y1, x2, y2 }: Line, seed: number, spread: number) {
+  const rand = random(seed);
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const nx = -(y2 - y1) / len;
+  const ny = (x2 - x1) / len;
+  const steps = Math.max(2, Math.round(len / 9));
+  const pts = [`${x1},${y1}`];
+  for (let k = 1; k < steps; k++) {
+    const t = k / steps;
+    // Tighter near the ends, where it's anchored.
+    const off = (rand() * 2 - 1) * spread * Math.min(1, t * 6, (1 - t) * 6);
+    pts.push(`${(x1 + (x2 - x1) * t + nx * off).toFixed(1)},${(y1 + (y2 - y1) * t + ny * off).toFixed(1)}`);
   }
-  return pts;
-}
-
-/** A lightning bolt from one end to the other, struck anew every STRIKE_MS (only once for less motion). */
-function bolt({ x1, y1, x2, y2 }: Line, seed: number) {
-  const pts = jag(x1, y1, x2, y2, random(seed));
-  return `M${pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L')}`;
+  pts.push(`${x2},${y2}`);
+  return `M${pts.join(' L')}`;
 }
 
 /** Draws target arrows over the whole table, tracking the elements they point at. */
@@ -103,15 +95,17 @@ export function Arrows({ state }: { state: GameState }) {
     <svg className="arrows">
       {lines.map((l) => {
         const { from, to } = l;
-        const d = bolt(l, l.seed);
+        const beam = `M${l.x1},${l.y1} L${l.x2},${l.y2}`;
         const drawn = (
           <>
-            {/* A blue glow, a pale core, a white-hot filament; a flash where it strikes. */}
-            <circle className="bolt-flash" cx={l.x2} cy={l.y2} r={11} />
-            <path className="bolt-glow" d={d} />
-            <path className="bolt-core" d={d} />
-            <path className="bolt-filament" d={d} />
-            <circle className="bolt-spark" cx={l.x2} cy={l.y2} r={3} />
+            {/* A steady blue beam with pulses of energy flowing down it, two filaments crackling round it,
+                and a flash where it strikes. */}
+            <circle className="bolt-flash" cx={l.x2} cy={l.y2} r={10} />
+            <path className="bolt-glow" d={beam} />
+            <path className="bolt-flow" d={beam} />
+            <path className="bolt-strand" d={filament(l, l.seed, 4)} />
+            <path className="bolt-strand faint" d={filament(l, l.seed + 17, 6)} />
+            <circle className="bolt-spark" cx={l.x2} cy={l.y2} r={2.5} />
           </>
         );
         if (!from || !to) return <g key={keyOf(l)}>{drawn}</g>;
