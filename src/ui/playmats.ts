@@ -33,6 +33,9 @@ export const SLEEVES = [
   { id: 'circuit', name: 'Circuit' },
 ] as const;
 
+/** What a battlefield shows until its owner picks a playmat, and in place of one that's gone. */
+export const DEFAULT_PLAYMAT = 'tavern';
+
 const PREF_KEY = 'cardtable:playmat';
 const STILL_KEY = 'cardtable:stillMats';
 const SLEEVE_KEY = 'cardtable:sleeve';
@@ -52,7 +55,7 @@ export function matLook(mat: string | undefined): { className: string; style?: R
       style: { backgroundImage: `linear-gradient(#0007, #0007), url("${url}")` },
     };
   }
-  const id = mat && PLAYMATS.some((m) => m.id === matId(mat)) ? matId(mat) : 'felt';
+  const id = mat && PLAYMATS.some((m) => m.id === matId(mat)) ? matId(mat) : DEFAULT_PLAYMAT;
   return { className: `mat mat-${id}` };
 }
 
@@ -66,10 +69,10 @@ const SHADERS: Record<string, { fragment: string; moving: boolean; textures?: Re
   mordor: { fragment: MORDOR, moving: true, textures: { uRock: mordorRock, uHeat: mordorHeat } },
 };
 
-/** The shader for a playmat: unknown themes are felt, as in matLook; custom images have none. */
+/** The shader for a playmat: unknown themes get the default, as in matLook; custom images have none. */
 export function matShader(mat: string | undefined) {
   if (mat?.startsWith('url:')) return undefined;
-  return SHADERS[mat ? matId(mat) : 'felt'] ?? SHADERS.felt;
+  return SHADERS[mat ? matId(mat) : DEFAULT_PLAYMAT] ?? SHADERS[DEFAULT_PLAYMAT];
 }
 
 /** Class and style for a card back in a player's sleeves (default: the official back). */
