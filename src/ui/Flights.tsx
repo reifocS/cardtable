@@ -105,7 +105,7 @@ function dust(card: DOMRect, el: HTMLElement) {
         { transform: `translate(${ux * dist * 0.7}px, ${uy * dist * 0.7}px) rotate(${angle}deg) scale(1.3, 0.65)`, offset: 0.3 },
         { transform: `translate(${ux * dist}px, ${uy * dist}px) rotate(${angle}deg) scale(${grow}, ${grow * 0.85})` },
       ],
-      { duration, easing: 'cubic-bezier(0.1, 0.8, 0.25, 1)' },
+      { duration, easing: 'cubic-bezier(0.1, 0.8, 0.25, 1)', fill: 'forwards' },
     );
     done.push(
       puff.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.08 }, { opacity: 0 }], { duration, easing: 'ease-out' }).finished,
