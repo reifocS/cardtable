@@ -58,8 +58,7 @@ const PUFFS = 16;
 
 /**
  * Where a card lands on a battlefield, the air it pushes out raises dust along its edges: puffs blown
- * outward low over the table, stretched along their way, that slow, swell, blur into one cloud and
- * hang a moment before they thin out. Drawn on the playmat under the cards (the board clips it), or
+ * outward low over the table, stretched along their way, that slow and fade as they go, in one burst. Drawn on the playmat under the cards (the board clips it), or
  * over the table where a card has no board.
  */
 function dust(card: DOMRect, el: HTMLElement) {
@@ -97,10 +96,9 @@ function dust(card: DOMRect, el: HTMLElement) {
     puff.style.cssText = `left:${ex - size / 2}px;top:${ey - size / 2}px;width:${size}px;height:${size}px`;
     layer.append(puff);
     const angle = (Math.atan2(uy, ux) * 180) / Math.PI;
-    const grow = 1.6 + Math.random() * 0.8;
-    // Thrown out fast and quickly slowed, stretched along its way, then rounding out as it spreads; it
-    // thins out slowly, hanging in the air.
-    const duration = 800 + Math.random() * 500;
+    const grow = 1.15 + Math.random() * 0.3;
+    // One burst: thrown out fast and quickly slowed, stretched along its way, fading out as it goes.
+    const duration = 550 + Math.random() * 200;
     puff.animate(
       [
         { transform: `translate(0, 0) rotate(${angle}deg) scale(0.4, 0.25)` },
@@ -110,7 +108,7 @@ function dust(card: DOMRect, el: HTMLElement) {
       { duration, easing: 'cubic-bezier(0.1, 0.8, 0.25, 1)' },
     );
     done.push(
-      puff.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.1 }, { opacity: 0.55, offset: 0.5 }, { opacity: 0 }], { duration }).finished,
+      puff.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.08 }, { opacity: 0 }], { duration, easing: 'ease-out' }).finished,
     );
   }
   Promise.allSettled(done).then(() => layer.remove());
