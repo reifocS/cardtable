@@ -180,8 +180,11 @@ export function throwDie(sides: number, value: number, size: number, still: bool
   const faces = hull(coin ? coinCorners() : corners(sides));
   // The face it lands on: the coin's front for heads, its back for tails; a die's face numbered `value`.
   const caps = faces.filter((f) => Math.abs(f.n[2]) > 0.99);
-  const numbered = coin ? caps : faces;
-  const landing = coin ? caps.find((f) => (value === 1 ? f.n[2] > 0 : f.n[2] < 0))! : faces[(value - 1) % faces.length];
+  // A d6's faces are numbered as on a real die, opposite faces adding up to 7; others in order.
+  const labels = faces.map((f, k) => (sides === 6 ? D6[f.n.findIndex((v) => Math.abs(v) > 0.5) * 2 + (f.n.find((v) => Math.abs(v) > 0.5)! > 0 ? 0 : 1)] : k + 1));
+  const landing = coin
+    ? caps.find((f) => (value === 1 ? f.n[2] > 0 : f.n[2] < 0))!
+    : (faces[labels.indexOf(value)] ?? faces[(value - 1) % faces.length]);
   const px = size / 2;
 
   const stage = document.createElement('div');
@@ -204,13 +207,21 @@ export function throwDie(sides: number, value: number, size: number, still: bool
     el.style.transform = `matrix3d(${[...f.u, 0, ...f.w, 0, ...f.n, 0, ...c, 1].join(',')})`;
     if (coin && cap) {
       el.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="${f.n[2] > 0 ? HEADS : TAILS}"/></svg>`;
+    } else if (sides === 6) {
+      // Pips drilled into the bone, as on old dice.
+      for (const [x, y] of PIPS[labels[faces.indexOf(f)]]) {
+        const pip = document.createElement('i');
+        pip.style.left = `${x}%`;
+        pip.style.top = `${y}%`;
+        el.append(pip);
+      }
     } else if (!coin) {
-      // Numbered in order; the landing face shows the result even when the die has fewer faces (a d100).
-      const label = f === landing ? value : numbered.indexOf(f) + 1;
+      // The landing face shows the result even when the die has fewer faces than that (a d100).
+      const label = f === landing ? value : labels[faces.indexOf(f)];
       const span = document.createElement('span');
       span.textContent = String(label);
       if (label === 6 || label === 9) span.classList.add('underline');
-      span.style.fontSize = `${r * (sides === 6 ? 0.85 : sides >= 12 ? 0.62 : 0.7)}px`;
+      span.style.fontSize = `${r * (sides >= 12 ? 0.66 : 0.76)}px`;
       el.append(span);
     }
     solid.append(el);
@@ -262,6 +273,19 @@ export function throwDie(sides: number, value: number, size: number, still: bool
   if (!still) raf = requestAnimationFrame(tick);
   return { element: stage, seconds, stop: () => cancelAnimationFrame(raf) };
 }
+
+/** A d6's face numbers by outward axis: +x, -x, +y, -y, +z, -z. Opposite faces add up to 7. */
+const D6 = [1, 6, 2, 5, 3, 4];
+
+/** Where the pips sit on each face of a d6, in percent of the face. */
+const PIPS: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[30, 30], [70, 70]],
+  3: [[28, 28], [50, 50], [72, 72]],
+  4: [[30, 30], [70, 30], [30, 70], [70, 70]],
+  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[30, 26], [70, 26], [30, 50], [70, 50], [30, 74], [70, 74]],
+};
 
 /** A crown for heads, a shield for tails. */
 const HEADS = 'M8 34 L4 12 L16 22 L24 6 L32 22 L44 12 L40 34 Z M8 38 H40 V43 H8 Z';

@@ -1801,18 +1801,36 @@ body.dragging * {
   display: grid;
   place-items: center;
   backface-visibility: hidden;
-  /* Old bone: warm ivory, darker toward the edges of each face. */
-  background: radial-gradient(circle, #f6eedb 30%, #d8cbad 95%);
+  /* Old bone: a grain of stains and pores over warm ivory, grimy and worn toward the edges. */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.12 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(circle at 40% 35%, #f1e4c4 20%, #d9c49a 70%, #9b8257 100%);
 }
+/* Numbers cut in a blackletter hand, the ink settled in the cut, its lower lip catching the light. */
 .die-face > span {
-  font-family: 'Grenze', Georgia, serif;
-  font-weight: 700;
+  font-family: 'UnifrakturMaguntia', 'Grenze', serif;
   line-height: 1;
-  color: #4a1410;
+  color: #3a1208;
+  text-shadow:
+    0 1px 0 #fff6,
+    0 -1px 1px #0006;
 }
 .die-face > span.underline {
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 1px;
+}
+/* A d6's pips: holes drilled in the bone, dark at the bottom, lit along their lower rim. */
+.die-face > i {
+  position: absolute;
+  width: 17%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, #1c0b05 45%, #4a2a14 75%);
+  box-shadow:
+    0 1px 0 #fff7,
+    inset 0 2px 2px #000a;
 }
 /* Bronze for a coin: struck faces, a darker milled edge. */
 .die-face.cap {
