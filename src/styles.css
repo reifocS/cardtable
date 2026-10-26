@@ -1759,11 +1759,7 @@ body.dragging * {
   font-size: 22px;
   font-weight: 600;
   color: var(--gold);
-  /* Revealed once the die or coin has landed. */
-  animation: roll-in 0.2s ease-out 0.9s both;
-}
-.roll-fx:has(.roll-coin) .roll-result {
-  animation-delay: 1.3s;
+  animation: roll-in 0.2s ease-out both;
 }
 @keyframes roll-in {
   from {
@@ -1772,108 +1768,66 @@ body.dragging * {
   }
 }
 
-/* A bone die tumbling in, then landing with a bump. */
-.roll-die {
-  width: 92px;
-  height: 92px;
-  filter: drop-shadow(0 10px 12px #000c);
-  animation: die-tumble 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) both;
-}
-.roll-die.landed {
-  animation: die-land 0.3s ease-out both;
-}
-.roll-die-body {
-  width: 100%;
-  height: 100%;
+/* A die or coin in 3D (ui/dice3d.ts): faces placed in space, lit by script, over its shadow. */
+.roll-throw {
+  width: 120px;
+  height: 120px;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 35% 30%, #fffaf0, #e6dcc6 45%, #b9ab8e 100%);
 }
-.roll-die-body > span {
-  font-family: 'Grenze', Georgia, serif;
-  font-size: 38px;
-  font-weight: 700;
-  color: #2a1f14;
-  text-shadow: 0 1px 0 #fff8;
-}
-.roll-die.landed .roll-die-body > span {
-  color: #7a1010;
-}
-@keyframes die-tumble {
-  from {
-    transform: translate(-260px, -140px) rotate(-540deg) scale(0.6);
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  70% {
-    transform: translate(18px, 6px) rotate(25deg) scale(1.05);
-  }
-  to {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-  }
-}
-@keyframes die-land {
-  from {
-    transform: scale(1.18);
-  }
-  to {
-    transform: scale(1);
-  }
-}
-
-/* A bronze coin spun up into the air, turning, and dropping back on its result. */
-.roll-coin {
+.die-stage {
   position: relative;
-  width: 86px;
-  height: 86px;
+  width: 0;
+  height: 0;
+  perspective: 700px;
   transform-style: preserve-3d;
-  animation: coin-flip 1.3s cubic-bezier(0.25, 0.6, 0.35, 1) both;
 }
-.roll-coin-face {
+.die-shadow {
   position: absolute;
-  inset: 0;
+  left: -36px;
+  top: -30px;
+  width: 72px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #000d, #0000);
+  filter: blur(3px);
+}
+.die-solid {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+.die-face {
+  position: absolute;
   display: grid;
   place-items: center;
-  border-radius: 50%;
   backface-visibility: hidden;
-  background: radial-gradient(circle at 35% 30%, #f3d48a, #c08a35 55%, #7a531c);
+  /* Old bone: warm ivory, darker toward the edges of each face. */
+  background: radial-gradient(circle, #f6eedb 30%, #d8cbad 95%);
+}
+.die-face > span {
+  font-family: 'Grenze', Georgia, serif;
+  font-weight: 700;
+  line-height: 1;
+  color: #4a1410;
+}
+.die-face > span.underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* Bronze for a coin: struck faces, a darker milled edge. */
+.die-face.cap {
+  background: radial-gradient(circle at 38% 32%, #f0cf86, #c08a35 58%, #7d561d);
   box-shadow:
-    inset 0 0 0 4px #8a6122,
-    inset 0 0 0 6px #e7c374,
-    0 8px 14px #000a;
+    inset 0 0 0 3px #8a6122,
+    inset 0 0 0 5px #e7c374;
 }
-.roll-coin-face svg {
-  width: 46px;
-  height: 46px;
+.die-face.cap svg {
+  width: 58%;
+  height: 58%;
   fill: #6b4515;
-  filter: drop-shadow(0 1px 0 #ffe6a8);
 }
-.roll-coin-face.tails {
-  transform: rotateY(180deg);
-}
-@keyframes coin-flip {
-  from {
-    transform: translateY(120px) rotateY(0deg) scale(0.7);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  45% {
-    transform: translateY(-90px) rotateY(calc(var(--land) * 0.5)) scale(1.1);
-  }
-  to {
-    transform: translateY(0) rotateY(var(--land)) scale(1);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .roll-die,
-  .roll-coin {
-    animation-duration: 0.01s;
-  }
+.die-face.rim {
+  background: repeating-linear-gradient(90deg, #8a6122 0 2px, #5d3f14 2px 4px);
 }
 
 /* ---- removable arrows ---- */
