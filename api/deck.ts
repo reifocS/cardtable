@@ -5,8 +5,21 @@
  * requests, so for those the answer explains how to copy the list instead.
  */
 
+/** Archidekt gets this long to answer: a slow upstream mustn't keep (and bill) the function running. */
+const UPSTREAM_TIMEOUT_MS = 8000;
+
+/**
+ * A fetched deck is cached at the edge for a few minutes, so the same link asked again (or asked in a
+ * loop) is answered without running the function or calling Archidekt.
+ */
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': status === 200 ? 'public, max-age=0, s-maxage=600, stale-while-revalidate=3600' : 'no-store',
+    },
+  });
 
 /** Only our own pages may ask (see api/turn.ts). */
 function sameSite(request: Request): boolean {
@@ -70,7 +83,15 @@ export async function GET(request: Request): Promise<Response> {
 
   const archidekt = host === 'archidekt.com' && page.pathname.match(/\/decks\/(\d+)/);
   if (archidekt) {
-    const res = await fetch(`https://archidekt.com/api/decks/${archidekt[1]}/`, { headers: { 'User-Agent': 'cardtable' } });
+    let res: Response;
+    try {
+      res = await fetch(`https://archidekt.com/api/decks/${archidekt[1]}/`, {
+        headers: { 'User-Agent': 'cardtable' },
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      });
+    } catch {
+      return json({ error: 'Archidekt took too long to answer. Try again in a moment.' }, 504);
+    }
     if (res.status === 404) return json({ error: 'Deck not found (is it private?).' }, 404);
     if (!res.ok) return json({ error: `Archidekt answered ${res.status}.` }, 502);
     const deck = (await res.json()) as ArchidektDeck;

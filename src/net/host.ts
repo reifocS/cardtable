@@ -11,6 +11,16 @@ import { Emitter, HEARTBEAT_MS, PEER_PREFIX, makeCode, wire, type Session, type 
 const SAVE_PREFIX = 'cardtable:hosted:';
 const LEGACY_SAVE_KEY = 'cardtable:hosted';
 const MAX_SAVES = 8;
+/** Seats at one table: more than any real game needs, few enough that joins can't be spammed. */
+const MAX_SEATS = 8;
+/**
+ * Messages each guest may send: a bucket of BURST that refills at RATE a second. Hovering sends one
+ * message per card the pointer crosses, so it's generous; past it, messages are dropped, and a guest
+ * that keeps flooding is cut off.
+ */
+const RATE = 40;
+const BURST = 160;
+const FLOOD = 2000;
 
 export interface SavedGame {
   code: string;
@@ -69,6 +79,8 @@ export class HostSession extends Emitter implements Session {
   private engine: Engine;
   private peer: Peer | null = null;
   private conns = new Map<DataConnection, PlayerId | null>();
+  /** Each guest's message allowance (see RATE). */
+  private buckets = new Map<DataConnection, { tokens: number; at: number; dropped: number }>();
   /** Last view sent on each connection and its version, so later updates only carry what changed. */
   private sent = new Map<DataConnection, { view: GameState; v: number }>();
   private view: GameState;
@@ -135,6 +147,7 @@ export class HostSession extends Emitter implements Session {
       const pid = this.conns.get(conn);
       this.conns.delete(conn);
       this.sent.delete(conn);
+      this.buckets.delete(conn);
       if (pid && ![...this.conns.values()].includes(pid)) {
         this.engine.setConnected(pid, false);
         this.relayHover(pid, null);
@@ -161,10 +174,34 @@ export class HostSession extends Emitter implements Session {
     this.sent.set(conn, { view, v });
   }
 
+  /** Spends one message from the guest's allowance; false when it has none left. */
+  private allow(conn: DataConnection): boolean {
+    const now = performance.now();
+    const b = this.buckets.get(conn) ?? { tokens: BURST, at: now, dropped: 0 };
+    b.tokens = Math.min(BURST, b.tokens + ((now - b.at) / 1000) * RATE);
+    b.at = now;
+    this.buckets.set(conn, b);
+    if (b.tokens >= 1) {
+      b.tokens--;
+      return true;
+    }
+    if (++b.dropped > FLOOD) conn.close();
+    return false;
+  }
+
   private receive(conn: DataConnection, msg: ToHost) {
+    if (!this.allow(conn)) return;
     if (msg?.t === 'hello') {
-      // Nobody else may take a seat I play myself.
-      const want = msg.playerId && !this.controlled.includes(msg.playerId) ? msg.playerId : undefined;
+      // A guest saying hello again keeps the seat it has; nobody else may take a seat I play myself.
+      const had = this.conns.get(conn);
+      const asked = typeof msg.playerId === 'string' ? msg.playerId : undefined;
+      const want = had ?? (asked && !this.controlled.includes(asked) ? asked : undefined);
+      // A full table takes no one new.
+      if (!(want && this.engine.state.players[want]) && this.engine.state.seats.length >= MAX_SEATS) {
+        this.send(conn, { t: 'full' });
+        setTimeout(() => conn.close(), 1000);
+        return;
+      }
       const pid = this.engine.join(String(msg.name || 'Player').slice(0, 32), want);
       this.conns.set(conn, pid);
       this.sent.delete(conn);
@@ -173,7 +210,7 @@ export class HostSession extends Emitter implements Session {
       for (const [by, card] of Object.entries(this.presence.hovers)) if (by !== pid) this.send(conn, { t: 'hover', by, card });
     } else if (msg?.t === 'op') {
       const pid = this.conns.get(conn);
-      if (pid) this.engine.dispatch(pid, msg.op);
+      if (pid && msg.op && typeof msg.op === 'object') this.engine.dispatch(pid, msg.op);
     } else if (msg?.t === 'hover') {
       const pid = this.conns.get(conn);
       if (pid) this.relayHover(pid, typeof msg.card === 'string' ? msg.card : null);

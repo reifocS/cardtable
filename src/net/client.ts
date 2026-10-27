@@ -85,6 +85,12 @@ export class ClientSession extends Emitter implements Session {
 
   private receive(msg: ToClient) {
     switch (msg.t) {
+      case 'full':
+        // No point dialling again: say so and stay put.
+        this.closed = true;
+        clearTimeout(this.retryTimer);
+        this.error = 'This table is full.';
+        break;
       case 'welcome':
         this.me = msg.playerId;
         sessionStorage.setItem(this.seatKey, msg.playerId);

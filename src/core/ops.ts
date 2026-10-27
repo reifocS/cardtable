@@ -64,6 +64,36 @@ const MAX_LOG = 300;
 /** How far each attached card peeks out above its host, in board units. */
 const ATTACH_DY = 22;
 const MERGE_WINDOW_MS = 5000;
+/**
+ * Limits on what one player can put into a game. The host runs every guest's ops, so without them a
+ * malicious guest could freeze the host's tab (and the table) with an op of a million cards.
+ */
+export const LIMITS = { cards: 2500, perCreate: 100, perDeck: 500, faces: 4 };
+
+const text = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : undefined);
+/** Only https links to an image: nothing else is ever put in an img src. */
+const link = (v: unknown) => (typeof v === 'string' && /^https:\/\/[^\s"'<>]{1,1000}$/.test(v) ? v : undefined);
+
+/** A card face as sent by any client, cut down to known fields of sane sizes. */
+export function cleanFace(f: CardFace): CardFace {
+  const face: CardFace = { name: text(f?.name, 150)?.trim() || 'Card' };
+  const image = link(f.image);
+  const imageLarge = link(f.imageLarge);
+  const type = text(f.type, 200);
+  const body = text(f.text, 4000);
+  if (image) face.image = image;
+  if (imageLarge) face.imageLarge = imageLarge;
+  if (type) face.type = type;
+  if (body) face.text = body;
+  if (typeof f.cost === 'number' && Number.isFinite(f.cost)) face.cost = clamp(f.cost, 0, 1000);
+  if (Array.isArray(f.tokens)) {
+    face.tokens = f.tokens
+      .slice(0, 20)
+      .filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string')
+      .map((t) => ({ id: t.id.slice(0, 100), name: t.name.slice(0, 150) }));
+  }
+  return face;
+}
 
 /** Returns a new state with `op` applied by `actor`. Never mutates `prev`. */
 export function apply(prev: GameState, actor: PlayerId, op: Op, rng: () => number = Math.random): GameState {
@@ -229,8 +259,9 @@ class Mutation {
       }
       case 'setFaces': {
         const picked = this.cards(op.cards).filter((c) => c.owner === this.actor);
-        const faces = op.faces.slice(0, 4);
-        if (!picked.length || !faces.length || faces.some((f) => typeof f?.name !== 'string')) return;
+        if (op.faces.some((f) => typeof f?.name !== 'string')) return;
+        const faces = op.faces.slice(0, LIMITS.faces).map(cleanFace);
+        if (!picked.length || !faces.length) return;
         // Copies are found here, not by the player: their hidden cards (the library) have no faces on their side.
         const names = new Set(picked.map((c) => c.faces[0]?.name));
         const cards = op.sameName ? Object.values(s.cards).filter((c) => c.owner === this.actor && names.has(c.faces[0]?.name)) : picked;
@@ -283,6 +314,7 @@ class Mutation {
         });
       }
       case 'create': {
+        if (op.cards.length > LIMITS.perCreate) throw new Error('too many cards at once');
         const z = this.zone(op.zone);
         const created = op.cards.map((faces, i) => this.newCard(faces, z, op.token, op.positions?.[i]));
         return this.log(`created ${this.label(created)}`);
@@ -313,6 +345,7 @@ class Mutation {
         return this.log(`attached ${this.label(cards)} to ${this.label([host])}`);
       }
       case 'loadDeck': {
+        if (Object.values(op.sections).reduce((n, list) => n + list.length, 0) > LIMITS.perDeck) throw new Error('deck too big');
         for (const c of Object.values(s.cards)) if (c.owner === this.actor) this.remove(c);
         const counts = new Map<Zone, number>();
         for (const [section, list] of Object.entries(op.sections)) {
@@ -508,12 +541,13 @@ class Mutation {
   }
 
   private newCard(faces: CardFace[], z: Zone, token: boolean, pos?: [number, number], home = z.role): Card {
+    if (Object.keys(this.s.cards).length >= LIMITS.cards) throw new Error('too many cards in the game');
     const [x, y] = pos ?? this.autoPlace(z.cards.length);
     const card: Card = {
       id: `c${this.s.nextId++}`,
       owner: this.actor,
       zone: z.id,
-      faces: faces.length ? faces : [{ name: 'Card' }],
+      faces: faces.length ? faces.slice(0, LIMITS.faces).map(cleanFace) : [{ name: 'Card' }],
       face: 0,
       faceDown: false,
       rotation: 0,

@@ -5,7 +5,7 @@ import { firesOn, triggersOf } from '../cards/triggers';
 import { manaOf, poolOf } from '../cards/mana';
 import { applyPatch, diffState } from './diff';
 import { Engine } from './engine';
-import { apply } from './ops';
+import { LIMITS, apply, cleanFace } from './ops';
 import { TABLE, createGame, migrateGame, zoneId } from './state';
 import type { Preset } from './types';
 import { redact } from './visibility';
@@ -293,7 +293,7 @@ describe('setFaces', () => {
     const e = new Engine();
     const a = e.join('Alice');
     const b = e.join('Bob');
-    const bolt = [{ name: 'Bolt', image: 'old' }];
+    const bolt = [{ name: 'Bolt', image: 'https://img.example/old' }];
     e.dispatch(a, { type: 'loadDeck', sections: { main: [bolt, bolt, bolt, [{ name: 'Other' }]] } });
     const lib = e.state.zones[zoneId(a, 'library')];
     e.dispatch(a, { type: 'moveTop', from: lib.id, to: zoneId(a, 'hand'), n: 4 });
@@ -301,16 +301,16 @@ describe('setFaces', () => {
     const one = hand.find((id) => e.state.cards[id].faces[0].name === 'Bolt')!;
     const art = (id: string) => e.state.cards[id].faces[0].image;
 
-    e.dispatch(b, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'bob' }] });
-    expect(art(one)).toBe('old');
-    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'new' }] });
-    expect(hand.filter((id) => art(id) === 'new')).toEqual([one]);
+    e.dispatch(b, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'https://img.example/bob' }] });
+    expect(art(one)).toBe('https://img.example/old');
+    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'https://img.example/new' }] });
+    expect(hand.filter((id) => art(id) === 'https://img.example/new')).toEqual([one]);
 
     // Put two copies back in the library: the player can't see them, the host still finds them.
     e.dispatch(a, { type: 'move', cards: hand.filter((id) => id !== one), to: lib.id });
-    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'v3' }, { name: 'Back' }], sameName: true });
+    e.dispatch(a, { type: 'setFaces', cards: [one], faces: [{ name: 'Bolt', image: 'https://img.example/v3' }, { name: 'Back' }], sameName: true });
     const bolts = Object.values(e.state.cards).filter((c) => c.faces[0].name === 'Bolt');
-    expect(bolts.map((c) => c.faces[0].image)).toEqual(['v3', 'v3', 'v3']);
+    expect(bolts.map((c) => c.faces[0].image)).toEqual(['https://img.example/v3', 'https://img.example/v3', 'https://img.example/v3']);
     expect(Object.values(e.state.cards).find((c) => c.faces[0].name === 'Other')?.faces).toHaveLength(1);
     expect(e.state.log.at(-1)?.text).toBe('changed the art of a card and 2 other copies');
 
@@ -685,5 +685,40 @@ describe('mana', () => {
     expect(pool.total).toBe(4);
     expect(pool.max).toMatchObject({ W: 2, U: 1, C: 2, G: 0 });
     expect(pool.special).toEqual(['Elvish Archdruid']);
+  });
+});
+
+describe('limits on what a guest can send', () => {
+  it('rejects an op creating too many cards at once, or a deck too big', () => {
+    const { e, a } = twoPlayers();
+    const before = Object.keys(e.state.cards).length;
+    e.dispatch(a, { type: 'create', zone: zoneId(a, 'battlefield'), cards: faces(LIMITS.perCreate + 1), token: true });
+    e.dispatch(a, { type: 'loadDeck', sections: { main: faces(LIMITS.perDeck + 1), side: [], commander: [] } });
+    expect(Object.keys(e.state.cards).length).toBe(before);
+  });
+
+  it('stops at the most cards a game may hold', () => {
+    const { e, a } = twoPlayers();
+    for (let i = 0; i < LIMITS.cards / LIMITS.perCreate + 2; i++) {
+      e.dispatch(a, { type: 'create', zone: zoneId(a, 'battlefield'), cards: faces(LIMITS.perCreate), token: true });
+    }
+    expect(Object.keys(e.state.cards).length).toBeLessThanOrEqual(LIMITS.cards);
+  });
+
+  it('keeps card faces to known fields of sane sizes, and images to https links', () => {
+    const face = cleanFace({
+      name: 'x'.repeat(10_000),
+      text: 'y'.repeat(100_000),
+      image: 'javascript:alert(1)',
+      imageLarge: 'https://cards.example/big.jpg',
+      cost: Infinity,
+      extra: 'dropped',
+    } as never);
+    expect(face.name.length).toBe(150);
+    expect(face.text?.length).toBe(4000);
+    expect(face.image).toBeUndefined();
+    expect(face.imageLarge).toBe('https://cards.example/big.jpg');
+    expect(face.cost).toBeUndefined();
+    expect('extra' in face).toBe(false);
   });
 });

@@ -20,6 +20,8 @@ export type ToHost =
   | { t: 'point'; target: PointTarget };
 export type ToClient =
   | { t: 'welcome'; playerId: PlayerId }
+  /** The table has no seat left: the guest should stop trying. */
+  | { t: 'full' }
   | { t: 'state'; state: GameState; v: number }
   | { t: 'patch'; patch: Patch; base: number; v: number }
   | { t: 'ping'; v: number }
