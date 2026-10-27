@@ -127,40 +127,75 @@ void main() {
   float r = length(p) / span;
   float a = atan(p.y, p.x);
   float d = card(p);
-  // The wheel lights all at once, turns fast and slows, widening a little, and burns away.
-  float spin = 7.0 * (1.0 - pow(1.0 - t, 2.0));
-  float radius = 1.18 + 0.22 * t;
-  float life = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.55, 1.0, t));
-  // Flames: tongues of fire rising outward off the ring, each its own height, swept along by the spin,
-  // turbulent inside; only their cores burn yellow-white.
+  const float TAU = 6.2831853;
+
+  // Three acts. Ignition: lit at one point, the fire races round the ring. Burning: it turns, fast then
+  // slowing, widening a little. Burning out: it breaks into flickers, reddens, and leaves embers.
+  float ignite = 1.0 - pow(1.0 - clamp(t / 0.22, 0.0, 1.0), 2.0);
+  float out_ = smoothstep(0.55, 0.92, t);
+  float spin = 6.0 * (1.0 - pow(1.0 - t, 2.0));
+  float radius = 1.15 + 0.18 * t;
+
+  // How far round the ring from where it caught, in the direction it runs; lit behind the running head.
+  float start = uSeed * 1.7;
+  float phi = fract((a - start) / TAU);
+  float lit = smoothstep(ignite + 0.002, ignite - 0.03, phi);
+  float head = exp(-pow((phi - ignite) * 22.0, 2.0)) * (1.0 - smoothstep(0.85, 1.0, ignite));
+
+  // Flames: tongues rising off the ring, leaning back along the spin as they rise, each its own height,
+  // turbulent inside; the turbulence also breaks the fire up as it dies.
   float u = a - spin;
   float away = (r - radius) / 0.15;
-  vec2 ring = vec2(cos(u), sin(u));
-  float tongue = 0.6 + 4.0 * pow(fbm(ring * 4.5 + vec2(t * 2.0, 0.0)), 1.7);
-  float inner = smoothstep(-0.9, -0.35, away);
+  float lean = max(away, 0.0) * 0.28;
+  vec2 ring = vec2(cos(u + lean), sin(u + lean));
+  float tongue = (0.7 + 4.2 * pow(fbm(ring * 4.5 + vec2(t * 2.0, 0.0)), 1.7)) * (1.0 - 0.7 * out_) * (0.6 + 0.4 * lit);
+  float inner = smoothstep(-1.1, -0.35, away);
   float outer = 1.0 - smoothstep(0.0, tongue, away);
   float churn = fbm(ring * 7.0 + vec2(0.0, away * 1.4 - t * 9.0));
-  float heat = inner * outer * smoothstep(0.15, 0.75, churn) * 1.25 * (1.0 - 0.4 * smoothstep(0.0, tongue, away));
-  heat *= life;
-  vec3 c = fire(heat * 1.05) * smoothstep(0.06, 0.25, heat) * 1.5;
-  // A soft glow round the wheel.
-  c += vec3(1.0, 0.3, 0.04) * exp(-abs(away) * 0.8) * 0.18 * life;
-  // Sparks flung off along the spin, curving away and dying.
-  for (int i = 0; i < 24; i++) {
+  float patchy = smoothstep(0.15 + 0.5 * out_, 0.75 + 0.2 * out_, churn);
+  float heat = inner * outer * patchy * 1.25 * (1.0 - 0.4 * smoothstep(0.0, tongue, away));
+  heat *= lit * (1.0 - 0.55 * out_) * smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.88, 1.0, t));
+  vec3 c = fire(heat * (1.05 - 0.35 * out_)) * smoothstep(0.06, 0.25, heat) * 1.5;
+
+  // The running head: a white-hot flare where the fire is catching.
+  float near = exp(-pow((r - radius) / 0.12, 2.0));
+  c += fire(1.0) * head * near * 1.8;
+
+  // Firelight falling on the table: warm inside the ring, a soft halo outside, flickering.
+  float flicker = 0.85 + 0.15 * noise(vec2(t * 20.0, 3.0));
+  float light = lit * (1.0 - out_) * smoothstep(0.0, 0.06, t) * flicker;
+  c += vec3(1.0, 0.42, 0.1) * light * (0.1 * smoothstep(radius + 0.05, radius - 0.5, r) + 0.2 * exp(-abs(r - radius) * 5.0));
+
+  // Embers left on the ring once it has burnt out: specks glowing red, dimming one by one.
+  for (int i = 0; i < 28; i++) {
     float fi = float(i);
-    float h1 = hash(vec2(fi, 2.3)), h2 = hash(vec2(fi, 7.1));
-    float start = h2 * 0.5;
-    float k = clamp((t - start) / 0.45, 0.0, 1.0);
+    float ea = (fi + hash(vec2(fi, 3.3))) / 28.0 * TAU + spin;
+    float er = (radius + (hash(vec2(fi, 5.9)) - 0.5) * 0.12) * span;
+    vec2 dp = p - vec2(cos(ea), sin(ea)) * er;
+    float die = 0.86 + 0.13 * hash(vec2(fi, 8.1));
+    float glow = smoothstep(0.55, 0.7, t) * (1.0 - smoothstep(die - 0.12, die, t));
+    glow *= 0.6 + 0.4 * sin(t * 40.0 + fi * 2.1);
+    c += fire(0.55) * exp(-dot(dp, dp) / 9.0) * glow * 1.8 + vec3(0.5, 0.08, 0.0) * exp(-dot(dp, dp) / 60.0) * glow * 0.5;
+  }
+
+  // Sparks: a burst from the running head, then more flung off along the spin while it burns.
+  for (int i = 0; i < 30; i++) {
+    float fi = float(i);
+    float h1 = hash(vec2(fi, 2.3)), h2 = hash(vec2(fi, 7.1)), h3 = hash(vec2(fi, 4.7));
+    float born = i < 12 ? h2 * 0.2 : 0.2 + h2 * 0.4;
+    float k = clamp((t - born) / (0.3 + 0.2 * h3), 0.0, 1.0);
     if (k <= 0.0 || k >= 1.0) continue;
-    float ang = h1 * 6.2831853 + spin * (0.7 + 0.3 * k) + k * 0.8;
-    float rr = (radius + k * (0.5 + 0.4 * h2)) * span;
+    float from = i < 12 ? start + (born / 0.22) * TAU : h1 * TAU + spin;
+    float ang = from + k * (0.5 + 0.6 * h3);
+    float rr = (radius + k * (0.35 + 0.55 * h1)) * span;
     vec2 at = vec2(cos(ang), sin(ang)) * rr;
     vec2 tang = vec2(-sin(ang), cos(ang));
     vec2 dp = p - at;
     float along = dot(dp, tang), across = dot(dp, vec2(tang.y, -tang.x));
-    float streak = exp(-(along * along / 30.0 + across * across / 2.0));
-    c += fire(1.0 - k * 0.6) * streak * (1.0 - k) * 1.4;
+    float streak = exp(-(along * along / 28.0 + across * across / 1.6));
+    c += fire(1.0 - k * 0.6) * streak * (1.0 - k) * 1.3;
   }
+
   // Leave the card's face readable.
   c *= mix(0.15, 1.0, smoothstep(-10.0, 2.0, d));
   c *= smoothstep(2.4, 1.9, r);
@@ -227,4 +262,4 @@ function play(fragment: string, card: DOMRect, ms: number, round = false): boole
 export const herald = (card: DOMRect, round = false) => play(LIGHT, card, 1700, round);
 
 /** A commander's entrance: a wheel of fire round `card`. Says whether it could (it needs WebGL). */
-export const fireWheel = (card: DOMRect) => play(FIRE, card, 1900);
+export const fireWheel = (card: DOMRect) => play(FIRE, card, 2200);
