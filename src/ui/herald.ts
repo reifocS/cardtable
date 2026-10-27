@@ -140,6 +140,8 @@ void main() {
   float start = uSeed * 1.7;
   float phi = fract((a - start) / TAU);
   float lit = smoothstep(ignite + 0.002, ignite - 0.03, phi);
+  // Once round, the ring closes: no gap where the running head met its start.
+  lit = mix(lit, 1.0, smoothstep(0.9, 1.0, ignite));
   float head = exp(-pow((phi - ignite) * 22.0, 2.0)) * (1.0 - smoothstep(0.85, 1.0, ignite));
 
   // Flames: tongues rising off the ring, leaning back along the spin as they rise, each its own height,
