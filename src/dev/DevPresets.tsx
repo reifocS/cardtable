@@ -14,7 +14,8 @@ function takeUrlPreset(): DevPreset | undefined {
   return urlPreset;
 }
 
-async function openPreset(p: DevPreset) {
+/** Opens a preset as a local table this browser hosts (also the lobby's public demo). */
+export async function openPreset(p: DevPreset) {
   try {
     const { state, me } = await buildPreset(p);
     const saved = { code: makeCode(), me, state, savedAt: Date.now(), controlled: p.controlsAll ? state.seats : undefined };
@@ -23,7 +24,8 @@ async function openPreset(p: DevPreset) {
     const mat = new URLSearchParams(location.search).get('mat');
     if (mat) session.dispatch({ type: 'setPlaymat', mat });
     useStore.getState().connect(session);
-    history.replaceState(null, '', `?preset=${p.id}${mat ? `&mat=${encodeURIComponent(mat)}` : ''}`);
+    // In dev, a reload reopens the same preset.
+    if (import.meta.env.DEV) history.replaceState(null, '', `?preset=${p.id}${mat ? `&mat=${encodeURIComponent(mat)}` : ''}`);
     requestAnimationFrame(() =>
       p.after?.({ me, state: session.getState(), dispatch: (op) => session.dispatch(op), set: (s) => useStore.setState(s) }),
     );

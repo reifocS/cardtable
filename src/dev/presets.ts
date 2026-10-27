@@ -399,6 +399,51 @@ export function buildWith(p: DevPreset, faces: Faces = new Map()): { state: Game
   return { state: b.s, me };
 }
 
+/**
+ * The public demo, one click from the lobby: a Commander duel, midgame, both seats yours to play (`
+ * switches), each with its own playmat and sleeves; on arrival, a few things play out by themselves:
+ * a d20 thrown, a commander cast in its wheel of fire, a legendary card's entrance.
+ */
+export const DEMO: DevPreset = {
+  id: 'demo',
+  name: 'Demo table',
+  covers: 'A Commander duel, both seats yours',
+  decks: [WHITE, RED],
+  controlsAll: true,
+  build(b) {
+    const me = b.player('Alice');
+    const bob = b.player('Bob');
+    b.deck(me, WHITE).deck(bob, RED);
+    duelBoards(b, me, bob);
+    // A legendary card to play on arrival (the shuffle may already have dealt it).
+    if (!Object.values(b.s.cards).some((c) => c.zone === zoneId(me, 'hand') && c.faces[0]?.name === 'Elspeth Resplendent')) {
+      b.to(me, ['Elspeth Resplendent'], 'hand');
+    }
+    b.op(bob, { type: 'setPlaymat', mat: 'mordor' }).op(bob, { type: 'setSleeve', sleeve: 'crimson' });
+    return me;
+  },
+  after({ me, state, dispatch }) {
+    const mine = (zone: string, name: string) =>
+      Object.values(state.cards).find((c) => c.owner === me && c.zone === zoneId(me, zone) && c.faces[0]?.name.startsWith(name))?.id;
+    const battlefield = zoneId(me, 'battlefield');
+    const at = (delay: number, op: () => Op | undefined) =>
+      setTimeout(() => {
+        const o = op();
+        if (o) dispatch(o);
+      }, delay);
+    at(800, () => ({ type: 'chat', text: 'Welcome! Both seats are yours: press ` to switch sides, right-click anything to see what you can do.' }));
+    at(1800, () => ({ type: 'roll', sides: 20 }));
+    at(5200, () => {
+      const atraxa = mine('command', 'Atraxa');
+      return atraxa ? { type: 'move', cards: [atraxa], to: battlefield, positions: { [atraxa]: [880, 0] } } : undefined;
+    });
+    at(8200, () => {
+      const elspeth = mine('hand', 'Elspeth');
+      return elspeth ? { type: 'move', cards: [elspeth], to: battlefield, positions: { [elspeth]: [960, 240] } } : undefined;
+    });
+  },
+};
+
 export async function buildPreset(p: DevPreset): Promise<{ state: GameState; me: PlayerId }> {
   return buildWith(p, await loadFaces(p.decks));
 }

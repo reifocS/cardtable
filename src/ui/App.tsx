@@ -49,6 +49,25 @@ function SavedRow({ game, onResume, onDelete }: { game: SavedGame; onResume: () 
   );
 }
 
+/** The public demo: a ready-made table to try everything out. Loaded on demand, it needs card data. */
+function DemoButton() {
+  const [busy, setBusy] = useState(false);
+  const open = async () => {
+    setBusy(true);
+    try {
+      const [{ openPreset }, { DEMO }] = await Promise.all([import('../dev/DevPresets'), import('../dev/presets')]);
+      await openPreset(DEMO);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button onClick={open} disabled={busy} title="A Commander duel, midgame, both seats yours to play">
+      {busy ? 'Setting the table…' : 'Try a demo table'}
+    </button>
+  );
+}
+
 function Lobby() {
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '');
   // #code joins a table; #code/watch opens it to watch.
@@ -108,6 +127,7 @@ function Lobby() {
       >
         Practice: play both sides
       </button>
+      <DemoButton />
       {saved.length > 0 && (
         <div className="saved">
           <div className="or">or resume one you hosted</div>
