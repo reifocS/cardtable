@@ -291,6 +291,21 @@ kbd {
     0 1px 2px #000,
     0 0 8px #000;
 }
+/* A spectator can't act: cards don't offer to be grabbed, and counters don't take clicks. Piles still
+   open to look through, and boards still zoom. */
+.app.spectating .card {
+  cursor: default;
+}
+.app.spectating .tracker-chip,
+.app.spectating .tracker-add,
+.app.spectating .cmd-add,
+.app.spectating .cmd-chip {
+  pointer-events: none;
+}
+.app.spectating .tracker-add,
+.app.spectating .cmd-add {
+  display: none;
+}
 /* A spectator's top bar says so: they see only what's public, and can't act. */
 .watching-badge {
   font-size: 11px;

@@ -316,7 +316,7 @@ export function Table() {
   const near = spectating ? state.seats.slice(half) : [];
   const layout = opponentLayout(opponents.length);
   return (
-    <div className={`app${targeting ? ' is-targeting' : ''}`}>
+    <div className={`app${targeting ? ' is-targeting' : ''}${spectating ? ' spectating' : ''}`}>
       <TopBar state={state} />
       <main className="table">
         {opponents.length > 0 && (
