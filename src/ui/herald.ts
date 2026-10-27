@@ -116,8 +116,8 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   return null;
 }
 
-/** Plays the entrance over `card` (a screen rect), or round for a die. Without WebGL, nothing happens. */
-export function herald(card: DOMRect, round = false) {
+/** Plays the entrance over `card` (a screen rect), or round for a die. Says whether it could: it needs WebGL. */
+export function herald(card: DOMRect, round = false): boolean {
   const span = Math.max(card.width, card.height);
   const half = span * (REACH + 0.5);
   const canvas = document.createElement('canvas');
@@ -128,15 +128,15 @@ export function herald(card: DOMRect, round = false) {
   const px = Math.min(devicePixelRatio, 2);
   canvas.width = canvas.height = Math.round(2 * half * px);
   const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false });
-  if (!gl) return;
+  if (!gl) return false;
   const vs = compile(gl, gl.VERTEX_SHADER, VERTEX);
   const fs = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
-  if (!vs || !fs) return;
+  if (!vs || !fs) return false;
   const program = gl.createProgram();
   gl.attachShader(program, vs);
   gl.attachShader(program, fs);
   gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return false;
   gl.useProgram(program);
   gl.bindVertexArray(gl.createVertexArray());
   gl.viewport(0, 0, canvas.width, canvas.height);
@@ -160,4 +160,5 @@ export function herald(card: DOMRect, round = false) {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+  return true;
 }

@@ -140,7 +140,13 @@ export function Flights({ state }: { state: GameState }) {
         state.zones[card.zone]?.kind === 'free'
           ? (at: DOMRect) => {
               dust(at, el);
-              if (legendary) herald(at);
+              // Without WebGL, a plainer entrance: a golden glow swelling once round the card.
+              if (legendary && !herald(at)) {
+                el.animate([{ boxShadow: '0 0 0 0 #f4c75a00' }, { boxShadow: '0 0 22px 6px #f4c75acc', offset: 0.3 }, { boxShadow: '0 0 0 0 #f4c75a00' }], {
+                  duration: 1200,
+                  easing: 'ease-out',
+                });
+              }
             }
           : undefined;
       // Dropped by hand: already in place, so no flight, but it still lands.

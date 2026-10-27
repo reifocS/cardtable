@@ -2466,26 +2466,44 @@ body.dragging .stack-zone {
     inset 0 0 22px #0a0402cc;
 }
 .mat-arcane {
-  /* A wizard's desk, painted by a shader (ui/shaders/arcane.ts); without WebGL, warm planks by candlelight. */
+  /* A wizard's desk, painted by a shader (ui/shaders/arcane.ts). Without WebGL, the same pictures
+     laid out by CSS: the props in the corners over the wood, a warm candlelit corner; nothing moves. */
   background:
-    radial-gradient(ellipse 40% 50% at 20% 15%, #f0a04a2e, transparent 70%),
-    radial-gradient(ellipse at center, transparent 50%, #0d0603b3 100%),
-    repeating-linear-gradient(180deg, #120802b3 0 3px, transparent 3px 70px),
-    repeating-linear-gradient(180deg, #5a3519 0 70px, #4b2c15 70px 140px, #63391b 140px 210px);
+    url('./ui/shaders/desk-props-a.webp') left top / auto min(60%, 378px) no-repeat,
+    url('./ui/shaders/desk-props-c.webp') right top / auto min(55%, 346px) no-repeat,
+    url('./ui/shaders/desk-props-d.webp') left bottom / auto min(55%, 346px) no-repeat,
+    url('./ui/shaders/desk-props-b.webp') right bottom / auto min(55%, 346px) no-repeat,
+    radial-gradient(ellipse 35% 45% at 20% 12%, #f0a04a33, transparent 70%),
+    radial-gradient(ellipse at center, transparent 45%, #0d0603b3 100%),
+    url('./ui/shaders/desk-wood.jpg') 0 0 / 1260px;
 }
-/* Stormy sea: painted by a shader (ui/shaders/storm.ts); this is what shows without WebGL. */
+/* Stormy sea: painted by a shader (ui/shaders/storm.ts). Without WebGL, dark swell under streaks of foam. */
 .mat-storm {
   background:
-    radial-gradient(ellipse at center, transparent 50%, #01080cb3 100%),
+    radial-gradient(ellipse at center, transparent 45%, #01080cc0 100%),
+    repeating-linear-gradient(-8deg, transparent 0 46px, #cfe8ee10 46px 48px, transparent 48px 90px),
+    repeating-linear-gradient(-12deg, transparent 0 70px, #cfe8ee0c 70px 73px, transparent 73px 130px),
+    radial-gradient(ellipse 60% 40% at 30% 25%, #1d5a66aa, transparent 70%),
+    radial-gradient(ellipse 50% 35% at 75% 70%, #0b2f3a, transparent 70%),
     radial-gradient(ellipse at 35% 30%, #12404c, #04161e 75%);
 }
-/* Mordor: painted by a shader (ui/shaders/mordor.ts); without WebGL, dark rock under a red sky. */
+/* Mordor: painted by a shader (ui/shaders/mordor.ts). Without WebGL, the same rendered rock, darkened,
+   under a red sky; the lava glows in its crevices from the layer below (::before). */
 .mat-mordor {
   background:
     radial-gradient(ellipse at center, transparent 45%, #050202cc 100%),
-    radial-gradient(ellipse 80% 45% at 50% -5%, #6a140699, transparent 70%),
-    radial-gradient(ellipse 30% 12% at 40% 70%, #b8350a40, transparent 70%),
-    radial-gradient(ellipse at center, #1e1512, #0d0908 80%);
+    radial-gradient(ellipse 90% 45% at 50% -5%, #6a140680, transparent 70%),
+    linear-gradient(#0000004d, #0000004d),
+    url('./ui/shaders/mordor-rock.jpg') 0 0 / 1470px;
+}
+.board-wrap.mat.mat-mordor::before {
+  content: '';
+  inset: 0;
+  /* The crevice map, turned to glowing orange, adding its light to the rock. */
+  background: url('./ui/shaders/mordor-heat.jpg') 0 0 / 1470px;
+  filter: sepia(1) saturate(7) hue-rotate(-28deg) brightness(0.75) blur(0.8px);
+  mix-blend-mode: screen;
+  opacity: 0.75;
 }
 .shader-mat {
   position: absolute;
