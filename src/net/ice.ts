@@ -2,17 +2,16 @@
  * ICE servers for WebRTC. STUN finds a direct route; when networks block that (strict NATs,
  * corporate or mobile networks), a TURN relay carries the traffic instead.
  *
- * Production builds ask our own /api/turn (see api/turn.ts). Override with:
+ * No relay by default: connections are direct (STUN only). To add one at build time:
  *   VITE_TURN_CREDENTIALS_URL  URL returning an RTCIceServer[] (e.g. a TURN provider's credentials API)
  *   VITE_ICE_SERVERS           RTCIceServer[] as JSON
- * If none answers, connections stay direct (STUN only).
  */
 const STUN: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }];
 
 let cached: Promise<RTCIceServer[]> | null = null;
 
 async function load(): Promise<RTCIceServer[]> {
-  const url = import.meta.env.VITE_TURN_CREDENTIALS_URL ?? (import.meta.env.PROD ? '/api/turn' : undefined);
+  const url = import.meta.env.VITE_TURN_CREDENTIALS_URL;
   if (url) {
     try {
       const res = await fetch(url);
