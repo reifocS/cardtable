@@ -56,6 +56,9 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   let ids: CardId[] = store.selection.includes(card.id) ? store.selection : [card.id];
   let ghost: HTMLElement | null = null;
   let hoverTarget: HTMLElement | null = null;
+  /** The ghost's own size, upright, and how its card is turned (tapped). */
+  let base = { w: 0, h: 0 };
+  let tapTurn = '';
 
   const move = (ev: PointerEvent) => {
     if (!ghost) {
@@ -65,12 +68,28 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
         setSelection(ids);
       }
       ghost = makeGhost(el, ids.length);
+      base = { w: parseFloat(ghost.style.width), h: parseFloat(ghost.style.height) };
+      tapTurn = ghost.dataset.turn ?? '';
       document.body.classList.add('dragging');
       for (const id of ids) document.querySelectorAll(`[data-card-id="${id}"]`).forEach((n) => n.classList.add('drag-source'));
     }
+    const t = dropTargetAt(ev.clientX, ev.clientY);
+    if (t !== hoverTarget) {
+      hoverTarget?.classList.remove('drop-hover');
+      t?.classList.add('drop-hover');
+      hoverTarget = t;
+      // Over a zone, the card takes the size it will have there; over nothing, its own.
+      const size = cardSizeIn(t, ids) ?? base;
+      ghost.style.width = `${size.w}px`;
+      ghost.style.height = `${size.h}px`;
+      // Only a battlefield keeps it tapped; anywhere else it lands upright.
+      if (tapTurn && t?.classList.contains('board')) ghost.dataset.turn = tapTurn;
+      else delete ghost.dataset.turn;
+    }
     // A tapped ghost is turned like its card, about its middle: place it by the box it fills on screen.
-    const w = ghost.offsetWidth;
-    const h = ghost.offsetHeight;
+    // Placed by the size it's growing or shrinking to, so the grabbed point stays under the pointer.
+    const w = parseFloat(ghost.style.width);
+    const h = parseFloat(ghost.style.height);
     const turn = ghost.dataset.turn ?? '';
     const sideways = turn !== '' && Number(turn) % 180 !== 0;
     const shownW = sideways ? h : w;
@@ -78,12 +97,6 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     const x = ev.clientX - fx * shownW - (w - shownW) / 2;
     const y = ev.clientY - fy * shownH - (h - shownH) / 2;
     ghost.style.transform = `translate(${x}px, ${y}px)${turn ? ` rotate(${turn}deg)` : ''}`;
-    const t = dropTargetAt(ev.clientX, ev.clientY);
-    if (t !== hoverTarget) {
-      hoverTarget?.classList.remove('drop-hover');
-      t?.classList.add('drop-hover');
-      hoverTarget = t;
-    }
   };
 
   const up = (ev: PointerEvent) => {
@@ -114,6 +127,26 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', up);
+}
+
+/**
+ * How big a card is on screen in a drop zone, upright: on a battlefield, from the board's scale; on a
+ * pile, its slot; in a hand or any list, one of the cards already there (not those being dragged).
+ */
+function cardSizeIn(target: HTMLElement | null, dragged: CardId[]): { w: number; h: number } | null {
+  if (!target) return null;
+  if (target.classList.contains('board')) {
+    const h = (target.getBoundingClientRect().height / VIEW_H) * CARD_H;
+    return { w: (h * CARD_W) / CARD_H, h };
+  }
+  if (target.classList.contains('pile-slot')) {
+    const r = target.getBoundingClientRect();
+    return { w: r.width, h: (r.width * CARD_H) / CARD_W };
+  }
+  const other = [...target.querySelectorAll<HTMLElement>('[data-card-id]')].find((c) => !dragged.includes(c.dataset.cardId!));
+  if (!other || other.classList.contains('tapped')) return null;
+  const r = other.getBoundingClientRect();
+  return { w: r.width, h: r.height };
 }
 
 function makeGhost(el: HTMLElement, count: number): HTMLElement {
