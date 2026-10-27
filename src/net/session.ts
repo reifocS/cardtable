@@ -12,7 +12,8 @@ export const PEER_PREFIX = 'cardtable-v1-';
  * it isn't.
  */
 export type ToHost =
-  | { t: 'hello'; name: string; playerId?: PlayerId }
+  /** `spectate`: watch without a seat, seeing only what's public. */
+  | { t: 'hello'; name: string; playerId?: PlayerId; spectate?: boolean }
   | { t: 'op'; op: Op }
   | { t: 'resync' }
   // Presence: ephemeral, relayed by the host to everyone else.
@@ -20,7 +21,9 @@ export type ToHost =
   | { t: 'point'; target: PointTarget };
 export type ToClient =
   | { t: 'welcome'; playerId: PlayerId }
-  /** The table has no seat left: the guest should stop trying. */
+  /** A spectator was let in: it watches without a seat. */
+  | { t: 'watching' }
+  /** The table has no seat (or spectator place) left: the guest should stop trying. */
   | { t: 'full' }
   | { t: 'state'; state: GameState; v: number }
   | { t: 'patch'; patch: Patch; base: number; v: number }
@@ -41,6 +44,8 @@ export interface Session {
   readonly role: 'host' | 'client';
   readonly code: string;
   readonly me: PlayerId | null;
+  /** Watching without a seat: sees only what's public, and can't act. */
+  readonly spectating?: boolean;
   readonly status: Status;
   readonly error: string | null;
   /** How this client reaches the host. Null for the host itself, or until known. */

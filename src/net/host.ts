@@ -18,6 +18,13 @@ const MAX_SEATS = 8;
  * message per card the pointer crosses, so it's generous; past it, messages are dropped, and a guest
  * that keeps flooding is cut off.
  */
+/** How many may watch one table without a seat. */
+const MAX_SPECTATORS = 20;
+/**
+ * What a spectator's connection is marked with, instead of a player id. It's no player's id, so the
+ * engine ignores it as an actor, and the state redacted for it shows only what's public.
+ */
+const WATCHER = 'watcher';
 const RATE = 40;
 const BURST = 160;
 const FLOOD = 2000;
@@ -148,7 +155,7 @@ export class HostSession extends Emitter implements Session {
       this.conns.delete(conn);
       this.sent.delete(conn);
       this.buckets.delete(conn);
-      if (pid && ![...this.conns.values()].includes(pid)) {
+      if (pid && pid !== WATCHER && ![...this.conns.values()].includes(pid)) {
         this.engine.setConnected(pid, false);
         this.relayHover(pid, null);
       }
@@ -191,9 +198,21 @@ export class HostSession extends Emitter implements Session {
 
   private receive(conn: DataConnection, msg: ToHost) {
     if (!this.allow(conn)) return;
-    if (msg?.t === 'hello') {
+    if (msg?.t === 'hello' && msg.spectate) {
+      if (this.conns.get(conn) !== WATCHER && [...this.conns.values()].filter((p) => p === WATCHER).length >= MAX_SPECTATORS) {
+        this.send(conn, { t: 'full' });
+        setTimeout(() => conn.close(), 1000);
+        return;
+      }
+      this.conns.set(conn, WATCHER);
+      this.sent.delete(conn);
+      this.send(conn, { t: 'watching' });
+      this.sync(conn, WATCHER);
+      for (const [by, card] of Object.entries(this.presence.hovers)) this.send(conn, { t: 'hover', by, card });
+    } else if (msg?.t === 'hello') {
       // A guest saying hello again keeps the seat it has; nobody else may take a seat I play myself.
-      const had = this.conns.get(conn);
+      const had = this.conns.get(conn) ?? undefined;
+      if (had === WATCHER) return;
       const asked = typeof msg.playerId === 'string' ? msg.playerId : undefined;
       const want = had ?? (asked && !this.controlled.includes(asked) ? asked : undefined);
       // A full table takes no one new.
@@ -210,13 +229,13 @@ export class HostSession extends Emitter implements Session {
       for (const [by, card] of Object.entries(this.presence.hovers)) if (by !== pid) this.send(conn, { t: 'hover', by, card });
     } else if (msg?.t === 'op') {
       const pid = this.conns.get(conn);
-      if (pid && msg.op && typeof msg.op === 'object') this.engine.dispatch(pid, msg.op);
+      if (pid && pid !== WATCHER && msg.op && typeof msg.op === 'object') this.engine.dispatch(pid, msg.op);
     } else if (msg?.t === 'hover') {
       const pid = this.conns.get(conn);
-      if (pid) this.relayHover(pid, typeof msg.card === 'string' ? msg.card : null);
+      if (pid && pid !== WATCHER) this.relayHover(pid, typeof msg.card === 'string' ? msg.card : null);
     } else if (msg?.t === 'point') {
       const pid = this.conns.get(conn);
-      if (pid && msg.target) this.relayPoint(pid, msg.target);
+      if (pid && pid !== WATCHER && msg.target) this.relayPoint(pid, msg.target);
     } else if (msg?.t === 'resync') {
       const pid = this.conns.get(conn);
       if (!pid) return;

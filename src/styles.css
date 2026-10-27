@@ -168,6 +168,9 @@ kbd {
 .lobby-row > * {
   flex: 1;
 }
+.lobby-row > input {
+  flex: 2;
+}
 .lobby-row button {
   padding: 8px 12px;
 }
@@ -287,6 +290,17 @@ kbd {
   text-shadow:
     0 1px 2px #000,
     0 0 8px #000;
+}
+/* A spectator's top bar says so: they see only what's public, and can't act. */
+.watching-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  color: #cfe0ff;
+  border: 1px solid #000;
+  background: linear-gradient(#24262b, #0e0f12);
+  box-shadow: var(--iron-rule);
 }
 .brand {
   color: var(--gold);

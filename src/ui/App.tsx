@@ -51,7 +51,9 @@ function SavedRow({ game, onResume, onDelete }: { game: SavedGame; onResume: () 
 
 function Lobby() {
   const [name, setName] = useState(() => localStorage.getItem(NAME_KEY) ?? '');
-  const [code, setCode] = useState(() => location.hash.slice(1));
+  // #code joins a table; #code/watch opens it to watch.
+  const [code, setCode] = useState(() => location.hash.slice(1).replace(/\/watch$/, ''));
+  const watchLink = location.hash.endsWith('/watch');
   const [saved, setSaved] = useState(listSavedGames);
   const connect = useStore((s) => s.connect);
 
@@ -61,14 +63,21 @@ function Lobby() {
     const session = make(n);
     connect(session);
     // Joiners keep the code in the URL so a reload rejoins; hosts resume from the lobby instead.
-    history.replaceState(null, '', session.role === 'client' ? `#${session.code}` : location.pathname);
+    history.replaceState(null, '', session.role === 'client' ? `#${session.code}${session.spectating ? '/watch' : ''}` : location.pathname);
   };
 
   const join = () => code.trim() && start((n) => new ClientSession(n, code.trim().toLowerCase()));
+  const watch = () => code.trim() && start((n) => new ClientSession(n, code.trim().toLowerCase(), true));
 
   // A reload while seated at a table goes straight back to it.
   const rejoin = useEffectEvent(() => {
-    if (autoJoined || !code || !sessionStorage.getItem(`cardtable:seat:${code}`)) return;
+    if (autoJoined || !code) return;
+    // A watch link opens the table straight away; a seat is only taken back after a reload.
+    if (watchLink) {
+      autoJoined = true;
+      return watch();
+    }
+    if (!sessionStorage.getItem(`cardtable:seat:${code}`)) return;
     autoJoined = true;
     join();
   });
@@ -125,6 +134,9 @@ function Lobby() {
       >
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Table code" />
         <button disabled={!code.trim()}>Join</button>
+        <button type="button" disabled={!code.trim()} onClick={watch} {...tip('Watch the game without a seat')}>
+          Watch
+        </button>
       </form>
       {DevPresets && (
         <Suspense fallback={null}>

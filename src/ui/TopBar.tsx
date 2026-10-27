@@ -11,7 +11,8 @@ export function TopBar({ state }: { state: GameState }) {
   const status = useStore((s) => s.status);
   const error = useStore((s) => s.error);
   const route = useStore((s) => s.route);
-  const me = useStore((s) => s.me)!;
+  const me = useStore((s) => s.me);
+  const spectating = !!session.spectating;
   const controlled = useStore((s) => s.controlled);
   const [copied, setCopied] = useState(false);
 
@@ -38,11 +39,13 @@ export function TopBar({ state }: { state: GameState }) {
       },
     });
 
-  const copyInvite = async () => {
-    await navigator.clipboard.writeText(`${location.origin}${location.pathname}#${session.code}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const [copiedWatch, setCopiedWatch] = useState(false);
+  const copyLink = async (watch: boolean) => {
+    await navigator.clipboard.writeText(`${location.origin}${location.pathname}#${session.code}${watch ? '/watch' : ''}`);
+    (watch ? setCopiedWatch : setCopied)(true);
+    setTimeout(() => (watch ? setCopiedWatch : setCopied)(false), 1500);
   };
+  const copyInvite = () => copyLink(false);
 
   const turnPlayer = state.turn.player ? state.players[state.turn.player] : undefined;
 
@@ -67,13 +70,17 @@ export function TopBar({ state }: { state: GameState }) {
           </>
         )}
       </button>
+      <button className="icon-btn" onClick={() => copyLink(true)} {...tip(copiedWatch ? 'Watch link copied!' : 'Copy a link to watch the game without a seat')}>
+        <Icon name="watch" />
+      </button>
       <span className={`status ${status}`} title={error ?? status}>
         {session.role === 'host' ? 'hosting' : status}
         {route && ` · ${route === 'relay' ? 'via relay' : 'direct'}`}
         {error && ` · ${error}`}
       </span>
       <div className="spacer" />
-      {controlled.length > 1 && (
+      {spectating && <span className="watching-badge">Watching</span>}
+      {me && controlled.length > 1 && (
         <button
           className="seat-switch"
           style={{ color: state.players[me]?.color }}
@@ -89,14 +96,16 @@ export function TopBar({ state }: { state: GameState }) {
           <Icon name="seats" />
         </button>
       )}
-      <button
-        className="icon-btn"
-        {...tip('Rename me', 'end')}
-        onClick={() => ask('Your name', state.players[me].name, (name) => act({ type: 'rename', name }))}
-      >
-        <Icon name="rename" />
-        <span className="me-name">{state.players[me].name}</span>
-      </button>
+      {me && state.players[me] && (
+        <button
+          className="icon-btn"
+          {...tip('Rename me', 'end')}
+          onClick={() => ask('Your name', state.players[me].name, (name) => act({ type: 'rename', name }))}
+        >
+          <Icon name="rename" />
+          <span className="me-name">{state.players[me].name}</span>
+        </button>
+      )}
       <button
         className="icon-btn"
         {...tip('Leave the table', 'end')}

@@ -143,6 +143,8 @@ async function createToken(id: string, near: Card) {
 export function openMenu(e: React.MouseEvent, items: MenuItem[]) {
   e.preventDefault();
   e.stopPropagation();
+  // A spectator can't act: no menus of actions.
+  if (useStore.getState().session?.spectating) return;
   useStore.setState({ menu: { x: e.clientX, y: e.clientY, items } });
 }
 

@@ -40,6 +40,7 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   if (e.button !== 0) return;
   e.stopPropagation();
   const store = useStore.getState();
+  if (store.session?.spectating) return;
   if (store.targeting) {
     finishTargeting(card.id);
     return;

@@ -56,6 +56,7 @@ function PreviewCard({ card }: { card: Card }) {
 
 function Log({ state }: { state: GameState }) {
   const list = useRef<HTMLDivElement>(null);
+  const spectating = useStore((s) => !!s.session?.spectating);
   const [text, setText] = useState('');
   const last = state.log[state.log.length - 1];
   useEffect(() => {
@@ -78,6 +79,8 @@ function Log({ state }: { state: GameState }) {
           );
         })}
       </div>
+      {/* Spectators read the log; only players speak. */}
+      {!spectating && (
       <form
         className="chat"
         onSubmit={(e) => {
@@ -89,6 +92,7 @@ function Log({ state }: { state: GameState }) {
       >
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Say something…" maxLength={500} />
       </form>
+      )}
     </div>
   );
 }

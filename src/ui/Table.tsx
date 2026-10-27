@@ -167,7 +167,8 @@ function PlayerHeader({
   );
 }
 
-function OpponentArea({ state, pid, style }: { state: GameState; pid: PlayerId; style?: React.CSSProperties }) {
+/** A player seen from across the table; `near`: seen from this side (a spectator's lower row), the right way up. */
+function OpponentArea({ state, pid, style, near }: { state: GameState; pid: PlayerId; style?: React.CSSProperties; near?: boolean }) {
   const bf = zoneOf(state, pid, 'battlefield');
   const hand = zoneOf(state, pid, 'hand');
   return (
@@ -193,7 +194,7 @@ function OpponentArea({ state, pid, style }: { state: GameState; pid: PlayerId; 
         </button>
       </PlayerHeader>
       <div className="area-body">
-        {bf && <Board zone={bf} state={state} flipped />}
+        {bf && <Board zone={bf} state={state} flipped={!near} />}
       </div>
     </section>
   );
@@ -277,6 +278,7 @@ function Joining() {
 
 export function Table() {
   const state = useStore((s) => s.state);
+  const spectating = useStore((s) => !!s.session?.spectating);
   const me = useStore((s) => s.me);
   const targeting = useStore((s) => s.targeting);
   const attaching = useStore((s) => s.targetMode === 'attach');
@@ -306,9 +308,12 @@ export function Table() {
     };
   }, []);
 
-  if (!state || !me || !state.players[me]) return <Joining />;
+  if (!state || (!spectating && (!me || !state.players[me]))) return <Joining />;
 
-  const opponents = state.seats.filter((id) => id !== me);
+  // A spectator has no seat: half the players sit across the table, half on this side.
+  const half = Math.ceil(state.seats.length / 2);
+  const opponents = spectating ? state.seats.slice(0, half) : state.seats.filter((id) => id !== me);
+  const near = spectating ? state.seats.slice(half) : [];
   const layout = opponentLayout(opponents.length);
   return (
     <div className={`app${targeting ? ' is-targeting' : ''}`}>
@@ -319,7 +324,8 @@ export function Table() {
             // Face to face, the one opponent has the whole width: their header can be bigger.
             className={`opponents${opponents.length === 1 ? ' duel' : ''}`}
             style={{
-              flexBasis: `${layout.share}%`,
+              // A spectator's two halves share the table evenly.
+              flex: spectating ? '1 1 0' : `0 0 ${layout.share}%`,
               gridTemplateColumns: `repeat(${layout.rows.length === 1 ? layout.rows[0] : layout.rows[0] * layout.rows[1]}, minmax(0, 1fr))`,
               // Per row of opponents: headers (as tall as the tallest one), then boards.
               gridTemplateRows: `repeat(${layout.rows.length}, auto minmax(0, 1fr))`,
@@ -334,7 +340,19 @@ export function Table() {
           <Reminders state={state} />
           <StackZone state={state} />
         </div>
-        <MyArea state={state} me={me} />
+        {spectating ? (
+          // The other half of the table, from this side: boards the right way up.
+          <div
+            className={`opponents near${near.length === 1 ? ' duel' : ''}`}
+            style={{ flex: '1 1 0', gridTemplateColumns: `repeat(${Math.max(1, near.length)}, minmax(0, 1fr))`, gridTemplateRows: 'auto minmax(0, 1fr)' }}
+          >
+            {near.map((pid, i) => (
+              <OpponentArea key={pid} state={state} pid={pid} style={opponentCell([near.length], i)} near />
+            ))}
+          </div>
+        ) : (
+          me && <MyArea state={state} me={me} />
+        )}
       </main>
       <SidePanel state={state} />
       <FocusBoard state={state} />

@@ -37,10 +37,12 @@ export class ClientSession extends Emitter implements Session {
   constructor(
     private name: string,
     readonly code: string,
+    /** Watch the table without a seat. */
+    readonly spectating = false,
   ) {
     super();
     this.seatKey = `cardtable:seat:${code}`;
-    this.me = sessionStorage.getItem(this.seatKey);
+    this.me = spectating ? null : sessionStorage.getItem(this.seatKey);
     this.watchdog = window.setInterval(() => {
       if (this.status === 'connected' && Date.now() - this.lastHeard > HEARTBEAT_TIMEOUT_MS) this.lost();
     }, 1000);
@@ -68,7 +70,7 @@ export class ClientSession extends Emitter implements Session {
     const conn = this.peer.connect(PEER_PREFIX + this.code, { reliable: true, serialization: 'binary' });
     this.conn = conn;
     conn.on('open', () => {
-      this.send({ t: 'hello', name: this.name, playerId: this.me ?? undefined });
+      this.send({ t: 'hello', name: this.name, playerId: this.me ?? undefined, spectate: this.spectating || undefined });
     });
     conn.on('data', (raw) => {
       if (this.conn !== conn) return;
@@ -85,6 +87,10 @@ export class ClientSession extends Emitter implements Session {
 
   private receive(msg: ToClient) {
     switch (msg.t) {
+      case 'watching':
+        this.status = 'connected';
+        this.error = null;
+        break;
       case 'full':
         // No point dialling again: say so and stay put.
         this.closed = true;
@@ -164,7 +170,7 @@ export class ClientSession extends Emitter implements Session {
   }
 
   hover(card: string | null) {
-    if (card === this.lastHover || this.status !== 'connected') return;
+    if (card === this.lastHover || this.status !== 'connected' || this.spectating) return;
     this.lastHover = card;
     this.send({ t: 'hover', card });
   }
