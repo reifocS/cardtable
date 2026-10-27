@@ -415,6 +415,10 @@ export const DEMO: DevPreset = {
     const bob = b.player('Bob');
     b.deck(me, WHITE).deck(bob, RED);
     duelBoards(b, me, bob);
+    // An empty stack: the Bolt already resolved, its arrow gone.
+    const stack = b.s.zones[zoneId(TABLE, 'stack')].cards;
+    if (stack.length) b.op(bob, { type: 'move', cards: [...stack], to: zoneId(bob, 'graveyard') });
+    b.op(bob, { type: 'clearArrows' });
     // A legendary card to play on arrival (the shuffle may already have dealt it).
     if (!Object.values(b.s.cards).some((c) => c.zone === zoneId(me, 'hand') && c.faces[0]?.name === 'Elspeth Resplendent')) {
       b.to(me, ['Elspeth Resplendent'], 'hand');
