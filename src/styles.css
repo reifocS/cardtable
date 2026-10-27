@@ -1822,6 +1822,19 @@ body.dragging * {
     transform: translateY(6px);
   }
 }
+/* Less motion: the caption, the result and a fumble's crack fade in without moving. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .roll-caption,
+  .roll-result,
+  .roll-throw.fumble.rested::after {
+    animation-name: fade-in;
+  }
+}
 
 /* A die or coin in 3D (ui/dice3d.ts): faces placed in space, lit by script, over its shadow. */
 .roll-throw {
@@ -2186,6 +2199,22 @@ button.danger:hover:not(:disabled) {
   }
 }
 
+/* Less motion: pings still show, by fading instead of swelling. */
+@keyframes ping-still {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ping-ring,
+  .board-ping {
+    animation-name: ping-still;
+  }
+}
+
 /* ---- freshly loaded library ---- */
 
 .pile-slot.attention {
@@ -2202,6 +2231,19 @@ button.danger:hover:not(:disabled) {
     box-shadow:
       0 0 0 3px var(--accent),
       0 0 24px var(--accent);
+  }
+}
+/* Less motion: the library glows to draw the eye, without bouncing. */
+@keyframes attention-still {
+  50% {
+    box-shadow:
+      0 0 0 3px var(--accent),
+      0 0 24px var(--accent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pile-slot.attention {
+    animation-name: attention-still;
   }
 }
 .pile-bubble {
