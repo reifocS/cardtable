@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { CardId, GameState, ZoneId } from '../core/types';
-import { herald } from './herald';
+import { fireWheel, herald } from './herald';
 
 /** Cards I just dropped by hand: they're already where they land, so they don't fly there (but still raise dust). */
 export const justDropped = new Set<CardId>();
@@ -136,13 +136,16 @@ export function Flights({ state }: { state: GameState }) {
       // Landing on a battlefield raises dust; a legendary card, face up, makes an entrance too.
       const face = card.faceDown ? undefined : card.faces[card.face];
       const legendary = /\bLegendary\b/i.test(face?.type ?? '');
+      // A commander, cast from the command zone, gets a wheel of fire instead.
+      const commander = state.zones[was.zone]?.role === 'command';
       const onLand =
         state.zones[card.zone]?.kind === 'free'
           ? (at: DOMRect) => {
               dust(at, el);
-              // Without WebGL, a plainer entrance: a golden glow swelling once round the card.
-              if (legendary && !herald(at)) {
-                el.animate([{ boxShadow: '0 0 0 0 #f4c75a00' }, { boxShadow: '0 0 22px 6px #f4c75acc', offset: 0.3 }, { boxShadow: '0 0 0 0 #f4c75a00' }], {
+              // Without WebGL, a plainer entrance: a glow swelling once round the card, fiery or golden.
+              const glow = commander ? '#ff6a1a' : '#f4c75a';
+              if ((commander || legendary) && !(commander ? fireWheel(at) : herald(at))) {
+                el.animate([{ boxShadow: `0 0 0 0 ${glow}00` }, { boxShadow: `0 0 22px 6px ${glow}cc`, offset: 0.3 }, { boxShadow: `0 0 0 0 ${glow}00` }], {
                   duration: 1200,
                   easing: 'ease-out',
                 });

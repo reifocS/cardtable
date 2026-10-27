@@ -1,11 +1,11 @@
 /**
- * A legendary card's entrance, drawn by a fragment shader on a canvas laid over the card and screened
- * onto the table (it only ever adds light): shafts of light breaking out from behind the card, a
- * shockwave of warm light running out over the table, a glint travelling round the card's edge, and
- * embers rising off it. The card's face is left clear. One canvas per entrance, given back when done.
+ * Entrances for the cards that deserve one, each drawn by a fragment shader on a canvas laid over the
+ * card and screened onto the table (it only ever adds light), the card's face left clear; one canvas
+ * per entrance, given back when done. A legendary card: shafts of light breaking out from behind it, a
+ * shockwave of warm light over the table, a glint round its edge, embers rising. A commander: a wheel of
+ * fire turning round it, flames licking outward, sparks flung off by the spin.
  */
 
-const DURATION_MS = 1700;
 /** How far the light reaches beyond the card, as a multiple of the card's larger side. */
 const REACH = 1.6;
 
@@ -15,7 +15,7 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
-const FRAGMENT = `#version 300 es
+const COMMON = `#version 300 es
 precision highp float;
 uniform vec2 uSize;   // canvas, px
 uniform vec2 uHalf;   // card half-size, px (the card is centred)
@@ -45,6 +45,9 @@ float card(vec2 p) {
   float box = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 6.0;
   return mix(box, length(p) - min(uHalf.x, uHalf.y), uRound);
 }
+`;
+
+const LIGHT = `${COMMON}
 // Warm light: deep amber, gold, then white-hot.
 vec3 warm(float x) {
   return mix(mix(vec3(0.55, 0.22, 0.03), vec3(1.0, 0.72, 0.28), smoothstep(0.0, 0.5, x)), vec3(1.0, 0.95, 0.82), smoothstep(0.5, 1.0, x));
@@ -107,6 +110,63 @@ void main() {
   color = vec4(c, 1.0);
 }`;
 
+const FIRE = `${COMMON}
+// Fire by heat: smouldering red, orange, yellow, then white at the core.
+vec3 fire(float x) {
+  x = clamp(x, 0.0, 1.0);
+  vec3 c = mix(vec3(0.0), vec3(0.6, 0.06, 0.0), smoothstep(0.0, 0.25, x));
+  c = mix(c, vec3(1.0, 0.38, 0.03), smoothstep(0.2, 0.55, x));
+  c = mix(c, vec3(1.0, 0.8, 0.25), smoothstep(0.5, 0.8, x));
+  return mix(c, vec3(1.0, 0.97, 0.85), smoothstep(0.8, 1.0, x));
+}
+
+void main() {
+  vec2 p = gl_FragCoord.xy - uSize * 0.5;
+  float t = uT;
+  float span = max(uHalf.x, uHalf.y);
+  float r = length(p) / span;
+  float a = atan(p.y, p.x);
+  float d = card(p);
+  // The wheel lights all at once, turns fast and slows, widening a little, and burns away.
+  float spin = 7.0 * (1.0 - pow(1.0 - t, 2.0));
+  float radius = 1.18 + 0.22 * t;
+  float life = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.55, 1.0, t));
+  // Flames: tongues of fire rising outward off the ring, each its own height, swept along by the spin,
+  // turbulent inside; only their cores burn yellow-white.
+  float u = a - spin;
+  float away = (r - radius) / 0.15;
+  vec2 ring = vec2(cos(u), sin(u));
+  float tongue = 0.6 + 4.0 * pow(fbm(ring * 4.5 + vec2(t * 2.0, 0.0)), 1.7);
+  float inner = smoothstep(-0.9, -0.35, away);
+  float outer = 1.0 - smoothstep(0.0, tongue, away);
+  float churn = fbm(ring * 7.0 + vec2(0.0, away * 1.4 - t * 9.0));
+  float heat = inner * outer * smoothstep(0.15, 0.75, churn) * 1.25 * (1.0 - 0.4 * smoothstep(0.0, tongue, away));
+  heat *= life;
+  vec3 c = fire(heat * 1.05) * smoothstep(0.06, 0.25, heat) * 1.5;
+  // A soft glow round the wheel.
+  c += vec3(1.0, 0.3, 0.04) * exp(-abs(away) * 0.8) * 0.18 * life;
+  // Sparks flung off along the spin, curving away and dying.
+  for (int i = 0; i < 24; i++) {
+    float fi = float(i);
+    float h1 = hash(vec2(fi, 2.3)), h2 = hash(vec2(fi, 7.1));
+    float start = h2 * 0.5;
+    float k = clamp((t - start) / 0.45, 0.0, 1.0);
+    if (k <= 0.0 || k >= 1.0) continue;
+    float ang = h1 * 6.2831853 + spin * (0.7 + 0.3 * k) + k * 0.8;
+    float rr = (radius + k * (0.5 + 0.4 * h2)) * span;
+    vec2 at = vec2(cos(ang), sin(ang)) * rr;
+    vec2 tang = vec2(-sin(ang), cos(ang));
+    vec2 dp = p - at;
+    float along = dot(dp, tang), across = dot(dp, vec2(tang.y, -tang.x));
+    float streak = exp(-(along * along / 30.0 + across * across / 2.0));
+    c += fire(1.0 - k * 0.6) * streak * (1.0 - k) * 1.4;
+  }
+  // Leave the card's face readable.
+  c *= mix(0.15, 1.0, smoothstep(-10.0, 2.0, d));
+  c *= smoothstep(2.4, 1.9, r);
+  color = vec4(c, 1.0);
+}`;
+
 function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   const shader = gl.createShader(type)!;
   gl.shaderSource(shader, source);
@@ -116,8 +176,8 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   return null;
 }
 
-/** Plays the entrance over `card` (a screen rect), or round for a die. Says whether it could: it needs WebGL. */
-export function herald(card: DOMRect, round = false): boolean {
+/** Plays `fragment` over `card` (a screen rect) for `ms`. Says whether it could: it needs WebGL. */
+function play(fragment: string, card: DOMRect, ms: number, round = false): boolean {
   const span = Math.max(card.width, card.height);
   const half = span * (REACH + 0.5);
   const canvas = document.createElement('canvas');
@@ -130,7 +190,7 @@ export function herald(card: DOMRect, round = false): boolean {
   const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false });
   if (!gl) return false;
   const vs = compile(gl, gl.VERTEX_SHADER, VERTEX);
-  const fs = compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
+  const fs = compile(gl, gl.FRAGMENT_SHADER, fragment);
   if (!vs || !fs) return false;
   const program = gl.createProgram();
   gl.attachShader(program, vs);
@@ -149,7 +209,7 @@ export function herald(card: DOMRect, round = false): boolean {
 
   const start = performance.now();
   const frame = (now: number) => {
-    const t = (now - start) / DURATION_MS;
+    const t = (now - start) / ms;
     if (t >= 1) {
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       canvas.remove();
@@ -162,3 +222,9 @@ export function herald(card: DOMRect, round = false): boolean {
   requestAnimationFrame(frame);
   return true;
 }
+
+/** A legendary card's entrance over `card`, or round for a die. Says whether it could (it needs WebGL). */
+export const herald = (card: DOMRect, round = false) => play(LIGHT, card, 1700, round);
+
+/** A commander's entrance: a wheel of fire round `card`. Says whether it could (it needs WebGL). */
+export const fireWheel = (card: DOMRect) => play(FIRE, card, 1900);
