@@ -171,7 +171,8 @@ export function ShaderMat({ fragment, moving, track, zoom = 1, paused = false, t
       if (!onScreen || live.current.paused) return;
       place();
       if (moving && animated()) {
-        if (now - last < FRAME_MS) return;
+        // Moved (scrolled, zoomed): redraw in the same frame as the cards, or the playmat trails behind them.
+        if (now - last < FRAME_MS && !stale) return;
         last = now;
         draw((now - EPOCH) / 1000);
       } else if (stale) {

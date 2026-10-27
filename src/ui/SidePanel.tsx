@@ -29,6 +29,9 @@ function PreviewCard({ card }: { card: Card }) {
       <div className="preview-card">
         <FaceView face={card.faces[shown] ?? card.faces[0]} large />
       </div>
+      <p className="zoom-hint">
+        Hold <kbd>Z</kbd> to zoom
+      </p>
       <div className="preview-meta">
         {card.faceDown && <span className="tag">Face down — only you see it</span>}
         {card.revealedTo.includes('*') && <span className="tag">Revealed</span>}
