@@ -138,8 +138,12 @@ void main() {
 
   // How far round the ring from where it caught, in the direction it runs; lit behind the running head.
   float start = uSeed * 1.7;
-  float phi = fract((a - start) / TAU);
+  // Both edges of the lit arc wander a little, so neither reads as a straight cut.
+  float jitter = (noise(vec2(r * 7.0, t * 4.0 + uSeed)) - 0.5) * 0.03;
+  float phi = fract((a - start) / TAU + jitter);
   float lit = smoothstep(ignite + 0.002, ignite - 0.03, phi);
+  // Where it caught, the fire also spills back a little and fades, instead of stopping dead.
+  lit = max(lit, smoothstep(0.93, 1.0, phi) * smoothstep(0.0, 0.05, ignite));
   // Once round, the ring closes: no gap where the running head met its start.
   lit = mix(lit, 1.0, smoothstep(0.9, 1.0, ignite));
   float head = exp(-pow((phi - ignite) * 22.0, 2.0)) * (1.0 - smoothstep(0.85, 1.0, ignite));
