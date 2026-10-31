@@ -2201,6 +2201,36 @@ button.danger:hover:not(:disabled) {
 .github-link:hover {
   color: var(--text);
 }
+/* A newer version deployed (ui/Update.tsx): offered under the top bar, over everything. */
+.update-notice {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 52px;
+  z-index: 1200;
+  margin: 0 auto;
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px;
+  background: var(--stone);
+  border: 1px solid #000;
+  box-shadow: var(--iron-rule), 0 10px 26px #000c;
+  animation: roll-in 0.25s ease-out both;
+}
+.update-notice b {
+  color: var(--gold);
+  font-weight: 400;
+}
+.update-notice p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.update-notice button {
+  flex: none;
+}
 .lobby-footer {
   margin-top: 18px;
   padding-top: 14px;

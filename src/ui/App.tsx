@@ -6,6 +6,7 @@ import { GithubLink } from './Icon';
 import { useStore } from './store';
 import { tip } from './tip';
 import { Table } from './Table';
+import { UpdateNotice } from './Update';
 
 const NAME_KEY = 'cardtable:name';
 // Dev builds only; the import is dropped from production bundles.
@@ -192,5 +193,10 @@ class Crash extends Component<{ children: ReactNode }, { error: Error | null }> 
 
 export function App() {
   const session = useStore((s) => s.session);
-  return <Crash>{session ? <Table /> : <Lobby />}</Crash>;
+  return (
+    <Crash>
+      {session ? <Table /> : <Lobby />}
+      <UpdateNotice />
+    </Crash>
+  );
 }
