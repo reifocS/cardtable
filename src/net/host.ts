@@ -95,6 +95,13 @@ export class HostSession extends Emitter implements Session {
   private saveTimer = 0;
   private heartbeat = 0;
   private presence = new Presence(() => this.emit());
+  /** Leaving the page (reload, closed tab) saves now, not at the end of the pause after the last change. */
+  private flush = () => {
+    if (!this.saveTimer) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = 0;
+    this.save();
+  };
 
   /**
    * `persist: false` keeps the game out of saved tables; `keepPresence` leaves players' connected
@@ -111,6 +118,7 @@ export class HostSession extends Emitter implements Session {
     this.view = redact(this.engine.state, this.me);
     this.engine.subscribe(() => this.onChange());
     this.save();
+    addEventListener('pagehide', this.flush);
     this.openPeer(0);
     this.heartbeat = window.setInterval(() => {
       for (const conn of this.conns.keys()) this.send(conn, { t: 'ping', v: this.sent.get(conn)?.v ?? 0 });
@@ -255,7 +263,10 @@ export class HostSession extends Emitter implements Session {
     this.view = applyPatch(this.view, diffState(this.view, redact(s, this.me)));
     for (const [conn, pid] of this.conns) if (pid) this.sync(conn, pid);
     clearTimeout(this.saveTimer);
-    this.saveTimer = window.setTimeout(() => this.save(), 500);
+    this.saveTimer = window.setTimeout(() => {
+      this.saveTimer = 0;
+      this.save();
+    }, 500);
     this.emit();
   }
 
@@ -325,6 +336,8 @@ export class HostSession extends Emitter implements Session {
   close() {
     this.closed = true;
     clearInterval(this.heartbeat);
+    removeEventListener('pagehide', this.flush);
+    clearTimeout(this.saveTimer);
     this.save();
     this.peer?.destroy();
   }

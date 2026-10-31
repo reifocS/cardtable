@@ -20,7 +20,7 @@ async function served(): Promise<string | null> {
 
 /**
  * Says when a newer version has been deployed than the one on screen, and offers to reload. It never
- * reloads by itself: a host reloading closes the table for everyone.
+ * reloads by itself: a host reloading leaves the table waiting until they resume it from the lobby.
  */
 export function UpdateNotice() {
   const [newer, setNewer] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function UpdateNotice() {
   const note = !session
     ? null
     : session.role === 'host'
-      ? "You're hosting: reloading closes the table for everyone. The game is saved, and you can resume it from the lobby."
+      ? "You're hosting: the others wait while you reload. Resume this table from the lobby and they'll reconnect on their own."
       : "You'll be taken straight back to the table.";
   return (
     <div className="update-notice" role="status">

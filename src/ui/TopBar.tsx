@@ -32,7 +32,7 @@ export function TopBar({ state }: { state: GameState }) {
         title: 'Leave the table?',
         message:
           session.role === 'host'
-            ? "You're hosting: leaving closes the table for everyone. The game is saved, and you can resume it from the lobby."
+            ? "You're hosting: the others wait while you're away. Resume this table from the lobby and they'll reconnect on their own."
             : 'You can come back any time with the same invite link.',
         label: 'Leave',
         onConfirm: () => useStore.getState().leave(),
