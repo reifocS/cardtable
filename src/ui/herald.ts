@@ -22,6 +22,9 @@ uniform vec2 uHalf;   // card half-size, px (the card is centred)
 uniform float uT;     // 0..1 through the entrance
 uniform float uSeed;
 uniform float uRound; // 1 for a round light (a die), 0 for a card's rounded rectangle
+// Three random numbers per particle, drawn once per entrance: the same for every pixel, so not hashed
+// in each. Embers from 0, sparks from 32.
+uniform vec3 uRand[64];
 out vec4 color;
 
 float hash(vec2 p) {
@@ -57,8 +60,10 @@ void main() {
   vec2 p = gl_FragCoord.xy - uSize * 0.5;
   float t = uT;
   float r = length(p);
-  float a = atan(p.y, p.x);
   float span = max(uHalf.x, uHalf.y);
+  // The canvas's corners, beyond the light's reach: nothing to work out.
+  if (r > span * ${(REACH + 0.5).toFixed(2)}) { color = vec4(0.0, 0.0, 0.0, 1.0); return; }
+  float a = atan(p.y, p.x);
   float d = card(p);
   vec3 c = vec3(0.0);
 
@@ -90,7 +95,7 @@ void main() {
   // Embers rising off the card, each flickering, streaked along their rise.
   for (int i = 0; i < 26; i++) {
     float fi = float(i);
-    float h1 = hash(vec2(fi, 1.7)), h2 = hash(vec2(fi, 9.3)), h3 = hash(vec2(fi, 4.1));
+    float h1 = uRand[i].x, h2 = uRand[i].y, h3 = uRand[i].z;
     float start = h3 * 0.35;
     float life = clamp((t - start) / 0.65, 0.0, 1.0);
     if (life <= 0.0 || life >= 1.0) continue;
@@ -125,6 +130,7 @@ void main() {
   float t = uT;
   float span = max(uHalf.x, uHalf.y);
   float r = length(p) / span;
+  if (r > 2.4) { color = vec4(0.0, 0.0, 0.0, 1.0); return; }
   float a = atan(p.y, p.x);
   float d = card(p);
   const float TAU = 6.2831853;
@@ -175,10 +181,11 @@ void main() {
   // Embers left on the ring once it has burnt out: specks glowing red, dimming one by one.
   for (int i = 0; i < 28; i++) {
     float fi = float(i);
-    float ea = (fi + hash(vec2(fi, 3.3))) / 28.0 * TAU + spin;
-    float er = (radius + (hash(vec2(fi, 5.9)) - 0.5) * 0.12) * span;
+    vec3 h = uRand[i];
+    float ea = (fi + h.x) / 28.0 * TAU + spin;
+    float er = (radius + (h.y - 0.5) * 0.12) * span;
     vec2 dp = p - vec2(cos(ea), sin(ea)) * er;
-    float die = 0.86 + 0.13 * hash(vec2(fi, 8.1));
+    float die = 0.86 + 0.13 * h.z;
     float glow = smoothstep(0.55, 0.7, t) * (1.0 - smoothstep(die - 0.12, die, t));
     glow *= 0.6 + 0.4 * sin(t * 40.0 + fi * 2.1);
     c += fire(0.55) * exp(-dot(dp, dp) / 9.0) * glow * 1.8 + vec3(0.5, 0.08, 0.0) * exp(-dot(dp, dp) / 60.0) * glow * 0.5;
@@ -187,7 +194,7 @@ void main() {
   // Sparks: a burst from the running head, then more flung off along the spin while it burns.
   for (int i = 0; i < 30; i++) {
     float fi = float(i);
-    float h1 = hash(vec2(fi, 2.3)), h2 = hash(vec2(fi, 7.1)), h3 = hash(vec2(fi, 4.7));
+    float h1 = uRand[32 + i].x, h2 = uRand[32 + i].y, h3 = uRand[32 + i].z;
     float born = i < 12 ? h2 * 0.2 : 0.2 + h2 * 0.4;
     float k = clamp((t - born) / (0.3 + 0.2 * h3), 0.0, 1.0);
     if (k <= 0.0 || k >= 1.0) continue;
@@ -217,52 +224,107 @@ function compile(gl: WebGL2RenderingContext, type: number, source: string) {
   return null;
 }
 
-/** Plays `fragment` over `card` (a screen rect) for `ms`. Says whether it could: it needs WebGL. */
-function play(fragment: string, card: DOMRect, ms: number, round = false): boolean {
-  const span = Math.max(card.width, card.height);
-  const half = span * (REACH + 0.5);
+/** A canvas with its context and program, ready to play one kind of entrance. */
+type Player = {
+  canvas: HTMLCanvasElement;
+  gl: WebGL2RenderingContext;
+  at: Record<'uSize' | 'uHalf' | 'uSeed' | 'uRound' | 'uT' | 'uRand', WebGLUniformLocation | null>;
+};
+
+/**
+ * Players not in use, by fragment. Making a context and compiling its shader is slow (on Windows above
+ * all, where it goes through Direct3D) and would stall the first frames of every entrance, so players
+ * are kept between entrances, and one of each kind is made ahead, while the page is idle.
+ */
+const idle = new Map<string, Player[]>();
+/** Kept per kind beyond that, the rest given back: browsers cap live WebGL contexts. */
+const KEEP = 2;
+
+function make(fragment: string): Player | null {
   const canvas = document.createElement('canvas');
   canvas.className = 'herald';
+  const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false });
+  if (!gl) return null;
+  const vs = compile(gl, gl.VERTEX_SHADER, VERTEX);
+  const fs = compile(gl, gl.FRAGMENT_SHADER, fragment);
+  if (!vs || !fs) return null;
+  const program = gl.createProgram();
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+  gl.useProgram(program);
+  gl.bindVertexArray(gl.createVertexArray());
+  const at = (name: string) => gl.getUniformLocation(program, name);
+  return { canvas, gl, at: { uSize: at('uSize'), uHalf: at('uHalf'), uSeed: at('uSeed'), uRound: at('uRound'), uT: at('uT'), uRand: at('uRand') } };
+}
+
+function take(fragment: string): Player | null {
+  const kept = idle.get(fragment) ?? [];
+  for (let player = kept.pop(); player; player = kept.pop()) if (!player.gl.isContextLost()) return player;
+  return make(fragment);
+}
+
+function give(fragment: string, player: Player) {
+  const kept = idle.get(fragment) ?? [];
+  if (kept.length >= KEEP || player.gl.isContextLost()) {
+    player.gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return;
+  }
+  kept.push(player);
+  idle.set(fragment, kept);
+}
+
+/** Plays `fragment` over `card` (a screen rect) for `ms`. Says whether it could: it needs WebGL. */
+function play(fragment: string, card: DOMRect, ms: number, round = false): boolean {
+  const player = take(fragment);
+  if (!player) return false;
+  const { canvas, gl, at } = player;
+  const span = Math.max(card.width, card.height);
+  const half = span * (REACH + 0.5);
   const cx = card.left + card.width / 2;
   const cy = card.top + card.height / 2;
   canvas.style.cssText = `left:${cx - half}px;top:${cy - half}px;width:${2 * half}px;height:${2 * half}px`;
   const px = Math.min(devicePixelRatio, 2);
   canvas.width = canvas.height = Math.round(2 * half * px);
-  const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false });
-  if (!gl) return false;
-  const vs = compile(gl, gl.VERTEX_SHADER, VERTEX);
-  const fs = compile(gl, gl.FRAGMENT_SHADER, fragment);
-  if (!vs || !fs) return false;
-  const program = gl.createProgram();
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return false;
-  gl.useProgram(program);
-  gl.bindVertexArray(gl.createVertexArray());
   gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.uniform2f(gl.getUniformLocation(program, 'uSize'), canvas.width, canvas.height);
-  gl.uniform2f(gl.getUniformLocation(program, 'uHalf'), (card.width / 2) * px, (card.height / 2) * px);
-  gl.uniform1f(gl.getUniformLocation(program, 'uSeed'), Math.random() * 10);
-  gl.uniform1f(gl.getUniformLocation(program, 'uRound'), round ? 1 : 0);
-  const uT = gl.getUniformLocation(program, 'uT');
+  gl.uniform2f(at.uSize, canvas.width, canvas.height);
+  gl.uniform2f(at.uHalf, (card.width / 2) * px, (card.height / 2) * px);
+  gl.uniform1f(at.uSeed, Math.random() * 10);
+  gl.uniform1f(at.uRound, round ? 1 : 0);
+  gl.uniform3fv(at.uRand, Float32Array.from({ length: 64 * 3 }, Math.random));
+  // The first frame drawn before it's shown, so a kept canvas never flashes its last entrance.
+  gl.uniform1f(at.uT, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
   document.body.appendChild(canvas);
 
   const start = performance.now();
   const frame = (now: number) => {
     const t = (now - start) / ms;
     if (t >= 1) {
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
       canvas.remove();
+      give(fragment, player);
       return;
     }
-    gl.uniform1f(uT, t);
+    gl.uniform1f(at.uT, t);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
   return true;
 }
+
+// One player of each kind made ahead, its shader compiled (and drawn once, as some drivers only finish
+// compiling then) while nothing is happening.
+const whenIdle = window.requestIdleCallback ?? ((run: () => void) => setTimeout(run, 2000));
+whenIdle(() => {
+  for (const fragment of [LIGHT, FIRE]) {
+    const player = make(fragment);
+    if (!player) return;
+    player.gl.drawArrays(player.gl.TRIANGLES, 0, 3);
+    give(fragment, player);
+  }
+});
 
 /** A legendary card's entrance over `card`, or round for a die. Says whether it could (it needs WebGL). */
 export const herald = (card: DOMRect, round = false) => play(LIGHT, card, 1700, round);
