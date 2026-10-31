@@ -143,7 +143,7 @@ function cardsBox(zone: Zone, state: GameState, width: number, flipped?: boolean
 /**
  * A battlefield blown up: the same arrangement as on the table. Opens zoomed onto its cards, so
  * they fill the view; "Board" shows the whole board. Zoom with pinch, Ctrl/⌘ + wheel or the
- * buttons, and scroll once zoomed in.
+ * buttons; move about with the wheel, or by dragging with the right or middle button.
  */
 export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameState; flipped?: boolean }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -188,6 +188,7 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
 
   /** Zoom so `target` fills the view, centered on it. */
   const fitTo = (target: Box) => {
+    still();
     const s = Math.min(size.w / target.w, size.h / target.h);
     show(s, centered(target, s));
   };
@@ -201,7 +202,43 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
     const y = (el.scrollTop + py) / scale;
     show(s, { left: x * s - px, top: y * s - py });
   };
-  const zoomAtCenter = (next: number) => zoomTo(next, size.w / 2, size.h / 2);
+
+  // A mouse wheel's notches and the buttons zoom in steps; the scale eases to each, a little every
+  // frame, keeping the same point in place.
+  const aim = useRef<{ scale: number; px: number; py: number } | null>(null);
+  const [gliding, setGliding] = useState(false);
+  const still = () => {
+    aim.current = null;
+  };
+  const glide = (factor: number, px: number, py: number) => {
+    const from = aim.current?.scale ?? scale;
+    aim.current = { scale: Math.min(maxScale, Math.max(minScale, from * factor)), px, py };
+    setGliding(true);
+  };
+  /** One frame nearer the aim; says whether there's further to go. */
+  const step = useEffectEvent(() => {
+    const a = aim.current;
+    if (!a) return false;
+    const left = Math.log(a.scale / scale);
+    if (Math.abs(left) < 0.002) {
+      aim.current = null;
+      zoomTo(a.scale, a.px, a.py);
+      return false;
+    }
+    zoomTo(scale * Math.exp(left * 0.3), a.px, a.py);
+    return true;
+  });
+  useEffect(() => {
+    if (!gliding) return;
+    let raf = 0;
+    const tick = () => {
+      if (step()) raf = requestAnimationFrame(tick);
+      else setGliding(false);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [gliding]);
+  const zoomAtCenter = (factor: number) => glide(factor, size.w / 2, size.h / 2);
 
   // A new scale is on screen: scroll to where it was asked for, or keep the fitted cards centered.
   const fitted = chosen === null && measured ? centered(box, scale) : null;
@@ -221,13 +258,86 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const r = wrap.current!.getBoundingClientRect();
-    zoomTo(scale * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    const dy = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 16 : e.deltaY;
+    // A pinch comes in many small steps, followed as they come; a wheel's notch is one big one, eased.
+    if (Math.abs(dy) < 20) {
+      still();
+      zoomTo(scale * Math.exp(-dy * 0.01), px, py);
+    } else glide(dy > 0 ? 1 / 1.25 : 1.25, px, py);
   });
   useEffect(() => {
     const el = wrap.current!;
     const handler = (e: WheelEvent) => onWheel(e);
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
+  }, []);
+
+  // Dragging with the right or middle button moves the view. A right click that doesn't move still
+  // opens its menu: held back until the button is let go where the menu comes on the press (macOS),
+  // and swallowed after a drag where it comes on the release (Windows).
+  useEffect(() => {
+    const el = wrap.current!;
+    let held: { x: number; y: number; left: number; top: number; button: number } | null = null;
+    let dragged = false;
+    let deferred: MouseEvent | null = null;
+    let swallow = false;
+    let replaying = false;
+    const move = (e: PointerEvent) => {
+      if (!held) return;
+      const dx = e.clientX - held.x;
+      const dy = e.clientY - held.y;
+      if (!dragged) {
+        if (Math.hypot(dx, dy) < 5) return;
+        dragged = true;
+        still();
+        el.classList.add('panning');
+      }
+      el.scrollLeft = held.left - dx;
+      el.scrollTop = held.top - dy;
+    };
+    const up = (e: PointerEvent) => {
+      if (!held || e.button !== held.button) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      el.classList.remove('panning');
+      const right = held.button === 2;
+      held = null;
+      swallow = right && dragged && !deferred;
+      if (dragged || !deferred) return;
+      const menu = deferred;
+      deferred = null;
+      replaying = true;
+      menu.target?.dispatchEvent(new MouseEvent('contextmenu', menu));
+      replaying = false;
+    };
+    const down = (e: PointerEvent) => {
+      if (e.button !== 1 && e.button !== 2) return;
+      // No autoscroll on a middle press.
+      if (e.button === 1) e.preventDefault();
+      held = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, button: e.button };
+      dragged = false;
+      deferred = null;
+      swallow = false;
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    };
+    const context = (e: MouseEvent) => {
+      if (replaying || !(held?.button === 2 || swallow)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (held) deferred = dragged ? null : e;
+      else swallow = false;
+    };
+    el.addEventListener('pointerdown', down, true);
+    el.addEventListener('contextmenu', context, true);
+    return () => {
+      el.removeEventListener('pointerdown', down, true);
+      el.removeEventListener('contextmenu', context, true);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
   }, []);
 
   return (
@@ -239,11 +349,11 @@ export function ZoomBoard({ zone, state, flipped }: { zone: Zone; state: GameSta
         </div>
       </div>
       <div className="zoom-controls">
-        <button onClick={() => zoomAtCenter(scale / 1.25)} disabled={scale <= minScale + 1e-6} {...tip('Zoom out')}>
+        <button onClick={() => zoomAtCenter(1 / 1.25)} disabled={scale <= minScale + 1e-6} {...tip('Zoom out')}>
           −
         </button>
         <span className="zoom-level">{Math.round(scale * 100)}%</span>
-        <button onClick={() => zoomAtCenter(scale * 1.25)} disabled={scale >= maxScale - 1e-6} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
+        <button onClick={() => zoomAtCenter(1.25)} disabled={scale >= maxScale - 1e-6} {...tip('Zoom in (or pinch, or Ctrl/⌘ + wheel)', 'end')}>
           +
         </button>
         <button onClick={() => fitTo(box)} {...tip('Fit the cards', 'end')}>

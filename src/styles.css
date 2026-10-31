@@ -2084,6 +2084,11 @@ body.dragging * {
   overflow: auto;
   display: grid;
 }
+/* Moved by dragging with the right or middle button. */
+.zoom-scroll.panning,
+.zoom-scroll.panning * {
+  cursor: grabbing !important;
+}
 .zoom-sizer {
   position: relative;
   /* Centered while it fits, scrollable once zoomed past the view. */
