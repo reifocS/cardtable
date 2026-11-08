@@ -22,9 +22,9 @@ export function useDropHover(zone: ZoneId): boolean {
   return useStore((s) => s.drag?.over?.zone === zone);
 }
 
-/** Whether this card is being dragged: its place shows faded while the ghost follows the pointer. */
+/** Whether this card is being dragged, or drawn in the ghost's group: its place shows faded while the ghost follows the pointer. */
 export function useDragged(card: CardId): boolean {
-  return useStore((s) => !!s.drag?.ids.includes(card));
+  return useStore((s) => !!s.drag && (s.drag.ids.includes(card) || !!s.drag.laid?.some((m) => m.id === card)));
 }
 
 /**

@@ -44,6 +44,20 @@ export interface TableDrag {
   turn: number;
   /** The zone under the pointer, and for a row (a hand, a pile's viewer) where in it they'd land. */
   over: { zone: ZoneId; index: number | null } | null;
+  /**
+   * Over a battlefield, the cards drawn with the held one as they lay together (what's attached to it,
+   * others picked up beside it), the held one among them, in the order they're drawn; null when the
+   * ghost is the held card alone.
+   */
+  laid: LaidCard[] | null;
+}
+
+/** A card of the ghost's group: where its middle is from the held card's (in held-card heights), and how it's turned. */
+export interface LaidCard {
+  id: CardId;
+  dx: number;
+  dy: number;
+  turn: number;
 }
 
 export interface Store {

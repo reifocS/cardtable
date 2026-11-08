@@ -60,8 +60,8 @@ export function settle(el: HTMLElement, from: DOMRect, fromTurn = 0, onLand?: (a
   };
 }
 
-/** Where the ghost of a drag is on screen, to glide from once it's let go. */
-export const ghostBox = () => document.querySelector('.ghost')?.getBoundingClientRect();
+/** Where the ghost of the held card is on screen (among its group's), to glide from once it's let go. */
+export const ghostBox = () => (document.querySelector('.ghost[data-held]') ?? document.querySelector('.ghost'))?.getBoundingClientRect();
 
 /** The card drawn for `id` in `zone`: the one on top where a zone shows twice (a pile and its open viewer, a zoomed battlefield). */
 function shownIn(zone: string, id: CardId): HTMLElement | null {

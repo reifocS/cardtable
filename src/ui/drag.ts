@@ -6,7 +6,7 @@ import { VIEW_H, mirrorY, storeX, storeY } from './fit';
 import { sticky, zoneIn } from './dropTarget';
 import { aroundGhost, ghostBox, letGoOf } from './settle';
 import { insertionIndex } from './sortable';
-import { act, setSelection, useStore, type TableDrag } from './store';
+import { act, setSelection, useStore, type LaidCard, type TableDrag } from './store';
 
 /**
  * Cards dragged across the table. The press is followed by dragSession; what the drag looks like (the
@@ -107,7 +107,18 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     const size = cardSizeIn(t, ids) ?? own;
     const keepTurn = turn && t?.classList.contains('board') ? turn : 0;
     const middle = { x: at.x + (0.5 - fx) * size.w, y: at.y + (0.5 - fy) * size.h };
-    useStore.setState({ drag: { ...d, x: at.x, y: at.y, w: size.w, h: size.h, turn: keepTurn, over: overAt(t, ids, middle, d.over) } });
+    useStore.setState({ drag: { ...d, x: at.x, y: at.y, w: size.w, h: size.h, turn: keepTurn, over: overAt(t, ids, middle, d.over), laid: laidOver(t, d.laid) } });
+  };
+
+  // Over a battlefield, the ghost is the group as it lay: the cards picked up, and over their own
+  // battlefield what's attached to them too (it follows its host there, nowhere else). Anywhere else, one card.
+  let layout: LaidCard[] = [];
+  const laidOver = (t: HTMLElement | null, was: LaidCard[] | null): LaidCard[] | null => {
+    if (!t?.classList.contains('board')) return null;
+    const home = t.dataset.dropZone === card.zone;
+    const shown = layout.filter((m) => home || ids.includes(m.id));
+    if (shown.length < 2) return null;
+    return was?.length === shown.length ? was : shown;
   };
 
   trackPress(
@@ -119,7 +130,13 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
           setSelection(ids);
         }
         group = together(ids, card);
-        useStore.setState({ drag: { ids, x: at.x, y: at.y, fx, fy, w: own.w, h: own.h, turn, over: null } });
+        const mid = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+        const h = group.get(card.id);
+        const cards = useStore.getState().state?.cards;
+        layout = h
+          ? [...group].map(([id, r]) => ({ id, dx: (mid(r).x - mid(h).x) / own.h, dy: (mid(r).y - mid(h).y) / own.h, turn: cards?.[id]?.rotation ?? 0 }))
+          : [];
+        useStore.setState({ drag: { ids, x: at.x, y: at.y, fx, fy, w: own.w, h: own.h, turn, over: null, laid: null } });
       },
       move: update,
       drop(at) {

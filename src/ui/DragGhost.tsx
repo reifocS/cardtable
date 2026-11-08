@@ -17,6 +17,8 @@ interface GhostProps {
   /** How many cards it stands for, when more than one. */
   count?: number;
   sleeve?: string;
+  /** The card held, among a group's ghosts. */
+  held?: boolean;
 }
 
 /** How quickly the ghost's size catches up with the zone below: about two thirds of the way in this many ms. */
@@ -56,7 +58,7 @@ function useEasedSize(w: number, h: number) {
  * The card that follows the pointer during a drag. Placed by the size it's growing or shrinking to,
  * so the held point stays under the pointer; a turned card is placed by the box it fills on screen.
  */
-export function CardGhost({ card, x, y, fx, fy, w: toW, h: toH, turn = 0, count = 1, sleeve }: GhostProps) {
+export function CardGhost({ card, x, y, fx, fy, w: toW, h: toH, turn = 0, count = 1, sleeve, held }: GhostProps) {
   // It takes the size cards have in the zone below, easing into it; the held point stays under the pointer throughout.
   const { w, h } = useEasedSize(toW, toH);
   const sideways = turn % 180 !== 0;
@@ -66,7 +68,7 @@ export function CardGhost({ card, x, y, fx, fy, w: toW, h: toH, turn = 0, count 
   const top = y - fy * shownH - (h - shownH) / 2;
   const face = card.faceDown ? undefined : (card.faces[card.face] ?? card.faces[0]);
   return (
-    <div className="card ghost" style={{ width: w, height: h, transform: `translate(${left}px, ${top}px)${turn ? ` rotate(${turn}deg)` : ''}` }}>
+    <div className="card ghost" data-held={held ? '' : undefined} style={{ width: w, height: h, transform: `translate(${left}px, ${top}px)${turn ? ` rotate(${turn}deg)` : ''}` }}>
       {/* Its image is picked for the size it's heading to, not each step of the way. */}
       {face ? <FaceView face={face} width={Math.round(toW)} /> : <CardBack sleeve={sleeve} />}
       {count > 1 && <div className="ghost-count">{count}</div>}
@@ -77,13 +79,34 @@ export function CardGhost({ card, x, y, fx, fy, w: toW, h: toH, turn = 0, count 
 /** The ghost of a drag across the table, and the page's dragging state (cursor, cards letting the pointer through). */
 export function TableDragGhost() {
   const drag = useStore((s) => s.drag);
-  const card = useStore((s) => (s.drag ? s.state?.cards[s.drag.ids[0]] : undefined));
-  const sleeve = useStore((s) => (card ? s.state?.players[card.owner]?.sleeve : undefined));
+  const cards = useStore((s) => s.state?.cards);
+  const players = useStore((s) => s.state?.players);
   const on = !!drag;
   useEffect(() => {
     document.body.classList.toggle('dragging', on);
     return () => document.body.classList.remove('dragging');
   }, [on]);
+  const card = drag && cards?.[drag.ids[0]];
   if (!drag || !card) return null;
-  return <CardGhost card={card} x={drag.x} y={drag.y} fx={drag.fx} fy={drag.fy} w={drag.w} h={drag.h} turn={drag.turn} count={drag.ids.length} sleeve={sleeve} />;
+  const sleeve = (id: string) => players?.[cards[id]?.owner]?.sleeve;
+  const held = <CardGhost key={card.id} held card={card} x={drag.x} y={drag.y} fx={drag.fx} fy={drag.fy} w={drag.w} h={drag.h} turn={drag.turn} sleeve={sleeve(card.id)} />;
+  // Always in a fragment, keyed: the held card's ghost stays the same element (easing its size) as the group comes and goes.
+  if (!drag.laid) return <>{<CardGhost key={card.id} {...held.props} count={drag.ids.length} />}</>;
+  // The group as it lay, each card around the held one's middle, the held one among them.
+  const sideways = drag.turn % 180 !== 0;
+  const cx = drag.x + (0.5 - drag.fx) * (sideways ? drag.h : drag.w);
+  const cy = drag.y + (0.5 - drag.fy) * (sideways ? drag.w : drag.h);
+  // Cards picked up elsewhere (a hand) are still counted on it.
+  const rest = drag.ids.filter((id) => !drag.laid!.some((m) => m.id === id)).length;
+  return (
+    <>
+      {drag.laid.map((m) => {
+        if (m.id === card.id) return rest ? <CardGhost key={m.id} {...held.props} count={rest + 1} /> : held;
+        const c = cards[m.id];
+        return (
+          c && <CardGhost key={m.id} card={c} x={cx + m.dx * drag.h} y={cy + m.dy * drag.h} fx={0.5} fy={0.5} w={drag.w} h={drag.h} turn={m.turn} sleeve={sleeve(m.id)} />
+        );
+      })}
+    </>
+  );
 }
