@@ -119,11 +119,14 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
   const order = dests.map((d) => here(shown[d]).join()).join('|');
   const flip = useFlip(order, { lifted: carried ? [carried] : [] });
 
-  /** Where a card dropped at (x, y) would go: the row under the pointer, before the first card past it. */
-  const landing = (id: CardId, x: number, y: number): { to: Dest; index: number } | null => {
+  /**
+   * Where a card dragged with its middle at (x, y) would go: the row under the pointer `py`, before the
+   * first card past its middle (where it's seen to go, wherever it's held).
+   */
+  const landing = (id: CardId, x: number, y: number, py: number): { to: Dest; index: number } | null => {
     for (const d of dests) {
       const row = rowEls.current.get(d)?.getBoundingClientRect();
-      if (!row || y < row.top || y > row.bottom) continue;
+      if (!row || py < row.top || py > row.bottom) continue;
       const rects = here(piles[d])
         .filter((c) => c !== id)
         .map((c) => flip.rect(c))
@@ -148,7 +151,8 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
       {
         move(at) {
           // Off every row, it stays where it was last shown.
-          now = { ...now, x: at.x, y: at.y, ...landing(id, at.x, at.y) };
+          const middle = { x: at.x + (0.5 - now.fx) * now.w, y: at.y + (0.5 - now.fy) * now.h };
+          now = { ...now, x: at.x, y: at.y, ...landing(id, middle.x, middle.y, at.y) };
           setDrag(now);
         },
         drop() {

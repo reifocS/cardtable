@@ -10,8 +10,14 @@ import { useLayoutEffect, useRef } from 'react';
  * an item on an earlier line, or left of the pointer's middle on its line, comes before.
  */
 export function insertionIndex(rects: DOMRect[], x: number, y: number): number {
+  if (!rects.length) return 0;
+  // Above the row or below it, it's on its first or last line: a card held a little high still lands
+  // by where it is across, not at the start.
+  const top = Math.min(...rects.map((r) => r.top));
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  const at = Math.max(top + 1, Math.min(bottom - 1, y));
   let index = 0;
-  for (const r of rects) if (r.bottom < y || (r.top <= y && r.left + r.width / 2 < x)) index++;
+  for (const r of rects) if (r.bottom < at || (r.top <= at && r.left + r.width / 2 < x)) index++;
   return index;
 }
 

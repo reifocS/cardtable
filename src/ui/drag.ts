@@ -45,11 +45,15 @@ function restingRect(el: HTMLElement): DOMRect {
   return new DOMRect(r.left - m.m41, r.top - m.m42, r.width, r.height);
 }
 
-/** Where dragged cards would land under (x, y). Kept the same object while unchanged, so rows don't re-render on every move. */
-function overAt(t: HTMLElement | null, ids: CardId[], x: number, y: number, was: TableDrag['over']): TableDrag['over'] {
+/**
+ * Where dragged cards would land in zone `t`. In a row, by where the held card's middle is, not the
+ * pointer: a card held by its edge goes where it's seen to go. Kept the same object while unchanged, so
+ * rows don't re-render on every move.
+ */
+function overAt(t: HTMLElement | null, ids: CardId[], middle: { x: number; y: number }, was: TableDrag['over']): TableDrag['over'] {
   if (!t) return null;
   const zone = t.dataset.dropZone as ZoneId;
-  const index = isRow(t) ? indexAt(t, ids, x, y) : null;
+  const index = isRow(t) ? indexAt(t, ids, middle.x, middle.y) : null;
   return was?.zone === zone && was.index === index ? was : { zone, index };
 }
 
@@ -95,7 +99,8 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     // Over a zone, the ghost takes the size cards have there; over nothing, its own. Only a battlefield keeps it tapped.
     const size = cardSizeIn(t, ids) ?? own;
     const keepTurn = turn && t?.classList.contains('board') ? turn : 0;
-    useStore.setState({ drag: { ...d, x: at.x, y: at.y, w: size.w, h: size.h, turn: keepTurn, over: overAt(t, ids, at.x, at.y, d.over) } });
+    const middle = { x: at.x + (0.5 - fx) * size.w, y: at.y + (0.5 - fy) * size.h };
+    useStore.setState({ drag: { ...d, x: at.x, y: at.y, w: size.w, h: size.h, turn: keepTurn, over: overAt(t, ids, middle, d.over) } });
   };
 
   trackPress(
