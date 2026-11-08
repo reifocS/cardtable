@@ -79,7 +79,9 @@ function PalettePanel({ state }: { state: GameState }) {
       const by = e.key === 'ArrowDown' ? 1 : -1;
       setActive((i) => (i + by + results.length) % Math.max(1, results.length));
     } else if (e.key === 'Enter') {
+      // Kept here: what it opens may itself answer Enter (the scry window's "done"), and would close at once.
       e.preventDefault();
+      e.stopPropagation();
       choose(results[active]);
     } else if (e.key === 'Escape') {
       e.preventDefault();
