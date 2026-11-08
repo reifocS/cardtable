@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ArrangeTo } from '../core/ops';
 import type { CardId, GameState, Zone } from '../core/types';
 import { closeArrange } from './actions';
 import { CardBack, FaceView } from './CardView';
+import { insertionIndex, useFlip, withInserted } from './sortable';
 import { act, useStore, type Store } from './store';
 
 type Dest = keyof ArrangeTo;
@@ -27,8 +28,7 @@ function destsFor(as: 'scry' | 'surveil' | undefined, mine: boolean): Dest[] {
 function placed(piles: Piles, dests: Dest[], id: CardId, to: Dest, index: number): Piles {
   const next: Piles = {};
   for (const d of dests) next[d] = (piles[d] ?? []).filter((c) => c !== id);
-  const list = next[to]!;
-  list.splice(Math.max(0, Math.min(index, list.length)), 0, id);
+  next[to] = withInserted(next[to]!, [id], index);
   return next;
 }
 
@@ -71,7 +71,6 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
     dragNow.current = d;
     setDragState(d);
   };
-  const cardEls = useRef(new Map<CardId, HTMLElement>());
   const rowEls = useRef(new Map<Dest, HTMLElement>());
 
   // A card that left meanwhile (a shuffle, an undo) is no longer ours to put away.
@@ -111,48 +110,20 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
     closeArrange(true);
   };
 
-  // Cards glide to their new place whenever the order changes (FLIP: measure, jump back, ease in).
-  // `last` holds where each card sits in the layout, without any glide under way.
-  const last = useRef(new Map<CardId, DOMRect>());
+  // Cards glide to their new place whenever the order changes.
   const order = dests.map((d) => here(shown[d]).join()).join('|');
-  useLayoutEffect(() => {
-    const now = new Map<CardId, DOMRect>();
-    for (const [id, el] of cardEls.current) {
-      if (!el.isConnected) continue;
-      // Where it is on screen right now: its old place plus what's left of a glide still under way.
-      const t = getComputedStyle(el).transform;
-      const m = t && t !== 'none' ? new DOMMatrixReadOnly(t) : null;
-      el.style.transition = 'none';
-      el.style.transform = '';
-      const r = el.getBoundingClientRect();
-      now.set(id, r);
-      const was = last.current.get(id);
-      if (!was) continue;
-      const dx = was.left + (m?.m41 ?? 0) - r.left;
-      const dy = was.top + (m?.m42 ?? 0) - r.top;
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
-      el.style.transform = `translate(${dx}px, ${dy}px)`;
-      requestAnimationFrame(() => {
-        el.style.transition = 'transform 170ms ease-out';
-        el.style.transform = '';
-      });
-    }
-    last.current = now;
-  }, [order]);
+  const flip = useFlip(order);
 
   /** Where a card dropped at (x, y) would go: the row under the pointer, before the first card past it. */
   const landing = (id: CardId, x: number, y: number): { to: Dest; index: number } | null => {
     for (const d of dests) {
       const row = rowEls.current.get(d)?.getBoundingClientRect();
       if (!row || y < row.top || y > row.bottom) continue;
-      let index = 0;
-      for (const c of here(piles[d]).filter((c) => c !== id)) {
-        const r = last.current.get(c);
-        if (!r) continue;
-        // Rows wrap: a card on an earlier line, or left of the pointer on its line, comes first.
-        if (r.bottom < y || (r.top <= y && r.left + r.width / 2 < x)) index++;
-      }
-      return { to: d, index };
+      const rects = here(piles[d])
+        .filter((c) => c !== id)
+        .map((c) => flip.rect(c))
+        .filter((r): r is DOMRect => !!r);
+      return { to: d, index: insertionIndex(rects, x, y) };
     }
     return null;
   };
@@ -288,10 +259,7 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
                   return (
                     <div
                       key={id}
-                      ref={(el) => {
-                        if (el) cardEls.current.set(id, el);
-                        else cardEls.current.delete(id);
-                      }}
+                      ref={flip.ref(id)}
                       className={`arrange-card${selected === id ? ' selected' : ''}${held ? ' held' : ''}`}
                       onPointerDown={(e) => onPointerDown(e, id)}
                       onPointerEnter={() => face && useStore.setState({ previewId: id })}

@@ -8,6 +8,8 @@ import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
 import { Icon, type IconName } from './Icon';
 import { matLook, matShader } from './playmats';
 import { ShaderMat } from './ShaderMat';
+import { useRowOrder } from './rowOrder';
+import { useFlip } from './sortable';
 import { setBoardLayout, useStore } from './store';
 import { tip } from './tip';
 
@@ -433,22 +435,26 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
  * so cards overlap more instead of scrolling (a scroll box would also clip lifted cards).
  */
 export function Hand({ zone, state, compact }: { zone: Zone; state: GameState; compact?: boolean }) {
+  const order = useRowOrder(zone, zone.cards);
+  const flip = useFlip(order.join());
   return (
     <div
       className={`hand${compact ? ' compact' : ''}`}
       data-drop-zone={zone.id}
-      data-count={zone.cards.length}
+      data-drop-list="1"
+      data-count={order.length}
       onContextMenu={(e) => e.target === e.currentTarget && openMenu(e, zoneMenu(zone))}
     >
-      {zone.cards.map((id) => {
+      {order.map((id) => {
         const c = state.cards[id];
+        if (!c) return null;
+        // A card on its way in from elsewhere: the room it will take.
+        if (c.zone !== zone.id) return <div key={id} ref={flip.ref(id)} data-sort-id={id} className="hand-slot drop-gap" />;
         return (
-          c && (
-            // A card I can see in someone else's hand (revealed to me): what the hand shows when it folds.
-            <div key={id} className={`hand-slot${compact && c.faces.length ? ' seen' : ''}`}>
-              <CardView card={c} zone={zone} />
-            </div>
-          )
+          // A card I can see in someone else's hand (revealed to me): what the hand shows when it folds.
+          <div key={id} ref={flip.ref(id)} data-sort-id={id} className={`hand-slot${compact && c.faces.length ? ' seen' : ''}`}>
+            <CardView card={c} zone={zone} />
+          </div>
         );
       })}
       {!compact && zone.cards.length === 0 && <div className="hand-empty">Hand</div>}

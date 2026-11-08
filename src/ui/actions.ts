@@ -406,6 +406,28 @@ const isTyping = (e: KeyboardEvent) => {
   return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
 };
 
+/**
+ * Moves the picked cards one place along their row (a hand, a pile), or to its start or end with
+ * `far`. The selection comes first: it stays on the cards wherever they go, so the key can be pressed
+ * again without chasing them with the pointer. On a pile, the start is the top.
+ */
+export function shiftInRow(by: -1 | 1, far = false) {
+  const { state, selection, hovered, me } = useStore.getState();
+  if (!state) return false;
+  const ids = selection.length ? selection : hovered ? [hovered] : [];
+  const zone = ids.length ? state.zones[state.cards[ids[0]]?.zone] : undefined;
+  if (!zone || zone.kind === 'free' || ids.some((id) => state.cards[id]?.zone !== zone.id)) return false;
+  // Only rows I may rearrange: mine, or the table's (the stack).
+  if (zone.owner !== me && zone.owner !== TABLE) return false;
+  const at = zone.cards.indexOf(ids.find((id) => zone.cards.includes(id))!);
+  const rest = zone.cards.length - ids.length;
+  const index = far ? (by < 0 ? 0 : rest) : Math.max(0, Math.min(rest, at + by));
+  if (index === at && !far) return true;
+  act({ type: 'move', cards: zone.cards.filter((id) => ids.includes(id)), to: zone.id, index });
+  if (!selection.length) useStore.setState({ selection: ids });
+  return true;
+}
+
 export function onKeyDown(e: KeyboardEvent) {
   const store = useStore.getState();
   // Dialogs close on Esc, even with focus in their input.
@@ -439,6 +461,11 @@ export function onKeyDown(e: KeyboardEvent) {
     return;
   }
   if (store.dialog) return;
+
+  if (key === 'arrowleft' || key === 'arrowright') {
+    if (shiftInRow(key === 'arrowleft' ? -1 : 1, e.shiftKey)) e.preventDefault();
+    return;
+  }
 
   const ids = targetCards();
   const run: Record<string, () => void> = {

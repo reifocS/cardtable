@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Card, GameState, Zone } from '../core/types';
 import { closeViewer } from './actions';
 import { CardView } from './CardView';
+import { useRowOrder } from './rowOrder';
+import { useFlip } from './sortable';
 import { act, useStore, type Store } from './store';
 
 /** Every word must appear in the name, type line or rules text of some face: "basic land", "creature flying". */
@@ -27,6 +29,10 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
   const ids = viewer.ids ? zone.cards.filter((id) => viewer.ids!.includes(id)) : zone.cards;
   const shown = ids.filter((id) => state.cards[id] && matches(state.cards[id], query));
   const filtering = shown.length !== ids.length;
+  // Not while filtering: positions in the list aren't positions in the zone.
+  const previewed = useRowOrder(zone, shown);
+  const order = filtering ? shown : previewed;
+  const flip = useFlip(order.join());
   const owner = state.players[zone.owner]?.name;
   const title = `${zone.owner === me ? 'Your' : `${owner}'s`} ${zone.name.toLowerCase()}${viewer.ids ? ` — top ${viewer.ids.length}` : ''}`;
 
@@ -60,9 +66,16 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
       </div>
       {/* While filtering, positions in the list aren't positions in the zone, so drops just go on top. */}
       <div className="viewer-cards" data-drop-zone={zone.id} data-drop-list={filtering ? undefined : '1'}>
-        {shown.map((id) => (
-          <CardView key={id} card={state.cards[id]} zone={zone} />
-        ))}
+        {order.map((id) =>
+          state.cards[id]?.zone === zone.id ? (
+            <div key={id} ref={flip.ref(id)} data-sort-id={id} className="viewer-slot">
+              <CardView card={state.cards[id]} zone={zone} />
+            </div>
+          ) : (
+            // A card on its way in from elsewhere: the room it will take.
+            <div key={id} ref={flip.ref(id)} data-sort-id={id} className="viewer-slot drop-gap" />
+          ),
+        )}
         {shown.length === 0 && <div className="muted">{ids.length ? 'No match' : 'Empty'}</div>}
       </div>
     </div>

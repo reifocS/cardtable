@@ -50,6 +50,8 @@ export interface Store {
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
   dialog: 'import' | 'create' | 'help' | 'proliferate' | null;
+  /** While cards are dragged over a row (a hand, a pile's viewer): where they'd land, shown there live. */
+  dropPreview: { zone: ZoneId; index: number; ids: CardId[] } | null;
   /** The top cards of a pile being put away one by one: scry, surveil, or any "look at the top N". */
   arrange: { zone: ZoneId; ids: CardId[]; as?: 'scry' | 'surveil' } | null;
   /** This viewer shows this turn's trigger reminders (see Reminders). */
@@ -116,6 +118,7 @@ export const useStore = create<Store>((set, get) => ({
   viewer: null,
   dialog: null,
   arrange: null,
+  dropPreview: null,
   deckDraft: null,
   reminders: loadReminders(),
   artFor: null,

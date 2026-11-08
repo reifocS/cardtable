@@ -3,6 +3,7 @@ import { CARD_H, CARD_W } from '../core/state';
 import { VIEW_H, mirrorY, storeX, storeY } from './fit';
 import { justDropped } from './Flights';
 import type { Card, CardId } from '../core/types';
+import { insertionIndex } from './sortable';
 import { act, setSelection, useStore } from './store';
 
 const DRAG_THRESHOLD = 5;
@@ -12,14 +13,40 @@ function dropTargetAt(x: number, y: number): HTMLElement | null {
   return (document.elementFromPoint(x, y)?.closest('[data-drop-zone]') as HTMLElement | null) ?? null;
 }
 
-/** Insertion index among the zone's rendered cards, ignoring the ones being dragged. */
+/**
+ * Insertion index among the row's rendered cards, ignoring the ones being dragged. Measured on their
+ * slots (`data-sort-id`, which glide into place) when the row has them, so a drop doesn't chase a card
+ * that's still moving aside.
+ */
 function indexAt(target: HTMLElement, dragged: CardId[], x: number, y: number): number {
-  const els = [...target.querySelectorAll<HTMLElement>('[data-card-id]')].filter((el) => !dragged.includes(el.dataset.cardId!));
-  for (let i = 0; i < els.length; i++) {
-    const r = els[i].getBoundingClientRect();
-    if (y < r.top || (y <= r.bottom && x < r.left + r.width / 2)) return i;
+  const slots = [...target.querySelectorAll<HTMLElement>('[data-sort-id]')];
+  const els = slots.length ? slots.map((el) => [el, el.dataset.sortId!] as const) : [...target.querySelectorAll<HTMLElement>('[data-card-id]')].map((el) => [el, el.dataset.cardId!] as const);
+  const rects = els.filter(([, id]) => !dragged.includes(id)).map(([el]) => restingRect(el));
+  return insertionIndex(rects, x, y);
+}
+
+/** An element's box without the transform of a glide under way. */
+function restingRect(el: HTMLElement): DOMRect {
+  const r = el.getBoundingClientRect();
+  const t = el.style.transform;
+  if (!t) return r;
+  const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+  return new DOMRect(r.left - m.m41, r.top - m.m42, r.width, r.height);
+}
+
+/** Rows that show where dragged cards would land: a hand, a pile's viewer (not filtered). */
+const isRow = (t: HTMLElement | null) => !!t?.dataset.dropList;
+
+function preview(t: HTMLElement | null, ids: CardId[], x: number, y: number) {
+  const zone = isRow(t) ? t!.dataset.dropZone! : null;
+  const index = zone ? indexAt(t!, ids, x, y) : 0;
+  const now = useStore.getState().dropPreview;
+  if (!zone) {
+    if (now) useStore.setState({ dropPreview: null });
+    return;
   }
-  return -1;
+  if (now?.zone === zone && now.index === index) return;
+  useStore.setState({ dropPreview: { zone, index, ids } });
 }
 
 export function finishTargeting(to: string) {
@@ -86,6 +113,7 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
       if (tapTurn && t?.classList.contains('board')) ghost.dataset.turn = tapTurn;
       else delete ghost.dataset.turn;
     }
+    preview(t, ids, ev.clientX, ev.clientY);
     // A tapped ghost is turned like its card, about its middle: place it by the box it fills on screen.
     // Placed by the size it's growing or shrinking to, so the grabbed point stays under the pointer.
     const w = parseFloat(ghost.style.width);
@@ -118,6 +146,7 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
       return;
     }
     ghost.remove();
+    useStore.setState({ dropPreview: null });
     hoverTarget?.classList.remove('drop-hover');
     document.body.classList.remove('dragging');
     document.querySelectorAll('.drag-source').forEach((n) => n.classList.remove('drag-source'));

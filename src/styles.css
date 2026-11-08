@@ -1286,6 +1286,23 @@ body.dragging * {
 .viewer-cards .card {
   height: 120px;
 }
+/* Where cards dragged over a row would land, before they're dropped. */
+.hand-slot.drop-gap::before,
+.viewer-slot.drop-gap {
+  content: '';
+  display: block;
+  aspect-ratio: 63 / 88;
+  border-radius: var(--card-radius) / calc(var(--card-radius) * 63 / 88);
+  outline: 1px dashed var(--gold);
+  outline-offset: -2px;
+  background: #e8c46a14;
+}
+.hand-slot.drop-gap::before {
+  height: var(--hand-card-h);
+}
+.viewer-slot.drop-gap {
+  height: 120px;
+}
 
 /* London mulligan: a floating bar over the table, the new hand in it. */
 .mulligan-bar {

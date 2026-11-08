@@ -396,6 +396,7 @@ const SHORTCUTS: [string, string][] = [
   ['Drop on "Stack"', 'Cast a spell where everyone sees it; double-click it to resolve'],
   ['Right-click', 'Everything else'],
   ['T', 'Tap / untap'],
+  ['← / →', 'Move the picked cards along their row (hand, pile); ⇧ to either end'],
   ['F', 'Turn face down / up'],
   ['X', 'Transform (next face)'],
   ['+ / −', '+1/+1 counter'],
