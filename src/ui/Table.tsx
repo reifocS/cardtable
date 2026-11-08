@@ -20,6 +20,7 @@ import { RollFx } from './RollFx';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
 import { Arrange } from './Arrange';
+import { ProliferateDialog, RevealDialog } from './Effects';
 import { Board, Hand, Pile, StackZone, ZoomBoard } from './Zones';
 
 const SIDE_PILES = ['graveyard', 'exile', 'command'];
@@ -359,6 +360,8 @@ export function Table() {
       <FocusBoard state={state} />
       <Viewer state={state} />
       <Arrange state={state} />
+      <RevealDialog state={state} />
+      <ProliferateDialog state={state} />
       <Arrows state={state} />
       <Flights state={state} />
       <RollFx state={state} />

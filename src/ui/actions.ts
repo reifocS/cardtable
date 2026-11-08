@@ -2,7 +2,7 @@ import type React from 'react';
 import { TABLE, zoneId } from '../core/state';
 import type { Card, CardFace, CardId, Zone } from '../core/types';
 import { fetchCard, isScryfallCard } from '../cards/scryfall';
-import { textActionLabel, textActions, type TextAction } from './cardText';
+import { textActionLabel, textActions, tokenCount, type TextAction } from './cardText';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
 
 const DEFAULT_COUNTER = '+1/+1';
@@ -145,12 +145,14 @@ export function duplicate(ids: CardId[]) {
 }
 
 /** Creates a related token (from the card database) on my battlefield, next to its source. */
-async function createToken(id: string, near: Card) {
+async function createToken(id: string, near: Card, count = 1) {
   const bf = myZone('battlefield');
-  if (!bf) return;
+  if (!bf || count < 1) return;
   try {
     const faces = await fetchCard(id);
-    createTokens(faces, 1, near.zone === bf.id ? [[near.x + 80, near.y]] : undefined);
+    // Side by side, to the right of their source; elsewhere, wherever there's room.
+    const at = near.zone === bf.id ? Array.from({ length: count }, (_, i): [number, number] => [near.x + 80 + i * 26, near.y + i * 6]) : undefined;
+    createTokens(faces, Math.min(count, 100), at);
   } catch (e) {
     console.warn('Could not fetch token', e);
   }
@@ -160,8 +162,10 @@ async function createToken(id: string, near: Card) {
 function runTextAction({ kind, n }: TextAction) {
   const lib = myZone('library');
   if (!lib) return;
+  if (kind === 'proliferate') return useStore.setState({ dialog: 'proliferate', menu: null });
   const run = (n: number) => {
-    if (kind === 'scry' || kind === 'surveil') openArrange(lib, n, kind);
+    if (kind === 'cascade' || kind === 'discover') act({ type: 'revealUntil', zone: lib.id, max: n, as: kind });
+    else if (kind === 'scry' || kind === 'surveil') openArrange(lib, n, kind);
     else if (kind === 'look') openArrange(lib, n);
     else if (kind === 'draw') draw(n);
     else {
@@ -192,7 +196,7 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
 
   // What the card says to do, one click away: "Scry 2", "Draw a card"…
   const face = card.faces[card.face] ?? card.faces[0];
-  const fromText = ids.length === 1 ? textActions(face?.text) : [];
+  const fromText = ids.length === 1 ? textActions(face?.text, card.faceDown ? undefined : face?.cost) : [];
   if (fromText.length) {
     items.push(...fromText.map((t) => ({ label: textActionLabel(t), action: () => runTextAction(t) })), { label: '', heading: true });
   }
@@ -215,7 +219,23 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
   }
   if (!onBoard) items.push({ label: `Attach to…${many}`, action: () => startAttaching(ids) });
   for (const t of card.faces[0]?.tokens ?? []) {
-    items.push({ label: `Create ${t.name}${/emblem/i.test(t.name) ? '' : ' token'}`, action: () => createToken(t.id, card) });
+    if (/emblem/i.test(t.name)) {
+      items.push({ label: `Create ${t.name}`, action: () => createToken(t.id, card) });
+      continue;
+    }
+    // "Create two Treasure tokens": how many, as the text says (1 when it doesn't).
+    const n = tokenCount(card.faces.map((f) => f.text ?? '').join('\n'), t.name);
+    items.push(
+      { label: n > 1 ? `Create ${n} ${t.name} tokens` : `Create ${t.name} token`, action: () => createToken(t.id, card, n) },
+      { label: `Create ${t.name} tokens…`, action: () => askNumber(`How many ${t.name} tokens?`, n, (k) => createToken(t.id, card, k)) },
+    );
+  }
+  // Every card of this name on this battlefield, to tap, sacrifice or move them together.
+  if (onBoard && face) {
+    const same = zone.cards.filter((id) => state.cards[id]?.faces[state.cards[id].face]?.name === face.name);
+    if (same.length > 1 && !same.every((id) => ids.includes(id))) {
+      items.push({ label: `Select all ${same.length} ${face.name}`, action: () => useStore.setState({ selection: same }) });
+    }
   }
   const rules = state.preset.commander;
   if (rules && card.home === rules.zone) {
@@ -290,6 +310,10 @@ export function zoneMenu(zone: Zone): MenuItem[] {
       { label: 'Surveil…', action: () => askNumber('Surveil how many?', 1, (n) => openArrange(zone, n, 'surveil')) },
       { label: 'Look at top and sort…', action: () => askNumber('Look at how many?', 3, (n) => openArrange(zone, n)) },
       { label: 'Look at top…', action: () => askNumber('Look at how many?', 3, (n) => openViewer(zone, n)) },
+      {
+        label: 'Reveal until a nonland card…',
+        action: () => askNumber('Highest mana value that fits (cascade: one less than the spell)', 3, (n) => act({ type: 'revealUntil', zone: zone.id, max: n })),
+      },
       { label: 'Search library', action: () => openViewer(zone) },
       { label: 'Reveal top card', action: () => zone.cards[0] && act({ type: 'reveal', cards: [zone.cards[0]], to: '*' }) },
       { label: 'Mill…', action: () => askNumber('Mill how many?', 1, (n) => act({ type: 'moveTop', from: zone.id, to: gy.id, n })) },
@@ -342,6 +366,7 @@ export function zoneMenu(zone: Zone): MenuItem[] {
     );
   } else if (zone.kind === 'free') {
     if (mine) items.push({ label: 'Untap all', hint: 'U', action: () => act({ type: 'untapAll' }) });
+    items.push({ label: 'Proliferate…', action: () => useStore.setState({ dialog: 'proliferate', menu: null }) });
     items.push({ label: 'Create card / token…', hint: 'C', action: () => useStore.setState({ dialog: 'create', menu: null }) });
     const last = useStore.getState().lastToken;
     if (last) items.push({ label: `Create another ${last[0].name}`, hint: '⇧C', action: createAnotherToken });

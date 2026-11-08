@@ -576,6 +576,99 @@ describe('arranging the top of a library', () => {
   });
 });
 
+describe('cascade and discover', () => {
+  function withLibrary(cards: { name: string; type: string; cost: number }[]) {
+    const e = new Engine();
+    const a = e.join('Alice');
+    e.dispatch(a, { type: 'loadDeck', sections: { main: cards.map((c) => [c]), side: [], commander: [] } });
+    const lib = zoneId(a, 'library');
+    // Put the library back in list order: the deck was shuffled on load.
+    const byName = (n: string) => Object.values(e.state.cards).find((c) => c.faces[0].name === n)!.id;
+    e.state.zones[lib].cards = cards.map((c) => byName(c.name));
+    return { e, a, lib, byName };
+  }
+  const deck = [
+    { name: 'Forest', type: 'Basic Land — Forest', cost: 0 },
+    { name: 'Craterhoof', type: 'Creature — Beast', cost: 8 },
+    { name: 'Llanowar Elves', type: 'Creature — Elf Druid', cost: 1 },
+    { name: 'Island', type: 'Basic Land — Island', cost: 0 },
+  ];
+
+  it('exiles until a nonland card that fits, then casts it and bottoms the rest', () => {
+    const { e, a, lib, byName } = withLibrary(deck);
+    e.dispatch(a, { type: 'revealUntil', zone: lib, max: 3, as: 'cascade' });
+    const r = e.state.zones[lib].reveal!;
+    expect(r.hit).toBe(byName('Llanowar Elves'));
+    expect(r.misses).toEqual([byName('Forest'), byName('Craterhoof')]);
+    expect(e.state.zones[zoneId(a, 'exile')].cards[0]).toBe(r.hit);
+    expect(e.state.log.at(-1)?.text).toBe('cascaded: hit Llanowar Elves past 2 cards');
+    e.dispatch(a, { type: 'finishReveal', zone: lib, hit: 'cast' });
+    expect(e.state.cards[byName('Llanowar Elves')].zone).toBe(zoneId(TABLE, 'stack'));
+    expect(e.state.zones[lib].cards).toHaveLength(3);
+    expect(new Set(e.state.zones[lib].cards.slice(1))).toEqual(new Set([byName('Forest'), byName('Craterhoof')]));
+    expect(e.state.zones[lib].reveal).toBeUndefined();
+  });
+
+  it('discover can put the card into your hand; without a fit everything goes back', () => {
+    const { e, a, lib, byName } = withLibrary(deck);
+    e.dispatch(a, { type: 'revealUntil', zone: lib, max: 1, as: 'discover' });
+    e.dispatch(a, { type: 'finishReveal', zone: lib, hit: 'hand' });
+    expect(e.state.cards[byName('Llanowar Elves')].zone).toBe(zoneId(a, 'hand'));
+    e.dispatch(a, { type: 'revealUntil', zone: lib, max: 0, as: 'discover' });
+    expect(e.state.zones[lib].reveal?.hit).toBeNull();
+    expect(e.state.zones[lib].cards).toHaveLength(0);
+    e.dispatch(a, { type: 'finishReveal', zone: lib, hit: 'bottom' });
+    expect(e.state.zones[lib].cards).toHaveLength(3);
+  });
+
+  it("only from your own library, one at a time", () => {
+    const { e, a, lib } = withLibrary(deck);
+    const b = e.join('Bob');
+    e.dispatch(b, { type: 'revealUntil', zone: lib, max: 3 });
+    expect(e.state.zones[lib].reveal).toBeUndefined();
+    e.dispatch(a, { type: 'revealUntil', zone: lib, max: 3 });
+    const exiled = e.state.zones[zoneId(a, 'exile')].cards.length;
+    e.dispatch(a, { type: 'revealUntil', zone: lib, max: 3 });
+    expect(e.state.zones[zoneId(a, 'exile')].cards).toHaveLength(exiled);
+  });
+});
+
+describe('proliferate', () => {
+  it('adds one of each kind of counter, and to players counters but not life', () => {
+    const { e, a, b } = twoPlayers();
+    const bf = zoneId(a, 'battlefield');
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'library'), to: bf, n: 2 });
+    const [x, y] = e.state.zones[bf].cards;
+    e.dispatch(a, { type: 'counter', cards: [x], key: '+1/+1', delta: 2 });
+    e.dispatch(a, { type: 'counter', cards: [x], key: 'loyalty', delta: 3 });
+    e.dispatch(a, { type: 'setTracker', player: b, key: 'Poison', value: 4 });
+    e.dispatch(a, { type: 'proliferate', cards: [x, y], players: [a, b] });
+    expect(e.state.cards[x].counters).toEqual({ '+1/+1': 3, loyalty: 4 });
+    expect(e.state.cards[y].counters).toEqual({});
+    expect(e.state.players[b].trackers).toMatchObject({ Life: 20, Poison: 5 });
+    expect(e.state.players[a].trackers.Life).toBe(20);
+    expect(e.state.log.at(-1)?.text).toBe(`proliferated: ${e.state.cards[x].faces[0].name}, Bob (Poison 5)`);
+  });
+});
+
+describe('tokens', () => {
+  it('cease to exist off the battlefield, but not on the stack', () => {
+    const { e, a } = twoPlayers();
+    const bf = zoneId(a, 'battlefield');
+    e.dispatch(a, { type: 'create', zone: bf, token: true, cards: [[{ name: 'Treasure' }], [{ name: 'Copy' }]] });
+    const [t, copy] = e.state.zones[bf].cards;
+    e.dispatch(a, { type: 'move', cards: [t], to: zoneId(a, 'graveyard') });
+    expect(e.state.cards[t]).toBeUndefined();
+    expect(e.state.zones[zoneId(a, 'graveyard')].cards).toEqual([]);
+    expect(e.state.log.at(-1)?.text).toBe('moved Treasure from Battlefield to Graveyard — tokens cease to exist');
+    e.dispatch(a, { type: 'move', cards: [copy], to: zoneId(TABLE, 'stack') });
+    expect(e.state.cards[copy].zone).toBe(zoneId(TABLE, 'stack'));
+    e.dispatch(a, { type: 'undo' });
+    e.dispatch(a, { type: 'undo' });
+    expect(e.state.cards[t].zone).toBe(bf);
+  });
+});
+
 describe('undo history', () => {
   it('skips ops that changed nothing, or only the log', () => {
     const { e, a } = twoPlayers();

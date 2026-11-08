@@ -25,6 +25,7 @@ export const MTG: Preset = {
   parts: { deck: 'library', hand: 'hand', play: 'battlefield', discard: 'graveyard' },
   deckSections: { main: 'library', side: 'sideboard', commander: 'command' },
   commander: { zone: 'command', castThrough: 'stack', tax: 2, tracker: 'Life', life: 40, lethal: 21 },
+  tokensOnlyInPlay: true,
 };
 
 /** Owner of the table's shared zones. */

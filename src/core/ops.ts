@@ -1,5 +1,5 @@
 import { BOARD_H, BOARD_W, CARD_H, CARD_W, TABLE, zoneId } from './state';
-import type { Card, CardFace, CardId, GameState, PlayerId, Zone, ZoneId } from './types';
+import type { Card, CardFace, CardId, GameState, PlayerId, Reveal, Zone, ZoneId } from './types';
 import { isPublic } from './visibility';
 
 export type Op =
@@ -13,6 +13,15 @@ export type Op =
       faceDown?: boolean;
     }
   | { type: 'moveTop'; from: ZoneId; to: ZoneId; n: number; faceDown?: boolean; fromBottom?: boolean }
+  /**
+   * Exiles cards from the top of your pile until a nonland card of mana value `max` or less (cascade: less
+   * than the spell's, so one less; discover N: N). The owner then finishes it with `finishReveal`.
+   */
+  | { type: 'revealUntil'; zone: ZoneId; max: number; as?: Reveal['as'] }
+  /** The card it stopped on goes `hit` (cast, hand, stays in exile, or bottom); the others to the bottom in a random order. */
+  | { type: 'finishReveal'; zone: ZoneId; hit: 'cast' | 'hand' | 'exile' | 'bottom' }
+  /** One more of each kind of counter on these cards, and on these players' counters (all but the life total). */
+  | { type: 'proliferate'; cards: CardId[]; players: PlayerId[] }
   | { type: 'tap'; cards: CardId[]; value?: boolean }
   | { type: 'untapAll' }
   | { type: 'flip'; cards: CardId[] }
@@ -211,6 +220,12 @@ class Mutation {
       }
       case 'arrange':
         return this.arrange(op);
+      case 'revealUntil':
+        return this.revealUntil(op);
+      case 'finishReveal':
+        return this.finishReveal(op);
+      case 'proliferate':
+        return this.proliferate(op);
       case 'unpeek': {
         const z = this.zone(op.zone);
         if (!z.peeks) return;
@@ -675,6 +690,89 @@ class Mutation {
     else this.log(text);
   }
 
+  private revealUntil(op: Extract<Op, { type: 'revealUntil' }>) {
+    const z = this.zone(op.zone);
+    const exile = this.s.zones[zoneId(z.owner, 'exile')];
+    if (z.owner !== this.actor || z.kind !== 'pile' || !exile) throw new Error('Not your pile');
+    if (z.reveal) throw new Error('Finish the last one first');
+    const max = Math.max(-1, Math.floor(Number(op.max) || 0));
+    const fits = (c: Card) => {
+      const f = c.faces[0];
+      return !/\bland\b/i.test(f?.type ?? '') && (f?.cost ?? 0) <= max;
+    };
+    const misses: CardId[] = [];
+    let hit: CardId | null = null;
+    for (const id of z.cards) {
+      if (fits(this.s.cards[id])) {
+        hit = id;
+        break;
+      }
+      misses.push(id);
+    }
+    // Face up in exile, in the order they came; the hit ends on top.
+    this.move([...misses].reverse(), exile.id, {}, true);
+    if (hit) this.move([hit], exile.id, {}, true);
+    z.reveal = { as: op.as ?? 'reveal', max, hit, misses };
+    const what = op.as === 'cascade' ? 'cascaded' : op.as === 'discover' ? `discovered ${max}` : `revealed until a nonland card of mana value ${max} or less`;
+    const passed = misses.length ? ` past ${misses.length} card${misses.length === 1 ? '' : 's'}` : '';
+    this.log(hit ? `${what}: hit ${cardName(this.s.cards[hit])}${passed}` : `${what}: no card fit${passed}`);
+  }
+
+  private finishReveal(op: Extract<Op, { type: 'finishReveal' }>) {
+    const z = this.zone(op.zone);
+    const r = z.reveal;
+    if (z.owner !== this.actor || !r) return;
+    delete z.reveal;
+    // Only the cards still in exile: anything moved by hand meanwhile stays where it went.
+    const exile = this.s.zones[zoneId(z.owner, 'exile')];
+    const still = (id: CardId | null): id is CardId => !!id && !!exile?.cards.includes(id);
+    const hit = still(r.hit) ? r.hit : null;
+    const bottom = r.misses.filter(still);
+    let where = '';
+    if (hit && op.hit === 'bottom') bottom.push(hit);
+    else if (hit && op.hit === 'cast') {
+      const stack = this.s.preset.commander?.castThrough;
+      const to = (stack && this.s.zones[zoneId(TABLE, stack)]) || this.s.zones[zoneId(z.owner, this.s.preset.parts.play ?? '')];
+      if (to) {
+        this.move([hit], to.id, {}, true);
+        where = `cast ${cardName(this.s.cards[hit])}`;
+      }
+    } else if (hit && op.hit === 'hand') {
+      const hand = this.s.zones[zoneId(z.owner, this.s.preset.parts.hand ?? '')];
+      if (hand) {
+        this.move([hit], hand.id, {}, true);
+        where = `put ${cardName(this.s.cards[hit])} into their hand`;
+      }
+    }
+    for (let i = bottom.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      [bottom[i], bottom[j]] = [bottom[j], bottom[i]];
+    }
+    if (bottom.length) this.move(bottom, z.id, { index: -1 }, true);
+    const under = bottom.length ? `${bottom.length} card${bottom.length === 1 ? '' : 's'} to the bottom in a random order` : '';
+    const parts = [where, under].filter(Boolean);
+    if (parts.length) this.log(parts.join(', '));
+  }
+
+  private proliferate(op: Extract<Op, { type: 'proliferate' }>) {
+    const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+    const cards = this.cards(list(op.cards)).filter((c) => this.s.zones[c.zone]?.kind === 'free' && Object.keys(c.counters).length);
+    const life = new Set(['Life', this.s.preset.commander?.tracker]);
+    const named: string[] = [];
+    for (const c of cards) {
+      for (const k of Object.keys(c.counters)) c.counters[k] += 1;
+      named.push(cardName(c));
+    }
+    for (const id of new Set(list(op.players))) {
+      const p = this.s.players[id];
+      const keys = p ? Object.keys(p.trackers).filter((k) => !life.has(k) && p.trackers[k] > 0) : [];
+      for (const k of keys) p.trackers[k] += 1;
+      if (keys.length) named.push(`${p.name} (${keys.map((k) => `${k} ${p.trackers[k]}`).join(', ')})`);
+    }
+    if (!named.length) return;
+    this.log(`proliferated: ${named.length > 6 ? `${named.slice(0, 6).join(', ')} and ${named.length - 6} more` : named.join(', ')}`);
+  }
+
   /** Takes a card that left `z` out of the searches open on it. */
   private dropPeeks(z: Zone, id: CardId) {
     if (!z.peeks) return;
@@ -756,6 +854,23 @@ class Mutation {
     // Attachments follow a host that moved around its battlefield.
     for (const h of hosts) this.layoutAttachments(h);
 
+    // Off the battlefield (and the stack), a token ceases to exist: after its log line, which still names it.
+    const { tokensOnlyInPlay, parts, commander } = this.s.preset;
+    const gone = tokensOnlyInPlay && to.role !== parts.play && to.role !== commander?.castThrough ? cards.filter((c) => c.token) : [];
+    this.logMove(cards, from, to, wasPublic, opts, taxed, silent, gone.length);
+    for (const c of gone) this.remove(c);
+  }
+
+  private logMove(
+    cards: Card[],
+    from: Zone[],
+    to: Zone,
+    wasPublic: boolean[],
+    opts: { index?: number },
+    taxed: Card[],
+    silent: boolean,
+    gone: number,
+  ) {
     if (silent || from.every((z) => z.id === to.id)) return;
     const labels = cards.map((c, i) => (wasPublic[i] || isPublic(c, to) ? cardName(c) : null));
     const sources = [...new Set(from)];
@@ -766,6 +881,7 @@ class Mutation {
       return this.log(`${to.verb} ${listLabel(labels)}${fromHand ? '' : ` from ${fromLabel}`}${tax}`);
     }
     const bottom = to.kind === 'pile' && opts.index === -1 ? ' (bottom)' : '';
-    this.log(`moved ${listLabel(labels)} from ${fromLabel} to ${this.zoneLabel(to)}${bottom}${tax}`);
+    const vanish = gone ? (gone === cards.length ? ' — tokens cease to exist' : ` — ${gone} token${gone === 1 ? '' : 's'} ceased to exist`) : '';
+    this.log(`moved ${listLabel(labels)} from ${fromLabel} to ${this.zoneLabel(to)}${bottom}${tax}${vanish}`);
   }
 }

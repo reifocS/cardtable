@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textActionLabel, textActions } from './cardText';
+import { textActionLabel, textActions, tokenCount } from './cardText';
 
 describe('shortcuts from card text', () => {
   it('finds scry and draw in order, skipping reminder text', () => {
@@ -32,9 +32,27 @@ describe('shortcuts from card text', () => {
     expect(textActions(undefined)).toEqual([]);
   });
 
+  it("finds cascade (below the card's own mana value), discover and proliferate", () => {
+    expect(textActions('Cascade (When you cast this spell, exile cards…)', 4)).toEqual([{ kind: 'cascade', n: 3 }]);
+    expect(textActions('Cascade', undefined)).toEqual([]);
+    expect(textActions('When this enters, discover 3.')).toEqual([{ kind: 'discover', n: 3 }]);
+    expect(textActions('Put a +1/+1 counter on target creature, then proliferate.')).toEqual([{ kind: 'proliferate', n: null }]);
+    expect(textActionLabel({ kind: 'cascade', n: 3 })).toBe('Cascade (mana value < 4)');
+  });
+
   it('labels them', () => {
     expect(textActionLabel({ kind: 'draw', n: 1 })).toBe('Draw a card');
     expect(textActionLabel({ kind: 'scry', n: null })).toBe('Scry X');
     expect(textActionLabel({ kind: 'mill', n: 2 })).toBe('Mill 2 cards');
+  });
+});
+
+describe('token counts from card text', () => {
+  it('reads how many of a token are made', () => {
+    expect(tokenCount('When this enters, create two Treasure tokens.', 'Treasure')).toBe(2);
+    expect(tokenCount('Create three 1/1 red Goblin creature tokens.', 'Goblin')).toBe(3);
+    expect(tokenCount('Create a Food token. (It\'s an artifact…)', 'Food')).toBe(1);
+    expect(tokenCount('Create X 1/1 Soldier tokens.', 'Soldier')).toBe(1);
+    expect(tokenCount('Flying', 'Spirit')).toBe(1);
   });
 });

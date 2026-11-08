@@ -49,7 +49,7 @@ export interface Store {
   menu: { x: number; y: number; items: MenuItem[] } | null;
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
-  dialog: 'import' | 'create' | 'help' | null;
+  dialog: 'import' | 'create' | 'help' | 'proliferate' | null;
   /** The top cards of a pile being put away one by one: scry, surveil, or any "look at the top N". */
   arrange: { zone: ZoneId; ids: CardId[]; as?: 'scry' | 'surveil' } | null;
   /** This viewer shows this turn's trigger reminders (see Reminders). */

@@ -65,6 +65,17 @@ export interface Zone extends ZoneSpec {
   topVisible?: 'owner' | 'all';
   /** Searches open on this zone: the cards each player is looking at until they close it. */
   peeks?: Record<PlayerId, CardId[]>;
+  /** Cards just revealed from this pile until one fit (cascade, discover), waiting for the owner to finish. */
+  reveal?: Reveal;
+}
+
+/** A cascade or discover under way: the cards it exiled, and the one it stopped on (null: none fit). */
+export interface Reveal {
+  as: 'cascade' | 'discover' | 'reveal';
+  /** Highest mana value that fit. */
+  max: number;
+  hit: CardId | null;
+  misses: CardId[];
 }
 
 /** The zones the engine acts on by itself, by role. A part left out turns its actions off. */
@@ -106,6 +117,8 @@ export interface Preset {
   /** Zone role for each section of an imported deck list ("main", "side"…). */
   deckSections: Record<string, string>;
   commander?: CommanderRules;
+  /** Tokens cease to exist anywhere but the `play` zone and the commander's `castThrough` zone (Magic's rule). */
+  tokensOnlyInPlay?: boolean;
 }
 
 export interface Player {

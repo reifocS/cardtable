@@ -1287,6 +1287,58 @@ body.dragging * {
   height: 120px;
 }
 
+/* Cascade, discover: the card it hit, big, and what it passed. */
+.reveal-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.reveal-misses {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.reveal-miss-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Proliferate: a checkbox on each thing with counters. */
+.proliferate-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.proliferate-card {
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.55;
+  cursor: pointer;
+}
+.proliferate-card.on {
+  opacity: 1;
+}
+.proliferate-card .card {
+  width: 80px;
+}
+.proliferate-counters {
+  color: var(--gold);
+}
+.proliferate-players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Scry, surveil and the like: one tray per destination. */
 .arrange-row {
   display: flex;

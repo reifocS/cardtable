@@ -368,7 +368,8 @@ export const PRESETS: DevPreset[] = [
   },
 ];
 
-const FACES_CACHE = 'cardtable:dev:faces';
+// v2: faces carry their mana value.
+const FACES_CACHE = 'cardtable:dev:faces:v2';
 
 /** Card faces for every decklist, from Scryfall once, then from a local cache. */
 async function loadFaces(decks: string[]): Promise<Faces> {

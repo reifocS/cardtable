@@ -56,7 +56,7 @@ export function ContextMenu() {
   );
 }
 
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-label={title}>
@@ -409,6 +409,7 @@ const SHORTCUTS: [string, string][] = [
   ['B / H / G / E / L', 'To battlefield / hand / graveyard / exile / library'],
   ['D', 'Draw'],
   ['Library → Scry… / Surveil…', 'Send each card to the top, the bottom or the graveyard with a click, a key or a drag'],
+  ['Right-click a card', 'What its text says: Scry 2, Draw a card, Cascade, Discover 3, Proliferate, Create 2 Treasure tokens…'],
   ['S', 'Shuffle library'],
   ['U', 'Untap all'],
   ['M', 'Mulligan'],
