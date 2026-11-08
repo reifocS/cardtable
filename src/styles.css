@@ -799,10 +799,8 @@ kbd {
   z-index: 1000;
   pointer-events: none;
   opacity: 0.92;
-  box-shadow: 0 10px 25px #000c;  /* Grows or shrinks to the size cards have in the zone below. */
-  transition:
-    width 0.12s ease-out,
-    height 0.12s ease-out;
+  box-shadow: 0 10px 25px #000c;
+  /* Its size eases to the zone below in script (DragGhost), along with where it's placed. */
 }
 .ghost-count {
   position: absolute;

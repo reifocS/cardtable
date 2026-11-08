@@ -19,6 +19,22 @@ function dropTargetAt(x: number, y: number): HTMLElement | null {
   return (document.elementFromPoint(x, y)?.closest('[data-drop-zone]') as HTMLElement | null) ?? null;
 }
 
+/** How far the pointer may stray outside the zone it's over before it counts as leaving it. */
+const STICK_PX = 12;
+
+/**
+ * The drop zone for a pointer at (x, y), given the one it was over (`held`). A zone holds on until the
+ * pointer is clearly out of it: right at an edge, or as a row grows to make room under the pointer,
+ * the target would otherwise flicker between it and what's next to it.
+ */
+function stickyTarget(held: HTMLElement | null, x: number, y: number): HTMLElement | null {
+  const hit = dropTargetAt(x, y);
+  if (!held || hit === held || !held.isConnected) return hit;
+  const r = held.getBoundingClientRect();
+  const near = x >= r.left - STICK_PX && x <= r.right + STICK_PX && y >= r.top - STICK_PX && y <= r.bottom + STICK_PX;
+  return near ? held : hit;
+}
+
 /** Rows that show where dragged cards would land: a hand, a pile's viewer (not filtered). */
 const isRow = (t: HTMLElement) => !!t.dataset.dropList;
 
@@ -91,11 +107,13 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   const own = { w: sideways ? rect.height : rect.width, h: sideways ? rect.width : rect.height };
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
   let ids: CardId[] = store.selection.includes(card.id) ? store.selection : [card.id];
+  // The zone it's over, held on to near its edges (see stickyTarget).
+  let held: HTMLElement | null = null;
 
   const update = (at: PointerInfo) => {
     const d = useStore.getState().drag;
     if (!d) return;
-    const t = dropTargetAt(at.x, at.y);
+    const t = (held = stickyTarget(held, at.x, at.y));
     // Over a zone, the ghost takes the size cards have there; over nothing, its own. Only a battlefield keeps it tapped.
     const size = cardSizeIn(t, ids) ?? own;
     const keepTurn = turn && t?.classList.contains('board') ? turn : 0;
@@ -118,7 +136,7 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
         update(at);
         const over = useStore.getState().drag?.over ?? null;
         useStore.setState({ drag: null });
-        drop(at, ids, card, fx, fy, over);
+        drop(at, ids, card, fx, fy, over, held);
       },
       click(at) {
         // Alt+click (no drag) pings the card for everyone; Alt+drag still plays face down.
@@ -158,8 +176,7 @@ function cardSizeIn(target: HTMLElement | null, dragged: CardId[]): { w: number;
   return { w: r.width, h: r.height };
 }
 
-function drop(at: PointerInfo, ids: CardId[], primary: Card, fx: number, fy: number, over: TableDrag['over']) {
-  const target = dropTargetAt(at.x, at.y);
+function drop(at: PointerInfo, ids: CardId[], primary: Card, fx: number, fy: number, over: TableDrag['over'], target: HTMLElement | null) {
   const state = useStore.getState().state;
   if (!target || !state || !over) return;
   const zone = state.zones[over.zone];
