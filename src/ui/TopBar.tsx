@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GameState } from '../core/types';
 import { Icon } from './Icon';
+import { MOD } from './platform';
 import { openMenu, switchToNextSeat } from './actions';
 import { act, ask, useStore } from './store';
 import { tip } from './tip';
@@ -79,6 +80,12 @@ export function TopBar({ state }: { state: GameState }) {
         {error && ` · ${error}`}
       </span>
       <div className="spacer" />
+      {/* The palette, in plain sight: a field to type in, and the keys that open it from anywhere. */}
+      <button className="find" onClick={() => useStore.setState({ dialog: 'palette', menu: null })} {...tip(`Find any card or action (${MOD}K)`, 'end')}>
+        <Icon name="search" size={15} />
+        <span className="find-word">Find a card or action…</span>
+        <kbd>{MOD}K</kbd>
+      </button>
       {spectating && <span className="watching-badge">Watching</span>}
       {me && controlled.length > 1 && (
         <button

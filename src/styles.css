@@ -255,6 +255,7 @@ kbd {
   }
 }
 @container (max-width: 760px) {
+  .topbar .find-word,
   .topbar .me-name,
   .topbar .brand {
     display: none;
@@ -3177,4 +3178,35 @@ body.dragging .stack-zone {
   padding: 6px 12px;
   font-size: 12px;
   border-top: 1px solid var(--bronze);
+}
+
+/* The palette's field in the top bar: looks like a search box, opens the palette. */
+.topbar > .find {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 6px 3px 10px;
+  color: var(--muted);
+  background: #0006;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 3px #0008;
+  font-size: 13px;
+}
+.topbar > .find:hover {
+  color: var(--text);
+  border-color: var(--gold);
+}
+.topbar > .find kbd {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+@container (min-width: 1200px) {
+  .topbar > .find {
+    min-width: 260px;
+  }
+  .topbar > .find kbd {
+    margin-left: auto;
+  }
 }
