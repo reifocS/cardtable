@@ -395,6 +395,7 @@ const SHORTCUTS: [string, string][] = [
   ['Double-click', 'Tap · cast an instant or sorcery · play a permanent · resolve from the stack'],
   ['Drop on "Stack"', 'Cast a spell where everyone sees it; double-click it to resolve'],
   ['Right-click', 'Everything else'],
+  ['⌘/Ctrl K', 'Find any card in sight or any action by typing: “sol ring”, “scry 2”, “draw 3”'],
   ['T', 'Tap / untap'],
   ['← / →', 'Move the picked cards along their row (hand, pile); ⇧ to either end'],
   ['F', 'Turn face down / up'],

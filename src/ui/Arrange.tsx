@@ -3,9 +3,10 @@ import type { ArrangeTo } from '../core/ops';
 import type { CardId, GameState, Zone } from '../core/types';
 import { closeArrange } from './actions';
 import { CardBack, FaceView } from './CardView';
-import { ghostBox, settle } from './settle';
+import { ghostBox, ghostLean, settle } from './settle';
 import { insertionIndex, useFlip, withInserted } from './sortable';
-import { CardGhost } from './DragGhost';
+import { CardGhost, GhostLift } from './DragGhost';
+import { edgeScroll } from './autoScroll';
 import { trackPress } from './dragSession';
 import { act, useStore, type Store } from './store';
 
@@ -60,9 +61,10 @@ interface Drag {
 /** A card of the window let go of: from where its ghost was, it glides to its place once drawn there. */
 function glideIn(id: CardId, from: DOMRect | undefined) {
   if (!from) return;
+  const lean = ghostLean();
   requestAnimationFrame(() => {
     const el = document.querySelector<HTMLElement>(`[data-arrange-id="${id}"] .card`);
-    if (el) settle(el, from);
+    if (el) settle(el, from, lean);
   });
 }
 
@@ -180,6 +182,7 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
           glideIn(id, from);
         },
       },
+      { scroll: edgeScroll },
     );
   };
 
@@ -316,7 +319,9 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
         </div>
       </div>
       {drag && state.cards[drag.id] && (
-        <CardGhost card={state.cards[drag.id]} x={drag.x} y={drag.y} fx={drag.fx} fy={drag.fy} w={drag.w} h={drag.h} sleeve={sleeve} />
+        <GhostLift x={drag.x} y={drag.y}>
+          <CardGhost card={state.cards[drag.id]} x={drag.x} y={drag.y} fx={drag.fx} fy={drag.fy} w={drag.w} h={drag.h} sleeve={sleeve} />
+        </GhostLift>
       )}
     </div>
   );

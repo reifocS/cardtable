@@ -8,7 +8,9 @@
  * - Esc, a cancelled pointer, the window losing focus or a release the page never heard (seen as a
  *   move with no button held) end a drag without dropping, and the Esc goes no further;
  * - the handlers keep whatever state they need between calls themselves, so a release that comes before
- *   the next render still sees the last move.
+ *   the next render still sees the last move;
+ * - with `scroll`, every frame of a drag may scroll what's under the pointer (see autoScroll); when it
+ *   does, the drag is told the pointer moved, since what's under it did.
  */
 
 export interface Point {
@@ -53,8 +55,19 @@ const info = (e: PointerLike): PointerInfo => ({
  * Follows a press that started at `from` until it's released or cancelled. Returns a function that
  * stops following it (as a cancel, if a drag had begun).
  */
-export function trackPress(from: Point, handlers: DragHandlers, { threshold = DRAG_THRESHOLD, target = globalThis as EventTarget } = {}) {
+export function trackPress(
+  from: Point,
+  handlers: DragHandlers,
+  { threshold = DRAG_THRESHOLD, target = globalThis as EventTarget, scroll }: { threshold?: number; target?: EventTarget; scroll?: (x: number, y: number) => boolean } = {},
+) {
   let dragging = false;
+  let last: PointerInfo | null = null;
+  let frame = 0;
+  const tick = () => {
+    if (!dragging || !last) return;
+    if (scroll!(last.x, last.y)) handlers.move?.(last);
+    frame = requestAnimationFrame(tick);
+  };
 
   const move = (e: Event) => {
     // No button held any more: the release happened where the page couldn't hear it (another window,
@@ -65,7 +78,9 @@ export function trackPress(from: Point, handlers: DragHandlers, { threshold = DR
       if (Math.hypot(at.x - from.x, at.y - from.y) < threshold) return;
       dragging = true;
       handlers.start?.(at);
+      if (scroll && typeof requestAnimationFrame === 'function') frame = requestAnimationFrame(tick);
     }
+    last = at;
     handlers.move?.(at);
   };
   const up = (e: Event) => {
@@ -93,6 +108,7 @@ export function trackPress(from: Point, handlers: DragHandlers, { threshold = DR
     target.removeEventListener('pointerup', up);
     target.removeEventListener('pointercancel', cancel);
     target.removeEventListener('keydown', key, true);
+    if (frame) cancelAnimationFrame(frame);
     dragging = false;
   }
 

@@ -80,8 +80,9 @@ export interface Store {
   zoom: boolean;
   menu: { x: number; y: number; items: MenuItem[] } | null;
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
-  viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
-  dialog: 'import' | 'create' | 'help' | 'proliferate' | null;
+  /** A pile's cards open in the viewer: all, or the top `ids`; `query` fills its filter as it opens. */
+  viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean; query?: string } | null;
+  dialog: 'import' | 'create' | 'help' | 'proliferate' | 'palette' | null;
   /** Cards being dragged across the table (see drag.ts); everything a drag shows is drawn from it. */
   drag: TableDrag | null;
   /** Cards just moved along their row with the keys: the row draws them up out of itself as they travel. */

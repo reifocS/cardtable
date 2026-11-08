@@ -1,6 +1,7 @@
 import type React from 'react';
 import { CARD_H, CARD_W } from '../core/state';
 import type { Card, CardId, ZoneId } from '../core/types';
+import { edgeScroll } from './autoScroll';
 import { trackPress, type PointerInfo } from './dragSession';
 import { VIEW_H, mirrorY, storeX, storeY, viewX, viewY } from './fit';
 import { sticky, zoneIn } from './dropTarget';
@@ -179,6 +180,8 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
         letGoOf(froms);
       },
     },
+    // Near the edge of a list that runs off its box (a long viewer, the zoomed battlefield), it scrolls.
+    { scroll: edgeScroll },
   );
 }
 

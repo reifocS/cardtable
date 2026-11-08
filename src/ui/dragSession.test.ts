@@ -91,3 +91,28 @@ describe('a press of the pointer', () => {
     expect(calls).toEqual(['start 10', 'move 10', 'cancel']);
   });
 });
+
+describe('a drag near the edge of a list', () => {
+  it('scrolls each frame while the pointer rests there, and tells the drag what moved under it', () => {
+    const frames: FrameRequestCallback[] = [];
+    const g = globalThis as unknown as { requestAnimationFrame?: unknown; cancelAnimationFrame?: unknown };
+    const saved = [g.requestAnimationFrame, g.cancelAnimationFrame];
+    g.requestAnimationFrame = (f: FrameRequestCallback) => frames.push(f);
+    g.cancelAnimationFrame = () => {};
+    try {
+      const t = new EventTarget();
+      const calls: string[] = [];
+      let room = 2;
+      trackPress({ x: 0, y: 0 }, { move: (at) => calls.push(`move ${at.x}`), drop: () => calls.push('drop') }, { target: t, scroll: () => room-- > 0 });
+      t.dispatchEvent(pointer('pointermove', 10, 0));
+      for (let i = 0; i < 4; i++) frames.shift()?.(0);
+      t.dispatchEvent(pointer('pointerup', 10, 0));
+      expect(calls).toEqual(['move 10', 'move 10', 'move 10', 'drop']);
+      // Over: no frame keeps going.
+      frames.shift()?.(0);
+      expect(calls.length).toBe(4);
+    } finally {
+      [g.requestAnimationFrame, g.cancelAnimationFrame] = saved;
+    }
+  });
+});

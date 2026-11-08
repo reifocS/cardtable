@@ -19,13 +19,13 @@ export function Viewer({ state }: { state: GameState }) {
   const viewer = useStore((s) => s.viewer);
   const zone = viewer ? state.zones[viewer.zone] : undefined;
   if (!viewer || !zone) return null;
-  // Another zone opens with an empty filter.
-  return <ViewerPanel key={zone.id} state={state} viewer={viewer} zone={zone} />;
+  // Another zone, or a search from the palette, opens with its own filter.
+  return <ViewerPanel key={`${zone.id}:${viewer.query ?? ''}`} state={state} viewer={viewer} zone={zone} />;
 }
 
 function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNullable<Store['viewer']>; zone: Zone }) {
   const me = useStore((s) => s.me);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(viewer.query ?? '');
   const ids = viewer.ids ? zone.cards.filter((id) => viewer.ids!.includes(id)) : zone.cards;
   const shown = ids.filter((id) => state.cards[id] && matches(state.cards[id], query));
   const filtering = shown.length !== ids.length;

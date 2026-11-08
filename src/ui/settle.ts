@@ -60,11 +60,14 @@ export function settle(el: HTMLElement, from: DOMRect, fromTurn = 0, onLand?: (a
   };
 }
 
+/** How far what's dragged leans as it's let go (see GhostLift): the glide starts from there. */
+export const ghostLean = () => Number(/rotate\((-?[\d.]+)deg\)/.exec(document.querySelector<HTMLElement>('.ghost-lift')?.style.transform ?? '')?.[1] ?? 0);
+
 /** Where the ghost of the held card is on screen (among its group's), to glide from once it's let go. */
 export const ghostBox = () => (document.querySelector('.ghost[data-held]') ?? document.querySelector('.ghost'))?.getBoundingClientRect();
 
 /** The card drawn for `id` in `zone`: the one on top where a zone shows twice (a pile and its open viewer, a zoomed battlefield). */
-function shownIn(zone: string, id: CardId): HTMLElement | null {
+export function shownIn(zone: string, id: CardId): HTMLElement | null {
   const els = [...document.querySelectorAll<HTMLElement>(`[data-drop-zone="${zone}"] [data-card-id="${id}"]`)];
   return els.reverse().find((el) => el.offsetWidth > 0) ?? null;
 }
@@ -96,9 +99,10 @@ export function letGoOf(froms: Map<CardId, { from: DOMRect; turn: number }>) {
 export function fromGhosts(ids: CardId[], turnOf: (id: CardId) => number) {
   const froms = new Map<CardId, { from: DOMRect; turn: number }>();
   const held = ghostBox();
+  const lean = ghostLean();
   for (const id of ids) {
     const from = document.querySelector(`.ghost[data-ghost-id="${id}"]`)?.getBoundingClientRect() ?? held;
-    if (from) froms.set(id, { from, turn: turnOf(id) });
+    if (from) froms.set(id, { from, turn: turnOf(id) + lean });
   }
   return froms;
 }

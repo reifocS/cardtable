@@ -61,13 +61,13 @@ export function shuffleLibrary() {
   if (lib) act({ type: 'shuffle', zone: lib.id });
 }
 
-export function openViewer(zone: Zone, n?: number) {
+export function openViewer(zone: Zone, n?: number, query?: string) {
   const { me, state } = useStore.getState();
   if (!state) return;
   const hiddenToMe = zone.visibility === 'hidden' || (zone.visibility === 'owner' && zone.owner !== me);
   if (hiddenToMe) act({ type: 'peek', zone: zone.id, n });
   useStore.setState({
-    viewer: { zone: zone.id, ids: n === undefined ? undefined : zone.cards.slice(0, n), peeked: hiddenToMe },
+    viewer: { zone: zone.id, ids: n === undefined ? undefined : zone.cards.slice(0, n), peeked: hiddenToMe, query },
     menu: null,
   });
 }
@@ -443,6 +443,12 @@ export function onKeyDown(e: KeyboardEvent) {
   // Dialogs close on Esc, even with focus in their input.
   if (e.key === 'Escape' && (store.prompt || store.confirm)) {
     useStore.setState({ prompt: null, confirm: null });
+    return;
+  }
+  // The command palette, from anywhere (its own field included, to close it).
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !store.prompt && !store.confirm && !store.arrange) {
+    e.preventDefault();
+    useStore.setState({ dialog: store.dialog === 'palette' ? null : 'palette', menu: null });
     return;
   }
   // The arrange window has its own keys.

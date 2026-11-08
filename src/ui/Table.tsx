@@ -18,6 +18,7 @@ import { ManaPool } from './ManaPool';
 import { Reminders } from './Reminders';
 import { RollFx } from './RollFx';
 import { TopBar } from './TopBar';
+import { Palette } from './Palette';
 import { Viewer } from './Viewer';
 import { Arrange } from './Arrange';
 import { TableDragGhost } from './DragGhost';
@@ -376,6 +377,7 @@ export function Table() {
       <CreateDialog />
       <ArtDialog />
       <HelpDialog />
+      <Palette state={state} />
       {offline && (
         <div className="offline">
           <div>Reconnecting to the host…</div>
