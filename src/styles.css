@@ -1316,13 +1316,32 @@ body.dragging .arrows * {
     transition: none;
   }
 }
-/* Where cards dragged over a row would land, before they're dropped: the room opens up. */
+/* Where cards dragged over a row would land, before they're dropped: the room opens up, and its
+   dashed outline fades in once it's nearly open (drawn from the start, it showed as a line stretching). */
 .hand-slot.drop-gap {
   animation: gap-open 0.22s ease-out;
 }
 .viewer-slot.drop-gap {
   width: calc(120px * 63 / 88);
+  overflow: hidden;
   animation: gap-open-width 0.22s ease-out;
+}
+.hand-slot.drop-gap::before,
+.viewer-slot.drop-gap::before {
+  content: '';
+  display: block;
+  aspect-ratio: 63 / 88;
+  border-radius: var(--card-radius) / calc(var(--card-radius) * 63 / 88);
+  outline: 1px dashed var(--gold);
+  outline-offset: -2px;
+  background: #e8c46a14;
+  animation: gap-outline 0.12s ease-out 0.14s backwards;
+}
+.hand-slot.drop-gap::before {
+  height: var(--hand-card-h);
+}
+.viewer-slot.drop-gap::before {
+  height: 120px;
 }
 @keyframes gap-open {
   from {
@@ -1334,27 +1353,18 @@ body.dragging .arrows * {
     width: 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .hand-slot.drop-gap,
-  .viewer-slot.drop-gap {
-    animation: none;
+@keyframes gap-outline {
+  from {
+    opacity: 0;
   }
 }
-.hand-slot.drop-gap::before,
-.viewer-slot.drop-gap {
-  content: '';
-  display: block;
-  aspect-ratio: 63 / 88;
-  border-radius: var(--card-radius) / calc(var(--card-radius) * 63 / 88);
-  outline: 1px dashed var(--gold);
-  outline-offset: -2px;
-  background: #e8c46a14;
-}
-.hand-slot.drop-gap::before {
-  height: var(--hand-card-h);
-}
-.viewer-slot.drop-gap {
-  height: 120px;
+@media (prefers-reduced-motion: reduce) {
+  .hand-slot.drop-gap,
+  .viewer-slot.drop-gap,
+  .hand-slot.drop-gap::before,
+  .viewer-slot.drop-gap::before {
+    animation: none;
+  }
 }
 
 /* London mulligan: a floating bar over the table, the new hand in it. */
