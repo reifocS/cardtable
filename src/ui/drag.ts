@@ -99,7 +99,8 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
       base = { w: parseFloat(ghost.style.width), h: parseFloat(ghost.style.height) };
       tapTurn = ghost.dataset.turn ?? '';
       document.body.classList.add('dragging');
-      for (const id of ids) document.querySelectorAll(`[data-card-id="${id}"]`).forEach((n) => n.classList.add('drag-source'));
+      // In the store, not on the elements: a render (the selection changing as the drag starts) would wipe a class added by hand.
+      useStore.setState({ dragging: ids });
     }
     const t = dropTargetAt(ev.clientX, ev.clientY);
     if (t !== hoverTarget) {
@@ -150,7 +151,7 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     useStore.setState({ dropPreview: null });
     hoverTarget?.classList.remove('drop-hover');
     document.body.classList.remove('dragging');
-    document.querySelectorAll('.drag-source').forEach((n) => n.classList.remove('drag-source'));
+    useStore.setState({ dragging: [] });
     if (ev.type === 'pointerup') drop(ev, ids, card, fx, fy);
   };
 

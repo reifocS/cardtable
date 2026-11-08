@@ -67,6 +67,7 @@ interface Props {
 
 export const CardView = memo(function CardView({ card, zone, left, top, shownWidth, pileTop }: Props) {
   const selected = useStore((s) => s.selection.includes(card.id));
+  const dragged = useStore((s) => s.dragging.includes(card.id));
   const me = useStore((s) => s.me);
   const sleeve = useStore((s) => s.state?.players[card.owner]?.sleeve);
   // Colors of the other players hovering this card (a string, so the selector stays cheap).
@@ -83,7 +84,7 @@ export const CardView = memo(function CardView({ card, zone, left, top, shownWid
   const onBoard = zone.kind === 'free';
   // Seen by someone else: shown to them, or in a search they have open.
   const seen = card.revealedTo.some((p) => p !== me) || Object.entries(zone.peeks ?? {}).some(([p, ids]) => p !== me && ids.includes(card.id));
-  const classes = ['card', selected && 'selected', onBoard && card.rotation && 'tapped', seen && 'revealed', watchers && 'watched'];
+  const classes = ['card', selected && 'selected', dragged && 'drag-source', onBoard && card.rotation && 'tapped', seen && 'revealed', watchers && 'watched'];
 
   return (
     <div
