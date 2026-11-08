@@ -3,6 +3,7 @@ import { CARD_H, CARD_W } from '../core/state';
 import type { Card, CardId, ZoneId } from '../core/types';
 import { trackPress, type PointerInfo } from './dragSession';
 import { VIEW_H, mirrorY, storeX, storeY } from './fit';
+import { sticky, zoneIn } from './dropTarget';
 import { justDropped } from './Flights';
 import { insertionIndex } from './sortable';
 import { act, setSelection, useStore, type TableDrag } from './store';
@@ -11,31 +12,14 @@ import { act, setSelection, useStore, type TableDrag } from './store';
  * Cards dragged across the table. The press is followed by dragSession; what the drag looks like (the
  * ghost, the faded places, the zone lit up, a row making room) is drawn by the components from
  * `store.drag`, never by touching their elements here. This only reads the page: which zone is under
- * the pointer, and where in a row.
+ * the pointer (dropTarget), and where in a row.
  */
 
-/** The drop zone element under a screen point. Drop zones carry `data-drop-zone`. */
-function dropTargetAt(x: number, y: number): HTMLElement | null {
-  return (document.elementFromPoint(x, y)?.closest('[data-drop-zone]') as HTMLElement | null) ?? null;
-}
-
-/** How far the pointer may stray outside the zone it's over before it counts as leaving it. */
-const STICK_PX = 12;
-
-/**
- * The drop zone for a pointer at (x, y), given the one it was over (`held`). A zone holds on while the
- * pointer is just past its edge: right at an edge, or as a row grows to make room under the pointer,
- * the target would otherwise flicker between it and what's next to it. Inside it, whatever lies on
- * top wins: a pile's viewer or the stack over a battlefield is a zone of its own.
- */
-function stickyTarget(held: HTMLElement | null, x: number, y: number): HTMLElement | null {
-  const hit = dropTargetAt(x, y);
-  if (!held || hit === held || !held.isConnected) return hit;
-  const r = held.getBoundingClientRect();
-  const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-  if (inside) return hit;
-  const near = x >= r.left - STICK_PX && x <= r.right + STICK_PX && y >= r.top - STICK_PX && y <= r.bottom + STICK_PX;
-  return near ? held : hit;
+/** The drop zone for a pointer at (x, y), held on to near the edges of the one it was over (see dropTarget). */
+function targetAt(held: HTMLElement | null, x: number, y: number): HTMLElement | null {
+  const hit = zoneIn(document.elementsFromPoint(x, y)) as HTMLElement | null;
+  const kept = held?.isConnected ? held : null;
+  return sticky(hit, kept, kept?.getBoundingClientRect() ?? null, x, y);
 }
 
 /** Rows that show where dragged cards would land: a hand, a pile's viewer (not filtered). */
@@ -110,13 +94,13 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   const own = { w: sideways ? rect.height : rect.width, h: sideways ? rect.width : rect.height };
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
   let ids: CardId[] = store.selection.includes(card.id) ? store.selection : [card.id];
-  // The zone it's over, held on to near its edges (see stickyTarget).
+  // The zone it's over, held on to near its edges (see targetAt).
   let held: HTMLElement | null = null;
 
   const update = (at: PointerInfo) => {
     const d = useStore.getState().drag;
     if (!d) return;
-    const t = (held = stickyTarget(held, at.x, at.y));
+    const t = (held = targetAt(held, at.x, at.y));
     // Over a zone, the ghost takes the size cards have there; over nothing, its own. Only a battlefield keeps it tapped.
     const size = cardSizeIn(t, ids) ?? own;
     const keepTurn = turn && t?.classList.contains('board') ? turn : 0;

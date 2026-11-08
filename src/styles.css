@@ -816,14 +816,11 @@ body.dragging,
 body.dragging * {
   cursor: grabbing !important;
 }
-/* While dragging, the cards passed over don't react as if hovered (lifting, coming forward), and
-   target arrows don't catch the drop: the pointer goes through to the row or zone below, which is
-   what the drop is looking for. */
+/* While dragging, the cards passed over don't react as if hovered (lifting, coming forward). What
+   catches the drop doesn't depend on this: see dropTarget.ts. */
 body.dragging .card,
 body.dragging .hand-slot,
-body.dragging .viewer-slot,
-body.dragging .arrows *,
-body.dragging .roll-fx > * {
+body.dragging .viewer-slot {
   pointer-events: none;
 }
 .is-targeting .card,
