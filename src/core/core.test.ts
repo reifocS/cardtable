@@ -669,6 +669,73 @@ describe('tokens', () => {
   });
 });
 
+describe("Magic's rules", () => {
+  const land = { name: 'Guildgate', type: 'Land — Gate', text: 'This land enters tapped.' };
+  const walker = { name: 'Jace', type: 'Legendary Planeswalker — Jace', loyalty: 3, text: '+1: Draw a card.' };
+  const vault = { name: 'Mana Vault', type: 'Artifact', text: "Mana Vault doesn't untap during your untap step." };
+
+  it('a card enters tapped, or with counters, as its text says', () => {
+    const { e, a } = twoPlayers();
+    const bf = zoneId(a, 'battlefield');
+    e.dispatch(a, { type: 'create', zone: zoneId(a, 'hand'), token: false, cards: [[land], [walker]] });
+    const [g, j] = e.state.zones[zoneId(a, 'hand')].cards.filter((id) => ['Guildgate', 'Jace'].includes(e.state.cards[id].faces[0].name));
+    e.dispatch(a, { type: 'move', cards: [g, j], to: bf });
+    expect(e.state.cards[g].rotation).toBe(90);
+    expect(e.state.cards[j].counters).toEqual({ Loyalty: 3 });
+    // Moving around the battlefield doesn't enter it again.
+    e.dispatch(a, { type: 'move', cards: [j], to: bf, positions: { [j]: [300, 0] } });
+    expect(e.state.cards[j].counters).toEqual({ Loyalty: 3 });
+    e.dispatch(a, { type: 'counter', cards: [j], key: 'Loyalty', delta: 1, why: '+1: Draw a card.' });
+    expect(e.state.log.at(-1)?.text).toBe('Jace: +1: Draw a card. (Loyalty → 4)');
+  });
+
+  it('the next turn untaps and draws, except what stays tapped and who opted out', () => {
+    const { e, a, b } = twoPlayers();
+    const bf = zoneId(b, 'battlefield');
+    e.dispatch(b, { type: 'create', zone: bf, token: false, cards: [[vault], [{ name: 'Bear' }]] });
+    const [v, bear] = e.state.zones[bf].cards;
+    e.dispatch(b, { type: 'tap', cards: [v, bear], value: true });
+    e.dispatch(a, { type: 'setTurn', player: a, restart: true });
+    e.dispatch(a, { type: 'passTurn' });
+    expect(e.state.cards[bear].rotation).toBe(0);
+    expect(e.state.cards[v].rotation).toBe(90);
+    expect(e.state.zones[zoneId(b, 'hand')].cards).toHaveLength(1);
+    expect(e.state.log.at(-1)?.text).toBe('Turn 2: Bob — untapped (Mana Vault stays tapped), drew a card');
+    e.dispatch(a, { type: 'manualTurn', value: true });
+    e.dispatch(b, { type: 'passTurn' });
+    expect(e.state.zones[zoneId(a, 'hand')].cards).toHaveLength(0);
+    expect(e.state.log.at(-1)?.text).toBe('Turn 3: Alice');
+  });
+
+  it('a London mulligan: seven new cards, then one to the bottom per mulligan', () => {
+    const { e, a } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const hand = zoneId(a, 'hand');
+    e.dispatch(a, { type: 'moveTop', from: lib, to: hand, n: 7 });
+    e.dispatch(a, { type: 'mulligan' });
+    e.dispatch(a, { type: 'mulligan' });
+    expect(e.state.zones[hand].cards).toHaveLength(7);
+    expect(e.state.players[a].toBottom).toBe(2);
+    const [x, y] = e.state.zones[hand].cards;
+    e.dispatch(a, { type: 'bottom', cards: [x, y] });
+    expect(e.state.zones[lib].cards.slice(-2)).toEqual([x, y]);
+    expect(e.state.zones[hand].cards).toHaveLength(5);
+    expect(e.state.players[a].toBottom).toBeUndefined();
+    expect(e.state.players[a].mulligans).toBe(2);
+    e.dispatch(a, { type: 'passTurn' });
+    expect(e.state.players[a].mulligans).toBeUndefined();
+  });
+
+  it('the first mulligan is free with more than two players', () => {
+    const { e, a } = twoPlayers();
+    e.join('Carol');
+    e.dispatch(a, { type: 'mulligan' });
+    expect(e.state.players[a].toBottom).toBeUndefined();
+    e.dispatch(a, { type: 'mulligan' });
+    expect(e.state.players[a].toBottom).toBe(1);
+  });
+});
+
 describe('undo history', () => {
   it('skips ops that changed nothing, or only the log', () => {
     const { e, a } = twoPlayers();

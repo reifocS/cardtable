@@ -159,3 +159,50 @@ function ProliferateForm({ state }: { state: GameState }) {
     </Modal>
   );
 }
+
+/** After a London mulligan: pick the cards from my new hand that go to the bottom. */
+export function MulliganBar({ state }: { state: GameState }) {
+  const me = useStore((s) => s.me);
+  const owed = me ? (state.players[me]?.toBottom ?? 0) : 0;
+  const hand = me && state.preset.parts.hand ? state.zones[`${me}:${state.preset.parts.hand}`] : undefined;
+  // A fresh choice for each mulligan.
+  return owed && hand ? <MulliganPick key={`${state.players[me!]?.mulligans}`} state={state} hand={hand} owed={owed} /> : null;
+}
+
+function MulliganPick({ state, hand, owed }: { state: GameState; hand: Zone; owed: number }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const chosen = picked.filter((id) => hand.cards.includes(id));
+  const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length < owed ? [...p, id] : p));
+  return (
+    <div className="mulligan-bar" role="dialog" aria-label="Mulligan">
+      <div className="mulligan-head">
+        <b>
+          Put {owed} card{owed === 1 ? '' : 's'} on the bottom
+        </b>
+        <span className="muted">
+          {chosen.length}/{owed} · click to pick, in the order they go under
+        </span>
+        <div className="spacer" />
+        <button onClick={() => act({ type: 'bottom', cards: [] })} title="Keep the whole hand (put them back by hand later)">
+          Skip
+        </button>
+        <button className="primary" disabled={chosen.length !== owed} onClick={() => act({ type: 'bottom', cards: chosen })}>
+          Done
+        </button>
+      </div>
+      <div className="mulligan-cards">
+        {hand.cards.map((id) => {
+          const c = state.cards[id];
+          if (!c) return null;
+          const n = chosen.indexOf(id);
+          return (
+            <button key={id} className={`mulligan-card${n >= 0 ? ' on' : ''}`} onClick={() => toggle(id)}>
+              <CardFace card={c} width={86} />
+              {n >= 0 && <span className="mulligan-order">{n + 1}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

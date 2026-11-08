@@ -12,6 +12,9 @@ export interface CardFace {
   /** Mana value (or any cost), for sorting a hand. */
   cost?: number;
   text?: string;
+  /** Starting loyalty (Magic's planeswalkers) and defense (battles), when printed as a number. */
+  loyalty?: number;
+  defense?: number;
   /** Tokens (and emblems) this card makes, by card-database id. Kept on the first face. */
   tokens?: { id: string; name: string }[];
 }
@@ -119,6 +122,11 @@ export interface Preset {
   commander?: CommanderRules;
   /** Tokens cease to exist anywhere but the `play` zone and the commander's `castThrough` zone (Magic's rule). */
   tokensOnlyInPlay?: boolean;
+  /**
+   * Magic's rules read from Oracle text (core/magic): cards enter tapped or with counters, the start of
+   * a turn untaps and draws (unless a player opts out), mulligans put cards on the bottom (London rule).
+   */
+  magic?: boolean;
 }
 
 export interface Player {
@@ -133,6 +141,11 @@ export interface Player {
   playmat?: string;
   /** The back of this player's cards (their sleeves), same format as `playmat`. */
   sleeve?: string;
+  /** Opted out of the automatic start of turn (see Preset.turnStart). */
+  manualTurn?: boolean;
+  /** Mulligans taken before the game started, and cards still to put on the bottom for them. */
+  mulligans?: number;
+  toBottom?: number;
 }
 
 /** A "this targets that" pointer between two cards or a card and a player. */

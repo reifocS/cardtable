@@ -2,6 +2,7 @@ import type React from 'react';
 import { TABLE, zoneId } from '../core/state';
 import type { Card, CardFace, CardId, Zone } from '../core/types';
 import { fetchCard, isScryfallCard } from '../cards/scryfall';
+import { loyaltyAbilities } from '../core/magic';
 import { textActionLabel, textActions, tokenCount, type TextAction } from './cardText';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
 
@@ -201,6 +202,22 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
     items.push(...fromText.map((t) => ({ label: textActionLabel(t), action: () => runTextAction(t) })), { label: '', heading: true });
   }
 
+  // A planeswalker's abilities: each one pays (or adds) its loyalty and says which it was in the log.
+  const abilities = onBoard && ids.length === 1 && face && !card.faceDown ? loyaltyAbilities(face) : [];
+  if (abilities.length) {
+    const loyalty = card.counters.Loyalty ?? 0;
+    for (const ab of abilities) {
+      const short = ab.text.length > 48 ? `${ab.text.slice(0, 46)}…` : ab.text;
+      const activate = (delta: number) => act({ type: 'counter', cards: [card.id], key: 'Loyalty', delta, why: `${ab.cost}: ${ab.text}` });
+      items.push({
+        label: `${ab.cost}: ${short}`,
+        disabled: ab.delta !== null && loyalty + ab.delta < 0,
+        action: () => (ab.delta === null ? askNumber(`${ab.cost}: X =`, 1, (x) => activate(-x)) : activate(ab.delta)),
+      });
+    }
+    items.push({ label: '', heading: true });
+  }
+
   if (onBoard) {
     items.push(
       { label: card.rotation ? `Untap${many}` : `Tap${many}`, hint: 'T', action: () => act({ type: 'tap', cards: ids }) },
@@ -321,6 +338,15 @@ export function zoneMenu(zone: Zone): MenuItem[] {
       { label: 'Play top card face down', action: () => act({ type: 'moveTop', from: zone.id, to: myZone('battlefield')!.id, n: 1, faceDown: true }) },
       { label: 'Mulligan', hint: 'M', action: () => act({ type: 'mulligan' }) },
       { label: 'Mulligan to…', action: () => askNumber('Draw a new hand of how many cards?', state.preset.handSize - 1, (n) => act({ type: 'mulligan', n })) },
+      ...(state.preset.magic
+        ? [
+            { label: 'My turn', heading: true },
+            {
+              label: `${state.players[me]?.manualTurn ? '' : '✓ '}Untap and draw when my turn starts`,
+              action: () => act({ type: 'manualTurn', value: !state.players[me]?.manualTurn }),
+            },
+          ]
+        : []),
       { label: 'Top card', heading: true },
       {
         label: `${zone.topVisible === 'owner' ? '✓ ' : ''}Always look at the top card`,

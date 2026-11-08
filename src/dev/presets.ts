@@ -79,7 +79,10 @@ class Builder {
     const id = this.find(p, name, at.from);
     this.op(p, { type: 'move', cards: [id], to: zoneId(p, 'battlefield'), positions: { [id]: [at.x, at.y] }, faceDown: at.faceDown });
     if (at.tap) this.op(p, { type: 'tap', cards: [id], value: true });
-    for (const [key, n] of Object.entries(at.counters ?? {})) this.op(p, { type: 'counter', cards: [id], key, delta: n });
+    // Exactly these counters, whatever it entered with (a planeswalker's loyalty…).
+    for (const [key, n] of Object.entries(at.counters ?? {})) {
+      this.op(p, { type: 'counter', cards: [id], key, delta: n - (this.s.cards[id].counters[key] ?? 0) });
+    }
     return id;
   }
 

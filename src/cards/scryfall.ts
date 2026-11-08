@@ -11,11 +11,13 @@ interface ScryCard {
   collector_number: string;
   type_line?: string;
   oracle_text?: string;
+  loyalty?: string;
+  defense?: string;
   cmc?: number;
   id?: string;
   all_parts?: { id: string; name: string; component: string }[];
   image_uris?: { normal: string; large: string };
-  card_faces?: { name: string; type_line?: string; oracle_text?: string; image_uris?: { normal: string; large: string } }[];
+  card_faces?: { name: string; type_line?: string; oracle_text?: string; loyalty?: string; defense?: string; image_uris?: { normal: string; large: string } }[];
 }
 
 export function facesOf(c: ScryCard): CardFace[] {
@@ -23,6 +25,14 @@ export function facesOf(c: ScryCard): CardFace[] {
   const tokens = c.all_parts?.filter((p) => p.component === 'token' && p.id !== c.id);
   if (tokens?.length) faces[0].tokens = [...new Map(tokens.map((t) => [t.name, { id: t.id, name: t.name }])).values()];
   return faces;
+}
+
+/** Loyalty and defense, when printed as a number ("X" and "*" are left to the players). */
+function stats(f: { loyalty?: string; defense?: string }): Pick<CardFace, 'loyalty' | 'defense'> {
+  const out: Pick<CardFace, 'loyalty' | 'defense'> = {};
+  if (f.loyalty && /^\d+$/.test(f.loyalty)) out.loyalty = Number(f.loyalty);
+  if (f.defense && /^\d+$/.test(f.defense)) out.defense = Number(f.defense);
+  return out;
 }
 
 function rawFaces(c: ScryCard): CardFace[] {
@@ -33,11 +43,12 @@ function rawFaces(c: ScryCard): CardFace[] {
       imageLarge: f.image_uris?.large,
       type: f.type_line,
       text: f.oracle_text,
+      ...stats(f),
     }));
   }
   // Split and adventure cards: one image, the faces' text joined.
   const text = c.oracle_text ?? c.card_faces?.map((f) => f.oracle_text).join('\n//\n');
-  return [{ name: c.name, image: c.image_uris?.normal, imageLarge: c.image_uris?.large, type: c.type_line, text }];
+  return [{ name: c.name, image: c.image_uris?.normal, imageLarge: c.image_uris?.large, type: c.type_line, text, ...stats(c) }];
 }
 
 export interface Lookup {

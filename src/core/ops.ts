@@ -1,5 +1,6 @@
 import { BOARD_H, BOARD_W, CARD_H, CARD_W, TABLE, zoneId } from './state';
 import type { Card, CardFace, CardId, GameState, PlayerId, Reveal, Zone, ZoneId } from './types';
+import { entersTapped, entersWithCounters, staysTapped } from './magic';
 import { isPublic } from './visibility';
 
 export type Op =
@@ -26,7 +27,12 @@ export type Op =
   | { type: 'untapAll' }
   | { type: 'flip'; cards: CardId[] }
   | { type: 'transform'; cards: CardId[] }
-  | { type: 'counter'; cards: CardId[]; key: string; delta: number }
+  /** `why` names it in the log, e.g. a planeswalker's ability: "+1: Draw a card". */
+  | { type: 'counter'; cards: CardId[]; key: string; delta: number; why?: string }
+  /** Opt out of (or back into) the automatic start of your turn (see Preset.magic). */
+  | { type: 'manualTurn'; value: boolean }
+  /** Cards from your hand to the bottom of your library, in this order: a London mulligan's. */
+  | { type: 'bottom'; cards: CardId[] }
   | { type: 'shuffle'; zone: ZoneId }
   | { type: 'peek'; zone: ZoneId; n?: number }
   | { type: 'unpeek'; zone: ZoneId }
@@ -109,6 +115,8 @@ export function cleanFace(f: CardFace): CardFace {
   if (type) face.type = type;
   if (body) face.text = body;
   if (typeof f.cost === 'number' && Number.isFinite(f.cost)) face.cost = clamp(f.cost, 0, 1000);
+  if (typeof f.loyalty === 'number' && Number.isFinite(f.loyalty)) face.loyalty = clamp(Math.round(f.loyalty), 0, 99);
+  if (typeof f.defense === 'number' && Number.isFinite(f.defense)) face.defense = clamp(Math.round(f.defense), 0, 99);
   if (Array.isArray(f.tokens)) {
     face.tokens = f.tokens
       .slice(0, 20)
@@ -203,6 +211,7 @@ class Mutation {
           else delete c.counters[op.key];
         }
         const v = cards[0].counters[op.key] ?? 0;
+        if (op.why) return this.log(`${this.label(cards)}: ${text(op.why, 200)} (${op.key} → ${v})`);
         return this.log(`${this.label(cards)}: ${op.key} counters → ${v}`, { merge: { key: `counter:${op.cards.join(',')}:${op.key}` } });
       }
       case 'shuffle': {
@@ -341,6 +350,7 @@ class Mutation {
         if (op.cards.length > LIMITS.perCreate) throw new Error('too many cards at once');
         const z = this.zone(op.zone);
         const created = op.cards.map((faces, i) => this.newCard(faces, z, op.token, op.positions?.[i]));
+        for (const c of created) this.arrive(c, z);
         return this.log(`created ${this.label(created)}`);
       }
       case 'delete': {
@@ -376,6 +386,7 @@ class Mutation {
         return this.log(`attached ${this.label(cards)} to ${this.label([host])}`);
       }
       case 'loadDeck': {
+        this.forgetMulligans();
         if (Object.values(op.sections).reduce((n, list) => n + list.length, 0) > LIMITS.perDeck) throw new Error('deck too big');
         for (const c of Object.values(s.cards)) if (c.owner === this.actor) this.remove(c);
         const counts = new Map<Zone, number>();
@@ -393,6 +404,7 @@ class Mutation {
         return this.log(`loaded a deck: ${main} cards${extra.length ? ` (${extra.join(', ')})` : ''}`);
       }
       case 'resetDeck': {
+        this.forgetMulligans();
         let commander = false;
         for (const c of Object.values(s.cards)) {
           if (c.owner !== this.actor) continue;
@@ -420,7 +432,38 @@ class Mutation {
         this.move([...hand.cards], lib.id, {}, true);
         this.shuffleSilently(lib);
         this.move(lib.cards.slice(0, n), hand.id, {}, true);
+        // London mulligan: a full new hand, then one card to the bottom per mulligan, the first one
+        // free in a multiplayer game.
+        const me = s.players[this.actor];
+        if (s.preset.magic && op.n == null && me) {
+          me.mulligans = (me.mulligans ?? 0) + 1;
+          const owed = me.mulligans - (s.seats.length > 2 ? 1 : 0);
+          if (owed > 0) me.toBottom = owed;
+          else delete me.toBottom;
+          const tail = owed > 0 ? `, ${owed} to put on the bottom` : ' (free mulligan)';
+          return this.log(`mulliganed (${me.mulligans}): drew a new hand of ${n}${tail}`);
+        }
         return this.log(`mulliganed: shuffled their hand away and drew ${n}`);
+      }
+      case 'bottom': {
+        const hand = this.part('hand');
+        const lib = this.part('deck');
+        const me = s.players[this.actor];
+        if (!hand || !lib || !me) return;
+        const ids = (Array.isArray(op.cards) ? op.cards : []).filter((id) => hand.cards.includes(id));
+        if (ids.length) this.move(ids, lib.id, { index: -1 }, true);
+        const left = Math.max(0, (me.toBottom ?? 0) - ids.length);
+        if (left && ids.length) me.toBottom = left;
+        else delete me.toBottom;
+        if (!ids.length) return;
+        return this.log(`put ${ids.length === 1 ? 'a card' : `${ids.length} cards`} on the bottom of ${this.zoneLabel(lib)}`);
+      }
+      case 'manualTurn': {
+        const me = s.players[this.actor];
+        if (!me) return;
+        if (op.value) me.manualTurn = true;
+        else delete me.manualTurn;
+        return;
       }
       case 'random': {
         const z = this.zone(op.zone);
@@ -446,7 +489,13 @@ class Mutation {
         s.turn.number++;
         s.arrows = [];
         const p = s.turn.player ? s.players[s.turn.player] : null;
-        return this.log(`Turn ${s.turn.number}: ${p?.name ?? '?'}`, { kind: 'turn' });
+        // The game is under way: mulligans are over.
+        for (const pl of Object.values(s.players)) {
+          delete pl.mulligans;
+          delete pl.toBottom;
+        }
+        const done = p ? this.startTurn(p.id) : '';
+        return this.log(`Turn ${s.turn.number}: ${p?.name ?? '?'}${done}`, { kind: 'turn' });
       }
       case 'setTurn': {
         const pid = op.player === 'random' ? s.seats[Math.floor(this.rng() * s.seats.length)] : op.player;
@@ -773,6 +822,50 @@ class Mutation {
     this.log(`proliferated: ${named.length > 6 ? `${named.slice(0, 6).join(', ')} and ${named.length - 6} more` : named.join(', ')}`);
   }
 
+  private forgetMulligans() {
+    const me = this.s.players[this.actor];
+    if (!me) return;
+    delete me.mulligans;
+    delete me.toBottom;
+  }
+
+  /** Magic: a card arriving in play enters tapped, or with counters, when its text says so. */
+  private arrive(c: Card, to: Zone) {
+    if (!this.s.preset.magic || to.role !== this.s.preset.parts.play || c.faceDown) return;
+    const face = c.faces[c.face] ?? c.faces[0];
+    if (!face) return;
+    if (entersTapped(face)) c.rotation = 90;
+    for (const [k, n] of Object.entries(entersWithCounters(face))) c.counters[k] = (c.counters[k] ?? 0) + n;
+  }
+
+  /** Magic's untap and draw steps, for a player who hasn't opted out. Says what it did, for the turn's log line. */
+  private startTurn(pid: PlayerId): string {
+    const s = this.s;
+    const p = s.players[pid];
+    if (!s.preset.magic || !p || p.manualTurn) return '';
+    const play = s.preset.parts.play && s.zones[zoneId(pid, s.preset.parts.play)];
+    const did: string[] = [];
+    if (play) {
+      const tapped = play.cards.map((id) => s.cards[id]).filter((c) => c?.rotation);
+      const stay = tapped.filter((c) => !c.faceDown && staysTapped(c.faces[c.face] ?? c.faces[0]));
+      for (const c of tapped) if (!stay.includes(c)) c.rotation = 0;
+      if (tapped.length > stay.length) did.push(`untapped${stay.length ? ` (${stay.map(cardName).join(', ')} stays tapped)` : ''}`);
+    }
+    const lib = s.preset.parts.deck && s.zones[zoneId(pid, s.preset.parts.deck)];
+    const hand = s.preset.parts.hand && s.zones[zoneId(pid, s.preset.parts.hand)];
+    if (lib && hand) {
+      // The draw is theirs, even though the player passing the turn sent it.
+      if (lib.cards.length) {
+        const actor = this.actor;
+        this.actor = pid;
+        this.move([lib.cards[0]], hand.id, {}, true);
+        this.actor = actor;
+        did.push('drew a card');
+      } else did.push("couldn't draw: their library is empty");
+    }
+    return did.length ? ` — ${did.join(', ')}` : '';
+  }
+
   /** Takes a card that left `z` out of the searches open on it. */
   private dropPeeks(z: Zone, id: CardId) {
     if (!z.peeks) return;
@@ -838,6 +931,7 @@ class Mutation {
         }
         if (opts.faceDown != null) c.faceDown = opts.faceDown;
         else if (changed && from[i].kind !== 'free') c.faceDown = false;
+        if (changed && from[i].kind !== 'free') this.arrive(c, to);
       } else if (changed) {
         Object.assign(c, { rotation: 0, counters: {}, faceDown: false, face: 0 });
         delete c.note;

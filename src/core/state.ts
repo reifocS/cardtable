@@ -26,6 +26,7 @@ export const MTG: Preset = {
   deckSections: { main: 'library', side: 'sideboard', commander: 'command' },
   commander: { zone: 'command', castThrough: 'stack', tax: 2, tracker: 'Life', life: 40, lethal: 21 },
   tokensOnlyInPlay: true,
+  magic: true,
 };
 
 /** Owner of the table's shared zones. */

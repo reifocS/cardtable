@@ -1287,6 +1287,72 @@ body.dragging * {
   height: 120px;
 }
 
+/* London mulligan: a floating bar over the table, the new hand in it. */
+.mulligan-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 230px;
+  transform: translateX(-50%);
+  z-index: 950;
+  width: min(820px, calc(100vw - 32px));
+  background: var(--stone);
+  border: 14px solid;
+  border-image: var(--frame);
+  padding: 4px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 10px 30px #000a;
+}
+.mulligan-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mulligan-head b {
+  color: var(--gold);
+}
+.mulligan-head .muted {
+  font-size: 12px;
+}
+.mulligan-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mulligan-card {
+  position: relative;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  transition: transform 0.12s;
+}
+.mulligan-card.on {
+  transform: translateY(8px);
+  filter: brightness(0.6);
+}
+.mulligan-order {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent);
+  color: #1b1307;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+}
+@media (max-width: 600px) {
+  .mulligan-bar {
+    bottom: 160px;
+  }
+}
+
 /* Cascade, discover: the card it hit, big, and what it passed. */
 .reveal-body {
   display: flex;
@@ -1358,15 +1424,21 @@ body.dragging * {
   font-size: 11px;
   color: var(--muted);
 }
+/* Anchored at the top: when a row grows, the rows above stay put under the pointer. */
+.modal-backdrop:has(> .arrange) {
+  align-items: flex-start;
+  padding-top: max(16px, 6vh);
+}
 .arrange-cards {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 6px 6px;
-  min-height: 60px;
+  /* A card and its buttons, even when empty: rows don't change height as cards come and go. */
+  min-height: 196px;
   box-shadow: inset 0 6px 10px -6px #000;
 }
-.arrange-row.can-drop .arrange-cards {
+.arrange-row.landing .arrange-cards {
   outline: 1px dashed var(--gold);
   outline-offset: -3px;
 }
@@ -1380,15 +1452,47 @@ body.dragging * {
   flex-direction: column;
   gap: 4px;
   cursor: grab;
+  touch-action: none;
+}
+.arrange.dragging,
+.arrange.dragging .arrange-card {
+  cursor: grabbing;
 }
 .arrange-card .card {
   width: 100%;
 }
-.arrange-card.hovered .card {
+.arrange-card.selected .card {
   outline: 2px solid var(--select);
+  outline-offset: 2px;
 }
-.arrange-card.dragging {
-  opacity: 0.4;
+/* Its place in the row while it's held: an empty slot. */
+.arrange-card.held .card {
+  opacity: 0.25;
+  outline: 1px dashed var(--gold);
+}
+.arrange-card.held .arrange-moves {
+  visibility: hidden;
+}
+.arrange-ghost {
+  position: fixed;
+  z-index: 1100;
+  width: 110px;
+  pointer-events: none;
+  transform: rotate(-3deg) scale(1.04);
+  filter: drop-shadow(0 10px 14px #000c);
+}
+.arrange-ghost .card {
+  width: 100%;
+}
+.arrange-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.arrange-toolbar .muted {
+  font-size: 12px;
 }
 .arrange-moves {
   display: flex;
@@ -1401,8 +1505,12 @@ body.dragging * {
   font-size: 11px;
 }
 @media (max-width: 600px) {
-  .arrange-card {
+  .arrange-card,
+  .arrange-ghost {
     width: 84px;
+  }
+  .arrange-cards {
+    min-height: 156px;
   }
 }
 
