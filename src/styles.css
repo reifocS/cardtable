@@ -1291,6 +1291,25 @@ body.dragging * {
 .arrange-card {
   position: relative;
 }
+/* A card drawn up out of its row while it's being moved along it, then put back down. */
+.hand-slot,
+.viewer-slot,
+.arrange-card {
+  transition: translate 0.18s ease-out;
+}
+.hand-slot.raised,
+.viewer-slot.raised,
+.arrange-card.raised {
+  translate: 0 -14px;
+  z-index: 5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand-slot,
+  .viewer-slot,
+  .arrange-card {
+    transition: none;
+  }
+}
 /* Where cards dragged over a row would land, before they're dropped: the room opens up. */
 .hand-slot.drop-gap {
   animation: gap-open 0.22s ease-out;

@@ -22,41 +22,33 @@ export function withInserted<T>(list: T[], items: T[], index: number): T[] {
   return [...rest.slice(0, at), ...items, ...rest.slice(at)];
 }
 
-/**
- * A spring's settling, as a CSS easing: quick off the mark, a touch past the mark (about 4%), then
- * home. Sampled from a damped oscillator; browsers without `linear()` get an overshooting curve.
- */
-const SPRING = (() => {
-  const zeta = 0.72;
-  const wd = Math.sqrt(1 - zeta * zeta);
-  const end = 6.5;
-  const at = (t: number) => 1 - Math.exp(-zeta * t) * (Math.cos(wd * t) + (zeta / wd) * Math.sin(wd * t));
-  const points = Array.from({ length: 41 }, (_, i) => +at((i / 40) * end).toFixed(4));
-  points[40] = 1;
-  const css = `linear(${points.join(', ')})`;
-  return typeof CSS !== 'undefined' && CSS.supports('transition-timing-function', css) ? css : 'cubic-bezier(0.22, 1.25, 0.36, 1)';
-})();
+/** Slides that slow down into place, without overshooting: cards on a table don't bounce. */
+const EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
+/** How long a moved card stays out of the row after its last move, before it's put back down. */
+const SETTLE_MS = 420;
 
 const still = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 interface FlipOptions {
-  /** Items moved on purpose (the picked card): they rise over their neighbours on the way. */
+  /** Items moved on purpose (the picked card): they're drawn out of the row while they travel. */
   lifted?: string[];
 }
 
 /**
- * Animates a row's items to their new places when `order` changes (FLIP: measure, jump back, spring
- * home). Longer trips take a little longer, the items set off in a wave from the one that was moved,
- * and a lifted item arcs over the others. Gives `ref(key)` for each item's element, and `rect(key)`:
- * where the item sits in the layout without a glide under way (what a drop should be measured
- * against, so it doesn't chase a moving card). An item moved again mid-glide starts from where it
- * is on screen.
+ * Animates a row's items to their new places when `order` changes (FLIP: measure, jump back, slide
+ * home), like a hand of cards being sorted: the others slide over together, and a card moved on
+ * purpose is drawn up out of the row, stays up while it keeps moving (a key pressed again and
+ * again), and is put back down once it stops (the `raised` class, on CSS's own `translate`, apart
+ * from the slide's transform). Gives `ref(key)` for each item's element, and `rect(key)`: where the
+ * item sits in the layout without a slide under way (what a drop should be measured against, so it
+ * doesn't chase a moving card). An item moved again mid-slide starts from where it is on screen.
  */
 export function useFlip(order: string, { lifted = [] }: FlipOptions = {}) {
   const els = useRef(new Map<string, HTMLElement>());
   const last = useRef(new Map<string, DOMRect>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
-  // Read by the glide below, which runs after this (layout effects run in order) but only on a new order.
+  const settle = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  // Read by the slide below, which runs after this (layout effects run in order) but only on a new order.
   const liftedNow = useRef(lifted);
   useLayoutEffect(() => {
     liftedNow.current = lifted;
@@ -64,52 +56,52 @@ export function useFlip(order: string, { lifted = [] }: FlipOptions = {}) {
 
   useLayoutEffect(() => {
     const now = new Map<string, DOMRect>();
-    const moves: { el: HTMLElement; key: string; dx: number; dy: number; r: DOMRect }[] = [];
+    const moves: { el: HTMLElement; key: string; dx: number; dy: number }[] = [];
     for (const [key, el] of els.current) {
       if (!el.isConnected) continue;
-      // Where it is on screen right now: its old place plus what's left of a glide under way.
+      // Where it is on screen right now: its old place plus what's left of a slide under way.
       const t = getComputedStyle(el).transform;
       const m = t && t !== 'none' ? new DOMMatrixReadOnly(t) : null;
       for (const a of el.getAnimations()) if (a.id === 'flip') a.cancel();
       const r = el.getBoundingClientRect();
-      now.set(key, r);
+      // The layout box, whether or not the card is drawn up out of the row (or on its way back down).
+      const tr = getComputedStyle(el).translate;
+      const up = tr && tr !== 'none' ? parseFloat(tr.split(' ')[1] ?? '0') || 0 : 0;
+      const rest = new DOMRect(r.left, r.top - up, r.width, r.height);
+      now.set(key, rest);
       const was = last.current.get(key);
       if (!was) continue;
-      const dx = was.left + (m?.m41 ?? 0) - r.left;
-      const dy = was.top + (m?.m42 ?? 0) - r.top;
-      if (Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5) moves.push({ el, key, dx, dy, r });
+      const dx = was.left + (m?.m41 ?? 0) - rest.left;
+      const dy = was.top + (m?.m42 ?? 0) - rest.top;
+      if (Math.abs(dx) >= 0.5 || Math.abs(dy) >= 0.5) moves.push({ el, key, dx, dy });
     }
     last.current = now;
     if (!moves.length || still()) return;
 
-    // The wave starts at the moved card (or the row's start) and spreads out from it.
-    const origin = moves.find((mv) => liftedNow.current.includes(mv.key))?.r ?? moves[0].r;
-    const away = (r: DOMRect) => Math.hypot(r.left - origin.left, r.top - origin.top);
-    moves.sort((a, b) => away(a.r) - away(b.r));
-    moves.forEach(({ el, key, dx, dy }, i) => {
-      const dist = Math.hypot(dx, dy);
-      const duration = Math.min(520, 300 + dist * 0.35);
-      const delay = Math.min(i * 16, 110);
-      const lift = liftedNow.current.includes(key);
-      // A lifted card rises and grows a little mid-way, over its neighbours.
-      const frames: Keyframe[] = lift
-        ? [
-            { transform: `translate(${dx}px, ${dy}px) scale(1)` },
-            { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - Math.min(14, 6 + dist * 0.05)}px) scale(1.06)`, offset: 0.4 },
-            { transform: 'translate(0, 0) scale(1)' },
-          ]
-        : [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }];
-      if (lift) el.style.zIndex = '5';
-      const a = el.animate(frames, { duration, delay: lift ? 0 : delay, easing: SPRING, fill: 'backwards' });
+    for (const { el, key, dx, dy } of moves) {
+      const duration = Math.min(380, 220 + Math.hypot(dx, dy) * 0.25);
+      const a = el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }], { duration, easing: EASE });
       a.id = 'flip';
-      const done = () => {
-        if (lift) el.style.zIndex = '';
-      };
-      a.onfinish = done;
-      a.oncancel = done;
-    });
+      if (!liftedNow.current.includes(key)) continue;
+      // Drawn up while it travels; put back down a moment after its last move.
+      el.classList.add('raised');
+      clearTimeout(settle.current.get(key));
+      settle.current.set(
+        key,
+        setTimeout(() => {
+          el.classList.remove('raised');
+          settle.current.delete(key);
+        }, SETTLE_MS),
+      );
+    }
   }, [order]);
 
+  useLayoutEffect(
+    () => () => {
+      for (const t of settle.current.values()) clearTimeout(t);
+    },
+    [],
+  );
   return {
     /** A stable ref callback per key, so React doesn't detach and reattach it on every render. */
     ref(key: string) {
