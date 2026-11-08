@@ -67,6 +67,21 @@ describe('a press of the pointer', () => {
     expect(calls).toEqual(['click 0']);
   });
 
+  it("ends without a drop when the release was never heard, or the window lost focus", () => {
+    const t = new EventTarget();
+    const { calls } = record(t);
+    t.dispatchEvent(pointer('pointermove', 10, 0, { buttons: 1 }));
+    t.dispatchEvent(pointer('pointermove', 30, 0, { buttons: 0 }));
+    t.dispatchEvent(pointer('pointerup', 30, 0));
+    expect(calls).toEqual(['start 10', 'move 10', 'cancel']);
+    const t2 = new EventTarget();
+    const second = record(t2);
+    t2.dispatchEvent(pointer('pointermove', 10, 0));
+    t2.dispatchEvent(new Event('blur'));
+    t2.dispatchEvent(pointer('pointerup', 10, 0));
+    expect(second.calls).toEqual(['start 10', 'move 10', 'cancel']);
+  });
+
   it('a cancelled pointer ends a drag without a drop', () => {
     const t = new EventTarget();
     const { calls, stop } = record(t);

@@ -5,7 +5,8 @@
  *
  * - followed on the window, not the pressed element (an element replaced mid-drag, as a card changing
  *   rows is, would lose a pointer capture and with it the release);
- * - Esc or a cancelled pointer ends a drag without dropping, and the Esc goes no further;
+ * - Esc, a cancelled pointer, the window losing focus or a release the page never heard (seen as a
+ *   move with no button held) end a drag without dropping, and the Esc goes no further;
  * - the handlers keep whatever state they need between calls themselves, so a release that comes before
  *   the next render still sees the last move.
  */
@@ -56,6 +57,9 @@ export function trackPress(from: Point, handlers: DragHandlers, { threshold = DR
   let dragging = false;
 
   const move = (e: Event) => {
+    // No button held any more: the release happened where the page couldn't hear it (another window,
+    // outside the browser). Where it was let go isn't known, so it's a cancel, not a drop.
+    if ((e as PointerLike & { buttons?: number }).buttons === 0) return cancel();
     const at = info(e as PointerLike);
     if (!dragging) {
       if (Math.hypot(at.x - from.x, at.y - from.y) < threshold) return;
@@ -84,6 +88,7 @@ export function trackPress(from: Point, handlers: DragHandlers, { threshold = DR
     cancel();
   };
   function stop() {
+    target.removeEventListener('blur', cancel);
     target.removeEventListener('pointermove', move);
     target.removeEventListener('pointerup', up);
     target.removeEventListener('pointercancel', cancel);
@@ -94,6 +99,8 @@ export function trackPress(from: Point, handlers: DragHandlers, { threshold = DR
   target.addEventListener('pointermove', move);
   target.addEventListener('pointerup', up);
   target.addEventListener('pointercancel', cancel);
+  // The window losing focus mid-press (switching apps) ends it too: its release would never come.
+  target.addEventListener('blur', cancel);
   // Captured, so it's heard before the app's own Esc handlers.
   target.addEventListener('keydown', key, true);
   return cancel;

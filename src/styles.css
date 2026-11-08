@@ -822,7 +822,8 @@ body.dragging * {
 body.dragging .card,
 body.dragging .hand-slot,
 body.dragging .viewer-slot,
-body.dragging .arrows * {
+body.dragging .arrows *,
+body.dragging .roll-fx > * {
   pointer-events: none;
 }
 .is-targeting .card,

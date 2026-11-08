@@ -18,7 +18,7 @@ function parse(text: string): { sides: number; value: number } | null {
 }
 
 /** The die (or coin) itself, thrown when it mounts; tells when it has come to rest. */
-function Thrown({ roll, onRest }: { roll: Roll; onRest: () => void }) {
+function Thrown({ roll, rested, onRest }: { roll: Roll; rested: boolean; onRest: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -31,7 +31,6 @@ function Thrown({ roll, onRest }: { roll: Roll; onRest: () => void }) {
         const box = ref.current!.getBoundingClientRect();
         herald(new DOMRect(box.left + box.width * 0.2, box.top + box.height * 0.2, box.width * 0.6, box.height * 0.6), true);
       }
-      ref.current!.classList.add('rested');
     }, thrown.seconds * 1000);
     return () => {
       thrown.stop();
@@ -39,7 +38,7 @@ function Thrown({ roll, onRest }: { roll: Roll; onRest: () => void }) {
       thrown.element.remove();
     };
   }, [roll, onRest]);
-  return <div className={`roll-throw${roll.sides === 20 && roll.value === 1 ? ' fumble' : ''}`} ref={ref} />;
+  return <div className={`roll-throw${roll.sides === 20 && roll.value === 1 ? ' fumble' : ''}${rested ? ' rested' : ''}`} ref={ref} />;
 }
 
 /**
@@ -81,7 +80,7 @@ export function RollFx({ state }: { state: GameState }) {
   const result = roll.sides === 2 ? (roll.value === 1 ? 'Heads' : 'Tails') : String(roll.value);
   return (
     <div className="roll-fx" key={roll.id} onClick={() => setRoll(null)}>
-      <Thrown roll={roll} onRest={onRest} />
+      <Thrown roll={roll} rested={rested} onRest={onRest} />
       <div className="roll-caption">
         <b style={{ color: roll.color }}>{roll.who}</b> {roll.sides === 2 ? 'flips a coin' : `rolls a d${roll.sides}`}
         {rested && <span className="roll-result">{result}</span>}
