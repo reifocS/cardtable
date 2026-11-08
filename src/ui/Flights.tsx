@@ -1,9 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { CardId, GameState, ZoneId } from '../core/types';
 import { fireWheel, herald } from './herald';
-
-/** Cards I just dropped by hand: they're already where they land, so they don't fly there (but still raise dust). */
-export const justDropped = new Set<CardId>();
+import { letGo } from './settle';
 
 const FLIGHT_MS = 420;
 /** Between cards moved together (a draw of seven), so they leave one after another. */
@@ -154,11 +152,11 @@ export function Flights({ state }: { state: GameState }) {
               }
             }
           : undefined;
-      // Dropped by hand: already in place, so no flight, but it still lands.
-      if (justDropped.has(card.id)) onLand?.(rect);
+      // Dropped by hand: it glides there from where it was let go instead (settle.ts), and lands as it arrives.
+      const go = letGo.get(card.id);
+      if (go) go.onLand = onLand;
       else fly(el, was.rect, rect, n++ * STAGGER_MS, onLand);
     }
-    justDropped.clear();
     seen.current = now;
   }, [state]);
 

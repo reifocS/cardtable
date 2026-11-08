@@ -3,6 +3,7 @@ import type { ArrangeTo } from '../core/ops';
 import type { CardId, GameState, Zone } from '../core/types';
 import { closeArrange } from './actions';
 import { CardBack, FaceView } from './CardView';
+import { ghostBox, settle } from './settle';
 import { insertionIndex, useFlip, withInserted } from './sortable';
 import { CardGhost } from './DragGhost';
 import { trackPress } from './dragSession';
@@ -54,6 +55,15 @@ interface Drag {
   h: number;
   to: Dest;
   index: number;
+}
+
+/** A card of the window let go of: from where its ghost was, it glides to its place once drawn there. */
+function glideIn(id: CardId, from: DOMRect | undefined) {
+  if (!from) return;
+  requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>(`[data-arrange-id="${id}"] .card`);
+    if (el) settle(el, from);
+  });
 }
 
 function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: NonNullable<Store['arrange']>; zone: Zone }) {
@@ -156,13 +166,19 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
           setDrag(now);
         },
         drop() {
+          const from = ghostBox();
           setPiles((p) => placed(p, dests, id, now.to, now.index));
           setSelected(id);
           setDrag(null);
+          glideIn(id, from);
         },
         // A press without a drag is a click: it picks the card for the keys and the toolbar.
         click: () => setSelected(id),
-        cancel: () => setDrag(null),
+        cancel() {
+          const from = ghostBox();
+          setDrag(null);
+          glideIn(id, from);
+        },
       },
     );
   };
@@ -249,6 +265,7 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
                     <div
                       key={id}
                       ref={flip.ref(id)}
+                      data-arrange-id={id}
                       className={`arrange-card${selected === id ? ' selected' : ''}${held ? ' held' : ''}`}
                       onPointerDown={(e) => onPointerDown(e, id)}
                       onPointerEnter={() => face && useStore.setState({ previewId: id })}

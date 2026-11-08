@@ -4,7 +4,7 @@ import type { Card, CardId, ZoneId } from '../core/types';
 import { trackPress, type PointerInfo } from './dragSession';
 import { VIEW_H, mirrorY, storeX, storeY } from './fit';
 import { sticky, zoneIn } from './dropTarget';
-import { justDropped } from './Flights';
+import { aroundGhost, ghostBox, letGoOf } from './settle';
 import { insertionIndex } from './sortable';
 import { act, setSelection, useStore, type TableDrag } from './store';
 
@@ -96,6 +96,8 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   let ids: CardId[] = store.selection.includes(card.id) ? store.selection : [card.id];
   // The zone it's over, held on to near its edges (see targetAt).
   let held: HTMLElement | null = null;
+  // Cards together on the battlefield it's picked up from (see together), and where they were.
+  let group = new Map<CardId, DOMRect>();
 
   const update = (at: PointerInfo) => {
     const d = useStore.getState().drag;
@@ -116,14 +118,23 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
           ids = [card.id];
           setSelection(ids);
         }
+        group = together(ids, card);
         useStore.setState({ drag: { ids, x: at.x, y: at.y, fx, fy, w: own.w, h: own.h, turn, over: null } });
       },
       move: update,
       drop(at) {
         update(at);
-        const over = useStore.getState().drag?.over ?? null;
+        const d = useStore.getState().drag;
+        // Where each card starts gliding from, read before the drop changes them (a card entering tapped).
+        // What's attached and wasn't picked up follows its host around the battlefield (the engine lays it
+        // out again), so it glides along too.
+        const sameBoard = d?.over?.zone === card.zone && !!held?.classList.contains('board');
+        const following = sameBoard ? [...group.keys()].filter((id) => !ids.includes(id)) : [];
+        const froms = aroundGhost([...ids, ...following], card.id, group, ghostBox(), turnIn(held));
         useStore.setState({ drag: null });
-        drop(at, ids, card, fx, fy, over, held);
+        drop(at, ids, card, fx, fy, d?.over ?? null, held);
+        // Where it landed, or back where it was if the drop went nowhere: it glides there either way.
+        letGoOf(froms);
       },
       click(at) {
         // Alt+click (no drag) pings the card for everyone; Alt+drag still plays face down.
@@ -138,10 +149,39 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
           setSelection([card.id]);
         }
       },
-      cancel: () => useStore.setState({ drag: null }),
+      cancel() {
+        const froms = aroundGhost(ids, card.id, group, ghostBox(), turnIn(held));
+        useStore.setState({ drag: null });
+        // Back where it came from, so it's plain nothing moved.
+        letGoOf(froms);
+      },
     },
   );
 }
+
+/**
+ * The cards picked up with `card` that sit with it on its battlefield, and what's attached to any of
+ * them there, with their boxes on screen: they're carried as they lie.
+ */
+function together(ids: CardId[], card: Card): Map<CardId, DOMRect> {
+  const group = new Map<CardId, DOMRect>();
+  const state = useStore.getState().state;
+  const zone = state?.zones[card.zone];
+  if (!state || zone?.kind !== 'free') return group;
+  const board = document.querySelector<HTMLElement>(`.table [data-drop-zone="${zone.id}"]`);
+  const picked = new Set(ids);
+  for (const id of zone.cards) {
+    const c = state.cards[id];
+    if (!picked.has(id) && !(c?.attachedTo && picked.has(c.attachedTo))) continue;
+    const el = board?.querySelector<HTMLElement>(`[data-card-id="${id}"]`);
+    if (el) group.set(id, el.getBoundingClientRect());
+  }
+  return group;
+}
+
+/** How cards let go of over `target` are turned there: on a battlefield as they lie, anywhere else upright. */
+const turnIn = (target: HTMLElement | null) => (id: CardId) =>
+  target?.classList.contains('board') ? (useStore.getState().state?.cards[id]?.rotation ?? 0) : 0;
 
 /**
  * How big a card is on screen in a drop zone, upright: on a battlefield, from the board's scale; on a
@@ -169,8 +209,6 @@ function drop(at: PointerInfo, ids: CardId[], primary: Card, fx: number, fy: num
   const zone = state.zones[over.zone];
   if (!zone) return;
   const ordered = ids.filter((id) => state.cards[id]);
-  // Already where they land: they don't fly there.
-  for (const id of ordered) justDropped.add(id);
 
   if (zone.kind === 'free') {
     const r = target.getBoundingClientRect();
