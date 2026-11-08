@@ -1248,31 +1248,19 @@ body.dragging .arrows * {
 /* ---- overlays ---- */
 
 .viewer {
-  --viewer-card-h: 180px;
-  /* Centred over the table (not the side panel), as big as its cards need, up to most of the screen.
-     It doesn't block the table: dragging a card out of it, it fades and lets the pointer through to
-     the zones beneath (see Viewer). */
   position: fixed;
-  inset: 64px 336px 16px 16px;
-  width: fit-content;
-  height: fit-content;
-  min-width: min(420px, 100% - 32px);
-  max-width: min(1180px, 100% - 352px);
-  max-height: calc(100vh - 80px);
-  margin: auto;
-  /* Over the target arrows (800), under menus and dialogs. */
-  z-index: 850;
+  left: 16px;
+  right: 336px;
+  /* Sits just above the tray, short enough to leave the battlefield reachable for drops. */
+  bottom: 168px;
+  max-height: 34vh;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   background: var(--stone);
   border: 14px solid;
   border-image: var(--frame);
-  box-shadow: 0 16px 60px #000e;
-  transition: opacity 0.15s ease-out;
-}
-.viewer.passing {
-  opacity: 0.12;
-  pointer-events: none;
+  box-shadow: 0 12px 40px #000c;
 }
 .viewer-head {
   display: flex;
@@ -1308,7 +1296,7 @@ body.dragging .arrows * {
   outline-offset: -4px;
 }
 .viewer-cards .card {
-  height: var(--viewer-card-h);
+  height: 120px;
 }
 /* A row's slots stack by z-index while one passes over the others (see sortable.useFlip). */
 .viewer-slot,
@@ -1333,7 +1321,7 @@ body.dragging .arrows * {
   animation: gap-open 0.22s ease-out;
 }
 .viewer-slot.drop-gap {
-  width: calc(var(--viewer-card-h) * 63 / 88);
+  width: calc(120px * 63 / 88);
   animation: gap-open-width 0.22s ease-out;
 }
 @keyframes gap-open {
@@ -1366,7 +1354,7 @@ body.dragging .arrows * {
   height: var(--hand-card-h);
 }
 .viewer-slot.drop-gap {
-  height: var(--viewer-card-h);
+  height: 120px;
 }
 
 /* London mulligan: a floating bar over the table, the new hand in it. */
@@ -1581,10 +1569,6 @@ body.dragging .arrows * {
   }
   .arrange-cards {
     min-height: 156px;
-  }
-  .viewer {
-    --viewer-card-h: 130px;
-    min-width: 0;
   }
 }
 
@@ -1868,7 +1852,6 @@ body.dragging .arrows * {
   }
   .viewer {
     right: 276px;
-    max-width: calc(100% - 292px);
   }
 }
 
