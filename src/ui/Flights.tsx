@@ -136,8 +136,10 @@ export function Flights({ state }: { state: GameState }) {
       // Landing on a battlefield raises dust; a legendary card, face up, makes an entrance too.
       const face = card.faceDown ? undefined : card.faces[card.face];
       const legendary = /\bLegendary\b/i.test(face?.type ?? '');
-      // A commander, cast from the command zone, gets a wheel of fire instead.
-      const commander = state.zones[was.zone]?.role === 'command';
+      // A commander, cast from the command zone, directly or through the stack, gets a wheel of fire instead.
+      const rules = state.preset.commander;
+      const from = state.zones[was.zone]?.role;
+      const commander = from === 'command' || (!!rules && from === rules.castThrough && card.home === rules.zone);
       const onLand =
         state.zones[card.zone]?.kind === 'free'
           ? (at: DOMRect) => {

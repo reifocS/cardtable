@@ -184,29 +184,22 @@ class Mutation {
       }
       case 'shuffle': {
         const z = this.zone(op.zone);
-        for (let i = z.cards.length - 1; i > 0; i--) {
-          const j = Math.floor(this.rng() * (i + 1));
-          [z.cards[i], z.cards[j]] = [z.cards[j], z.cards[i]];
-        }
-        for (const id of z.cards) s.cards[id].revealedTo = [];
+        this.shuffleSilently(z);
         return this.log(`shuffled ${this.zoneLabel(z)}`);
       }
       case 'peek': {
         const z = this.zone(op.zone);
         const ids = op.n == null ? z.cards : z.cards.slice(0, op.n);
-        for (const id of ids) {
-          const c = s.cards[id];
-          if (!c.revealedTo.includes(this.actor)) c.revealedTo.push(this.actor);
-        }
+        const peeks = (z.peeks ??= {});
+        peeks[this.actor] = [...new Set([...(peeks[this.actor] ?? []), ...ids])];
         if (z.visibility === 'public' || (z.visibility === 'owner' && z.owner === this.actor)) return;
         return this.log(op.n == null ? `is searching ${this.zoneLabel(z)}` : `looked at the top ${ids.length} of ${this.zoneLabel(z)}`);
       }
       case 'unpeek': {
         const z = this.zone(op.zone);
-        for (const id of z.cards) {
-          const c = s.cards[id];
-          c.revealedTo = c.revealedTo.filter((p) => p !== this.actor);
-        }
+        if (!z.peeks) return;
+        delete z.peeks[this.actor];
+        if (!Object.keys(z.peeks).length) delete z.peeks;
         return;
       }
       case 'reveal': {
@@ -336,8 +329,15 @@ class Mutation {
         const host = s.cards[op.to];
         const zone = host && s.zones[host.zone];
         if (!host || zone?.kind !== 'free') return;
-        // No loops: a host can't end up attached to its own attachment.
-        if (host.attachedTo && op.cards.includes(host.attachedTo)) delete host.attachedTo;
+        // No loops: a host can't stay attached, even through other cards, to what's now attached to it.
+        const seen = new Set<CardId>();
+        for (let c: Card | undefined = host; c?.attachedTo && !seen.has(c.id); c = s.cards[c.attachedTo]) {
+          seen.add(c.id);
+          if (op.cards.includes(c.attachedTo)) {
+            delete c.attachedTo;
+            break;
+          }
+        }
         const others = cards.filter((c) => c.zone !== zone.id);
         if (others.length) this.move(others.map((c) => c.id), zone.id, {}, true);
         for (const c of cards) c.attachedTo = host.id;
@@ -586,7 +586,10 @@ class Mutation {
 
   private remove(c: Card) {
     const z = this.s.zones[c.zone];
-    if (z) z.cards = z.cards.filter((id) => id !== c.id);
+    if (z) {
+      z.cards = z.cards.filter((id) => id !== c.id);
+      this.dropPeeks(z, c.id);
+    }
     delete this.s.cards[c.id];
     for (const other of Object.values(this.s.cards)) if (other.attachedTo === c.id) delete other.attachedTo;
     this.s.arrows = this.s.arrows.filter((a) => a.from !== c.id && a.to !== c.id);
@@ -607,12 +610,21 @@ class Mutation {
     return role ? this.s.zones[zoneId(this.actor, role)] : undefined;
   }
 
+  /** Takes a card that left `z` out of the searches open on it. */
+  private dropPeeks(z: Zone, id: CardId) {
+    if (!z.peeks) return;
+    for (const p of Object.keys(z.peeks)) z.peeks[p] = z.peeks[p].filter((c) => c !== id);
+  }
+
+  /** Shuffled cards can't be followed: nobody knows any more which is which. */
   private shuffleSilently(z: Zone | undefined) {
     if (!z) return;
     for (let i = z.cards.length - 1; i > 0; i--) {
       const j = Math.floor(this.rng() * (i + 1));
       [z.cards[i], z.cards[j]] = [z.cards[j], z.cards[i]];
     }
+    for (const id of z.cards) this.s.cards[id].revealedTo = [];
+    delete z.peeks;
   }
 
   private move(
@@ -630,6 +642,7 @@ class Mutation {
     for (const c of cards) {
       const z = this.s.zones[c.zone];
       z.cards = z.cards.filter((id) => id !== c.id);
+      if (z.id !== to.id) this.dropPeeks(z, c.id);
     }
     const before = to.cards.length;
     let index = opts.index ?? (to.kind === 'pile' ? 0 : before);
@@ -644,13 +657,15 @@ class Mutation {
       const changed = c.zone !== to.id;
       // Moved without its host: it's no longer attached.
       if (c.attachedTo && !moving.has(c.attachedTo)) delete c.attachedTo;
-      // Leaving the commander zone for play is how a commander gets cast here.
-      if (rules && changed && c.home === rules.zone && from[i].role === rules.zone && to.role === this.s.preset.parts.play) {
+      // Leaving the commander zone for play, directly or through the stack, is how a commander gets cast here.
+      if (rules && changed && c.home === rules.zone && from[i].role === rules.zone && (to.role === this.s.preset.parts.play || to.role === rules.castThrough)) {
         c.tax = (c.tax ?? 0) + rules.tax;
         taxed.push(c);
       }
       c.zone = to.id;
       if (changed) c.revealedTo = [];
+      // Off the battlefield, what it was pointing at or pointed at by no longer applies.
+      if (changed && from[i].kind === 'free' && to.kind !== 'free') this.s.arrows = this.s.arrows.filter((a) => a.from !== c.id && a.to !== c.id);
       if (to.kind === 'free') {
         if (!changed) hosts.push(c);
         const p = opts.positions?.[c.id] ?? (changed ? this.autoPlace(before + i) : undefined);
@@ -663,6 +678,7 @@ class Mutation {
       } else if (changed) {
         Object.assign(c, { rotation: 0, counters: {}, faceDown: false, face: 0 });
         delete c.note;
+        delete c.attachedTo;
       }
     });
 
@@ -679,12 +695,12 @@ class Mutation {
     const labels = cards.map((c, i) => (wasPublic[i] || isPublic(c, to) ? cardName(c) : null));
     const sources = [...new Set(from)];
     const fromLabel = sources.length === 1 ? this.zoneLabel(sources[0]) : 'several zones';
+    const tax = taxed.length ? ` (commander tax now ${taxed.map((c) => c.tax).join(', ')})` : '';
     if (to.verb) {
       const fromHand = sources.length === 1 && sources[0].role === this.s.preset.parts.hand;
-      return this.log(`${to.verb} ${listLabel(labels)}${fromHand ? '' : ` from ${fromLabel}`}`);
+      return this.log(`${to.verb} ${listLabel(labels)}${fromHand ? '' : ` from ${fromLabel}`}${tax}`);
     }
     const bottom = to.kind === 'pile' && opts.index === -1 ? ' (bottom)' : '';
-    const tax = taxed.length ? ` (commander tax now ${taxed.map((c) => c.tax).join(', ')})` : '';
     this.log(`moved ${listLabel(labels)} from ${fromLabel} to ${this.zoneLabel(to)}${bottom}${tax}`);
   }
 }

@@ -24,7 +24,7 @@ export const MTG: Preset = {
   shared: [{ role: 'stack', name: 'Stack', kind: 'pile', visibility: 'public', verb: 'cast' }],
   parts: { deck: 'library', hand: 'hand', play: 'battlefield', discard: 'graveyard' },
   deckSections: { main: 'library', side: 'sideboard', commander: 'command' },
-  commander: { zone: 'command', tax: 2, tracker: 'Life', life: 40, lethal: 21 },
+  commander: { zone: 'command', castThrough: 'stack', tax: 2, tracker: 'Life', life: 40, lethal: 21 },
 };
 
 /** Owner of the table's shared zones. */

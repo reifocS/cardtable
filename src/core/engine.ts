@@ -3,6 +3,11 @@ import { addPlayer, createGame, migrateGame } from './state';
 import type { GameState, PlayerId } from './types';
 
 const HISTORY = 100;
+/** Not moves in the game: a search opened or closed, a new name (which undo leaves alone anyway). */
+const NOT_UNDOABLE = new Set<Op['type']>(['peek', 'unpeek', 'rename']);
+
+/** Whether two states differ in more than their log: an op that only logs (a roll, a chat) has nothing to undo. */
+const sameGame = (a: GameState, b: GameState) => JSON.stringify({ ...a, log: [], nextId: 0 }) === JSON.stringify({ ...b, log: [], nextId: 0 });
 
 export const secureRandom = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
 
@@ -65,8 +70,10 @@ export class Engine {
       console.warn('Rejected op', op, e);
       return;
     }
-    this.past.push({ state: this.state, actor });
-    if (this.past.length > HISTORY) this.past.shift();
+    if (!NOT_UNDOABLE.has(op.type) && !sameGame(this.state, next)) {
+      this.past.push({ state: this.state, actor });
+      if (this.past.length > HISTORY) this.past.shift();
+    }
     this.commit(next);
   }
 
@@ -78,6 +85,13 @@ export class Engine {
     const s = structuredClone(last.state);
     for (const [id, p] of Object.entries(this.state.players)) {
       if (s.players[id]) Object.assign(s.players[id], { connected: p.connected, name: p.name });
+    }
+    // Searches aren't undone: those open now stay open, on the cards still there, and closed ones stay closed.
+    for (const z of Object.values(s.zones)) {
+      delete z.peeks;
+      for (const [p, ids] of Object.entries(this.state.zones[z.id]?.peeks ?? {})) {
+        (z.peeks ??= {})[p] = ids.filter((id) => z.cards.includes(id));
+      }
     }
     s.nextId = this.state.nextId;
     s.log = structuredClone(this.state.log);

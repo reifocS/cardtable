@@ -459,6 +459,136 @@ describe('visibility', () => {
   });
 });
 
+describe('searches', () => {
+  const seenBy = (e: Engine, viewer: string, id: string) => redact(e.state, viewer).cards[id].faces.length > 0;
+
+  it('stay closed when an action is undone', () => {
+    const { e, a } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const top = e.state.zones[lib].cards[0];
+    e.dispatch(a, { type: 'tracker', player: a, key: 'Life', delta: -1 });
+    e.dispatch(a, { type: 'peek', zone: lib });
+    e.dispatch(a, { type: 'unpeek', zone: lib });
+    e.dispatch(a, { type: 'undo' });
+    expect(seenBy(e, a, top)).toBe(false);
+    expect(e.state.players[a].trackers.Life).toBe(20);
+  });
+
+  it('stay open when an action is undone, on the cards still there', () => {
+    const { e, a } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const [first, second] = e.state.zones[lib].cards;
+    e.dispatch(a, { type: 'peek', zone: lib, n: 2 });
+    e.dispatch(a, { type: 'move', cards: [first], to: zoneId(a, 'hand') });
+    e.dispatch(a, { type: 'tracker', player: a, key: 'Life', delta: -1 });
+    e.dispatch(a, { type: 'undo' });
+    expect(e.state.zones[lib].peeks?.[a]).toEqual([second]);
+  });
+
+  it("closing one doesn't hide what was revealed to you", () => {
+    const { e, a, b } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const top = e.state.zones[lib].cards[0];
+    e.dispatch(a, { type: 'reveal', cards: [top], to: b });
+    e.dispatch(b, { type: 'peek', zone: lib, n: 1 });
+    e.dispatch(b, { type: 'unpeek', zone: lib });
+    expect(seenBy(e, b, top)).toBe(true);
+  });
+
+  it('end with a shuffle, and with leaving the zone', () => {
+    const { e, a } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const top = e.state.zones[lib].cards[0];
+    e.dispatch(a, { type: 'peek', zone: lib, n: 1 });
+    e.dispatch(a, { type: 'move', cards: [top], to: zoneId(a, 'hand') });
+    e.dispatch(a, { type: 'move', cards: [top], to: lib, index: 0 });
+    expect(seenBy(e, a, top)).toBe(false);
+    e.dispatch(a, { type: 'peek', zone: lib });
+    e.dispatch(a, { type: 'shuffle', zone: lib });
+    expect(e.state.zones[lib].peeks).toBeUndefined();
+  });
+
+  it('a mulligan forgets what was revealed in the library, like a shuffle', () => {
+    const { e, a, b } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const card = e.state.zones[lib].cards[20];
+    e.dispatch(a, { type: 'reveal', cards: [card], to: '*' });
+    e.dispatch(a, { type: 'mulligan', n: 0 });
+    expect(seenBy(e, b, card)).toBe(false);
+  });
+});
+
+describe('undo history', () => {
+  it('skips ops that changed nothing, or only the log', () => {
+    const { e, a } = twoPlayers();
+    e.dispatch(a, { type: 'tracker', player: a, key: 'Life', delta: -1 });
+    e.dispatch(a, { type: 'clearArrows' });
+    e.dispatch(a, { type: 'chat', text: 'hello' });
+    e.dispatch(a, { type: 'roll', sides: 6 });
+    e.dispatch(a, { type: 'undo' });
+    expect(e.state.players[a].trackers.Life).toBe(20);
+  });
+
+  it("isn't blocked by another player's chat", () => {
+    const { e, a, b } = twoPlayers();
+    e.dispatch(a, { type: 'tracker', player: a, key: 'Life', delta: -1 });
+    e.dispatch(b, { type: 'chat', text: 'hello' });
+    e.dispatch(a, { type: 'undo' });
+    expect(e.state.players[a].trackers.Life).toBe(20);
+  });
+});
+
+describe('cards leaving the battlefield', () => {
+  const onBoard = (e: Engine, a: string, n: number) => {
+    const bf = zoneId(a, 'battlefield');
+    e.dispatch(a, { type: 'moveTop', from: zoneId(a, 'library'), to: bf, n });
+    return e.state.zones[bf].cards;
+  };
+
+  it('are no longer attached, even with their host', () => {
+    const { e, a } = twoPlayers();
+    const [aura, host] = onBoard(e, a, 2);
+    e.dispatch(a, { type: 'attach', cards: [aura], to: host });
+    e.dispatch(a, { type: 'move', cards: [aura, host], to: zoneId(a, 'graveyard') });
+    expect(e.state.cards[aura].attachedTo).toBeUndefined();
+  });
+
+  it('take their arrows with them', () => {
+    const { e, a, b } = twoPlayers();
+    const [card] = onBoard(e, a, 1);
+    e.dispatch(a, { type: 'arrow', from: card, to: b });
+    e.dispatch(a, { type: 'move', cards: [card], to: zoneId(b, 'battlefield') });
+    expect(e.state.arrows).toHaveLength(1);
+    e.dispatch(a, { type: 'move', cards: [card], to: zoneId(a, 'library') });
+    expect(e.state.arrows).toHaveLength(0);
+  });
+
+  it('attachments never form a loop, however long', () => {
+    const { e, a } = twoPlayers();
+    const [x, y, z] = onBoard(e, a, 3);
+    e.dispatch(a, { type: 'attach', cards: [x], to: y });
+    e.dispatch(a, { type: 'attach', cards: [y], to: z });
+    e.dispatch(a, { type: 'attach', cards: [z], to: x });
+    expect(e.state.cards[z].attachedTo).toBe(x);
+    expect(e.state.cards[x].attachedTo).toBe(y);
+    expect(e.state.cards[y].attachedTo).toBeUndefined();
+  });
+});
+
+describe('commander cast through the stack', () => {
+  it('pays the tax once, leaving the command zone', () => {
+    const e = new Engine();
+    const a = e.join('Alice');
+    e.dispatch(a, { type: 'loadDeck', sections: { main: faces(99), side: [], commander: [[{ name: 'Atraxa' }]] } });
+    const cmdr = e.state.zones[zoneId(a, 'command')].cards[0];
+    e.dispatch(a, { type: 'move', cards: [cmdr], to: zoneId(TABLE, 'stack') });
+    expect(e.state.cards[cmdr].tax).toBe(2);
+    expect(e.state.log.at(-1)?.text).toBe('cast Atraxa from Command (commander tax now 2)');
+    e.dispatch(a, { type: 'move', cards: [cmdr], to: zoneId(a, 'battlefield') });
+    expect(e.state.cards[cmdr].tax).toBe(2);
+  });
+});
+
 describe('patches', () => {
   it('rebuild the next view while keeping what did not change', () => {
     const { e, a } = twoPlayers();

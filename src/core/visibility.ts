@@ -4,6 +4,7 @@ const isShownTop = (card: Card, zone: Zone) => !!zone.topVisible && zone.cards[0
 
 export function canSee(card: Card, zone: Zone, viewer: PlayerId): boolean {
   if (card.revealedTo.includes('*') || card.revealedTo.includes(viewer)) return true;
+  if (zone.peeks?.[viewer]?.includes(card.id)) return true;
   if (isShownTop(card, zone) && (zone.topVisible === 'all' || zone.owner === viewer)) return true;
   // You may always look at your own face-down cards.
   if (card.faceDown) return zone.owner === viewer;

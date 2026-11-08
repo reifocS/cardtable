@@ -63,6 +63,8 @@ export interface Zone extends ZoneSpec {
   cards: CardId[];
   /** The top card stays face up: to its owner ('owner') or to everyone ('all'). */
   topVisible?: 'owner' | 'all';
+  /** Searches open on this zone: the cards each player is looking at until they close it. */
+  peeks?: Record<PlayerId, CardId[]>;
 }
 
 /** The zones the engine acts on by itself, by role. A part left out turns its actions off. */
@@ -78,8 +80,10 @@ export interface PresetParts {
 
 /** Magic's commander rules, for presets that want them. */
 export interface CommanderRules {
-  /** Zone the commander starts in and is cast from (to the `play` part). */
+  /** Zone the commander starts in and is cast from (to the `play` part, or to `castThrough`). */
   zone: string;
+  /** Zone spells go through on their way to play, e.g. Magic's stack. */
+  castThrough?: string;
   /** Extra cost each time it is cast from there. */
   tax: number;
   /** Commander damage lowers this tracker, which starts at `life` when the deck has a commander. */

@@ -81,7 +81,9 @@ export const CardView = memo(function CardView({ card, zone, left, top, shownWid
   const face = card.faces[card.face] ?? card.faces[0];
   const counters = Object.entries(card.counters);
   const onBoard = zone.kind === 'free';
-  const classes = ['card', selected && 'selected', onBoard && card.rotation && 'tapped', card.revealedTo.some((p) => p !== me) && 'revealed', watchers && 'watched'];
+  // Seen by someone else: shown to them, or in a search they have open.
+  const seen = card.revealedTo.some((p) => p !== me) || Object.entries(zone.peeks ?? {}).some(([p, ids]) => p !== me && ids.includes(card.id));
+  const classes = ['card', selected && 'selected', onBoard && card.rotation && 'tapped', seen && 'revealed', watchers && 'watched'];
 
   return (
     <div
