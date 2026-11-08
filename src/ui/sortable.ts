@@ -26,6 +26,8 @@ export function withInserted<T>(list: T[], items: T[], index: number): T[] {
 const EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
 /** How long a moved card stays out of the row after its last move, before it's put back down. */
 const SETTLE_MS = 420;
+/** How far it's drawn up out of the row. */
+const RAISE_PX = 14;
 
 const still = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -38,8 +40,8 @@ interface FlipOptions {
  * Animates a row's items to their new places when `order` changes (FLIP: measure, jump back, slide
  * home), like a hand of cards being sorted: the others slide over together, and a card moved on
  * purpose is drawn up out of the row, stays up while it keeps moving (a key pressed again and
- * again), and is put back down once it stops (the `raised` class, on CSS's own `translate`, apart
- * from the slide's transform). Gives `ref(key)` for each item's element, and `rect(key)`: where the
+ * again), and is put back down once it stops (on CSS's own `translate`, apart from the slide's
+ * transform; the rows give it a transition). Gives `ref(key)` for each item's element, and `rect(key)`: where the
  * item sits in the layout without a slide under way (what a drop should be measured against, so it
  * doesn't chase a moving card). An item moved again mid-slide starts from where it is on screen.
  */
@@ -83,13 +85,16 @@ export function useFlip(order: string, { lifted = [] }: FlipOptions = {}) {
       const a = el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }], { duration, easing: EASE });
       a.id = 'flip';
       if (!liftedNow.current.includes(key)) continue;
-      // Drawn up while it travels; put back down a moment after its last move.
-      el.classList.add('raised');
+      // Drawn up while it travels; put back down a moment after its last move. Set on its inline style,
+      // which the rows never render: a class here would be wiped by the row's next render.
+      el.style.translate = `0 ${-RAISE_PX}px`;
+      el.style.zIndex = '5';
       clearTimeout(settle.current.get(key));
       settle.current.set(
         key,
         setTimeout(() => {
-          el.classList.remove('raised');
+          el.style.translate = '';
+          el.style.zIndex = '';
           settle.current.delete(key);
         }, SETTLE_MS),
       );

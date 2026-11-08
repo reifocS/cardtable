@@ -8,7 +8,7 @@ import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
 import { Icon, type IconName } from './Icon';
 import { matLook, matShader } from './playmats';
 import { ShaderMat } from './ShaderMat';
-import { useLifted, useRowOrder } from './rowOrder';
+import { useDropHover, useLifted, useRowOrder } from './rowOrder';
 import { useFlip } from './sortable';
 import { setBoardLayout, useStore } from './store';
 import { tip } from './tip';
@@ -40,9 +40,10 @@ interface SurfaceProps {
 function Surface({ zone, state, flipped, width, scale, top = 0, children }: SurfaceProps) {
   // Rounded up, so a window resize doesn't re-render every card for a pixel.
   const shownWidth = Math.ceil((CARD_W * scale) / 16) * 16;
+  const hover = useDropHover(zone.id);
   return (
     <div
-      className="board"
+      className={`board${hover ? ' drop-hover' : ''}`}
       data-drop-zone={zone.id}
       data-flipped={flipped ? '1' : undefined}
       style={{ width, height: VIEW_H, left: 0, top, transform: `scale(${scale})` }}
@@ -385,6 +386,7 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
   const isMyLibrary = zone.role === 'library' && zone.owner === me;
   const onClick = () => (isMyLibrary ? draw() : openViewer(zone));
   const icon = PILE_ICONS[zone.role];
+  const hover = useDropHover(zone.id);
 
   // A freshly loaded deck: draw the eye to the library, where drawing starts.
   const count = zone.cards.length;
@@ -406,7 +408,7 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
       title={`${zone.name} (${zone.cards.length}) · ${isMyLibrary ? 'click to draw, right-click for more' : 'click to view'}`}
     >
       <div
-        className={`pile-slot${attention ? ' attention' : ''}`}
+        className={`pile-slot${attention ? ' attention' : ''}${hover ? ' drop-hover' : ''}`}
         data-drop-zone={zone.id}
         onClick={onClick}
         onContextMenu={(e) => openMenu(e, zoneMenu(zone))}
@@ -437,9 +439,10 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
 export function Hand({ zone, state, compact }: { zone: Zone; state: GameState; compact?: boolean }) {
   const order = useRowOrder(zone, zone.cards);
   const flip = useFlip(order.join(), { lifted: useLifted() });
+  const hover = useDropHover(zone.id);
   return (
     <div
-      className={`hand${compact ? ' compact' : ''}`}
+      className={`hand${compact ? ' compact' : ''}${hover ? ' drop-hover' : ''}`}
       data-drop-zone={zone.id}
       data-drop-list="1"
       data-count={order.length}
@@ -475,6 +478,7 @@ export function CardImage({ faces, faceDown }: { faces: { name: string; image?: 
 export function StackZone({ state }: { state: GameState }) {
   const zone = state.zones[STACK];
   const top = zone?.cards[0];
+  const hover = useDropHover(STACK);
   useEffect(() => {
     if (!top) return;
     const { hovered } = useStore.getState();
@@ -485,7 +489,7 @@ export function StackZone({ state }: { state: GameState }) {
   const ids = [...zone.cards].reverse();
   // A plain pile for drops (no list index): a cast spell always goes on top.
   return (
-    <div className={`stack-zone${ids.length ? ' busy' : ''}`} data-drop-zone={zone.id}>
+    <div className={`stack-zone${ids.length ? ' busy' : ''}${hover ? ' drop-hover' : ''}`} data-drop-zone={zone.id}>
       <span className="stack-label">Stack</span>
       {ids.map((id) => {
         const c = state.cards[id];

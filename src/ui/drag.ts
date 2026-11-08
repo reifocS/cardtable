@@ -1,31 +1,41 @@
 import type React from 'react';
 import { CARD_H, CARD_W } from '../core/state';
+import type { Card, CardId, ZoneId } from '../core/types';
+import { trackPress, type PointerInfo } from './dragSession';
 import { VIEW_H, mirrorY, storeX, storeY } from './fit';
 import { justDropped } from './Flights';
-import type { Card, CardId } from '../core/types';
 import { insertionIndex } from './sortable';
-import { act, setSelection, useStore } from './store';
+import { act, setSelection, useStore, type TableDrag } from './store';
 
-const DRAG_THRESHOLD = 5;
+/**
+ * Cards dragged across the table. The press is followed by dragSession; what the drag looks like (the
+ * ghost, the faded places, the zone lit up, a row making room) is drawn by the components from
+ * `store.drag`, never by touching their elements here. This only reads the page: which zone is under
+ * the pointer, and where in a row.
+ */
 
 /** The drop zone element under a screen point. Drop zones carry `data-drop-zone`. */
 function dropTargetAt(x: number, y: number): HTMLElement | null {
   return (document.elementFromPoint(x, y)?.closest('[data-drop-zone]') as HTMLElement | null) ?? null;
 }
 
+/** Rows that show where dragged cards would land: a hand, a pile's viewer (not filtered). */
+const isRow = (t: HTMLElement) => !!t.dataset.dropList;
+
 /**
  * Insertion index among the row's rendered cards, ignoring the ones being dragged. Measured on their
- * slots (`data-sort-id`, which glide into place) when the row has them, so a drop doesn't chase a card
- * that's still moving aside.
+ * slots (`data-sort-id`) where the row has them, at rest: not chasing a card that's sliding aside.
  */
 function indexAt(target: HTMLElement, dragged: CardId[], x: number, y: number): number {
   const slots = [...target.querySelectorAll<HTMLElement>('[data-sort-id]')];
-  const els = slots.length ? slots.map((el) => [el, el.dataset.sortId!] as const) : [...target.querySelectorAll<HTMLElement>('[data-card-id]')].map((el) => [el, el.dataset.cardId!] as const);
+  const els = slots.length
+    ? slots.map((el) => [el, el.dataset.sortId!] as const)
+    : [...target.querySelectorAll<HTMLElement>('[data-card-id]')].map((el) => [el, el.dataset.cardId!] as const);
   const rects = els.filter(([, id]) => !dragged.includes(id)).map(([el]) => restingRect(el));
   return insertionIndex(rects, x, y);
 }
 
-/** An element's box without the transform of a glide under way. */
+/** An element's box without the transform of a slide under way. */
 function restingRect(el: HTMLElement): DOMRect {
   const r = el.getBoundingClientRect();
   if (!el.getAnimations().length) return r;
@@ -35,19 +45,12 @@ function restingRect(el: HTMLElement): DOMRect {
   return new DOMRect(r.left - m.m41, r.top - m.m42, r.width, r.height);
 }
 
-/** Rows that show where dragged cards would land: a hand, a pile's viewer (not filtered). */
-const isRow = (t: HTMLElement | null) => !!t?.dataset.dropList;
-
-function preview(t: HTMLElement | null, ids: CardId[], x: number, y: number) {
-  const zone = isRow(t) ? t!.dataset.dropZone! : null;
-  const index = zone ? indexAt(t!, ids, x, y) : 0;
-  const now = useStore.getState().dropPreview;
-  if (!zone) {
-    if (now) useStore.setState({ dropPreview: null });
-    return;
-  }
-  if (now?.zone === zone && now.index === index) return;
-  useStore.setState({ dropPreview: { zone, index, ids } });
+/** Where dragged cards would land under (x, y). Kept the same object while unchanged, so rows don't re-render on every move. */
+function overAt(t: HTMLElement | null, ids: CardId[], x: number, y: number, was: TableDrag['over']): TableDrag['over'] {
+  if (!t) return null;
+  const zone = t.dataset.dropZone as ZoneId;
+  const index = isRow(t) ? indexAt(t, ids, x, y) : null;
+  return was?.zone === zone && was.index === index ? was : { zone, index };
 }
 
 export function finishTargeting(to: string) {
@@ -74,90 +77,60 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     return;
   }
 
-  const el = e.currentTarget;
-  const startX = e.clientX;
-  const startY = e.clientY;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const fx = (e.clientX - rect.left) / rect.width;
+  const fy = (e.clientY - rect.top) / rect.height;
+  const zone = store.state?.zones[card.zone];
+  // A tapped card's box on screen is turned: the card itself is as tall as the box is wide.
+  const turn = zone?.kind === 'free' ? card.rotation : 0;
+  const sideways = turn % 180 !== 0;
+  const own = { w: sideways ? rect.height : rect.width, h: sideways ? rect.width : rect.height };
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-  const rect = el.getBoundingClientRect();
-  const fx = (startX - rect.left) / rect.width;
-  const fy = (startY - rect.top) / rect.height;
   let ids: CardId[] = store.selection.includes(card.id) ? store.selection : [card.id];
-  let ghost: HTMLElement | null = null;
-  let hoverTarget: HTMLElement | null = null;
-  /** The ghost's own size, upright, and how its card is turned (tapped). */
-  let base = { w: 0, h: 0 };
-  let tapTurn = '';
 
-  const move = (ev: PointerEvent) => {
-    if (!ghost) {
-      if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
-      if (!store.selection.includes(card.id)) {
-        ids = [card.id];
-        setSelection(ids);
-      }
-      ghost = makeGhost(el, ids.length);
-      base = { w: parseFloat(ghost.style.width), h: parseFloat(ghost.style.height) };
-      tapTurn = ghost.dataset.turn ?? '';
-      document.body.classList.add('dragging');
-      // In the store, not on the elements: a render (the selection changing as the drag starts) would wipe a class added by hand.
-      useStore.setState({ dragging: ids });
-    }
-    const t = dropTargetAt(ev.clientX, ev.clientY);
-    if (t !== hoverTarget) {
-      hoverTarget?.classList.remove('drop-hover');
-      t?.classList.add('drop-hover');
-      hoverTarget = t;
-      // Over a zone, the card takes the size it will have there; over nothing, its own.
-      const size = cardSizeIn(t, ids) ?? base;
-      ghost.style.width = `${size.w}px`;
-      ghost.style.height = `${size.h}px`;
-      // Only a battlefield keeps it tapped; anywhere else it lands upright.
-      if (tapTurn && t?.classList.contains('board')) ghost.dataset.turn = tapTurn;
-      else delete ghost.dataset.turn;
-    }
-    preview(t, ids, ev.clientX, ev.clientY);
-    // A tapped ghost is turned like its card, about its middle: place it by the box it fills on screen.
-    // Placed by the size it's growing or shrinking to, so the grabbed point stays under the pointer.
-    const w = parseFloat(ghost.style.width);
-    const h = parseFloat(ghost.style.height);
-    const turn = ghost.dataset.turn ?? '';
-    const sideways = turn !== '' && Number(turn) % 180 !== 0;
-    const shownW = sideways ? h : w;
-    const shownH = sideways ? w : h;
-    const x = ev.clientX - fx * shownW - (w - shownW) / 2;
-    const y = ev.clientY - fy * shownH - (h - shownH) / 2;
-    ghost.style.transform = `translate(${x}px, ${y}px)${turn ? ` rotate(${turn}deg)` : ''}`;
+  const update = (at: PointerInfo) => {
+    const d = useStore.getState().drag;
+    if (!d) return;
+    const t = dropTargetAt(at.x, at.y);
+    // Over a zone, the ghost takes the size cards have there; over nothing, its own. Only a battlefield keeps it tapped.
+    const size = cardSizeIn(t, ids) ?? own;
+    const keepTurn = turn && t?.classList.contains('board') ? turn : 0;
+    useStore.setState({ drag: { ...d, x: at.x, y: at.y, w: size.w, h: size.h, turn: keepTurn, over: overAt(t, ids, at.x, at.y, d.over) } });
   };
 
-  const up = (ev: PointerEvent) => {
-    window.removeEventListener('pointermove', move);
-    window.removeEventListener('pointerup', up);
-    window.removeEventListener('pointercancel', up);
-    if (!ghost) {
-      // Alt+click (no drag) pings the card for everyone; Alt+drag still plays face down.
-      if (ev.altKey) {
-        useStore.getState().session?.point({ card: card.id });
-        return;
-      }
-      if (additive) {
-        const sel = useStore.getState().selection;
-        setSelection(sel.includes(card.id) ? sel.filter((id) => id !== card.id) : [...sel, card.id]);
-      } else {
-        setSelection([card.id]);
-      }
-      return;
-    }
-    ghost.remove();
-    useStore.setState({ dropPreview: null });
-    hoverTarget?.classList.remove('drop-hover');
-    document.body.classList.remove('dragging');
-    useStore.setState({ dragging: [] });
-    if (ev.type === 'pointerup') drop(ev, ids, card, fx, fy);
-  };
-
-  window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', up);
-  window.addEventListener('pointercancel', up);
+  trackPress(
+    { x: e.clientX, y: e.clientY },
+    {
+      start(at) {
+        if (!useStore.getState().selection.includes(card.id)) {
+          ids = [card.id];
+          setSelection(ids);
+        }
+        useStore.setState({ drag: { ids, x: at.x, y: at.y, fx, fy, w: own.w, h: own.h, turn, over: null } });
+      },
+      move: update,
+      drop(at) {
+        update(at);
+        const over = useStore.getState().drag?.over ?? null;
+        useStore.setState({ drag: null });
+        drop(at, ids, card, fx, fy, over);
+      },
+      click(at) {
+        // Alt+click (no drag) pings the card for everyone; Alt+drag still plays face down.
+        if (at.altKey) {
+          useStore.getState().session?.point({ card: card.id });
+          return;
+        }
+        if (additive) {
+          const sel = useStore.getState().selection;
+          setSelection(sel.includes(card.id) ? sel.filter((id) => id !== card.id) : [...sel, card.id]);
+        } else {
+          setSelection([card.id]);
+        }
+      },
+      cancel: () => useStore.setState({ drag: null }),
+    },
+  );
 }
 
 /**
@@ -180,31 +153,11 @@ function cardSizeIn(target: HTMLElement | null, dragged: CardId[]): { w: number;
   return { w: r.width, h: r.height };
 }
 
-function makeGhost(el: HTMLElement, count: number): HTMLElement {
-  const r = el.getBoundingClientRect();
-  const tapped = el.classList.contains('tapped');
-  const ghost = el.cloneNode(true) as HTMLElement;
-  ghost.className = 'card ghost';
-  ghost.removeAttribute('data-card-id');
-  // A tapped card's bounding box is turned: the ghost takes the card's own size, and its turn.
-  ghost.style.cssText = `width:${tapped ? r.height : r.width}px;height:${tapped ? r.width : r.height}px`;
-  const turn = tapped && /rotate\((-?[\d.]+)deg\)/.exec(el.style.transform)?.[1];
-  if (turn) ghost.dataset.turn = turn;
-  if (count > 1) {
-    const badge = document.createElement('div');
-    badge.className = 'ghost-count';
-    badge.textContent = String(count);
-    ghost.appendChild(badge);
-  }
-  document.body.appendChild(ghost);
-  return ghost;
-}
-
-function drop(ev: PointerEvent, ids: CardId[], primary: Card, fx: number, fy: number) {
-  const target = dropTargetAt(ev.clientX, ev.clientY);
+function drop(at: PointerInfo, ids: CardId[], primary: Card, fx: number, fy: number, over: TableDrag['over']) {
+  const target = dropTargetAt(at.x, at.y);
   const state = useStore.getState().state;
-  if (!target || !state) return;
-  const zone = state.zones[target.dataset.dropZone!];
+  if (!target || !state || !over) return;
+  const zone = state.zones[over.zone];
   if (!zone) return;
   const ordered = ids.filter((id) => state.cards[id]);
   // Already where they land: they don't fly there.
@@ -215,8 +168,8 @@ function drop(ev: PointerEvent, ids: CardId[], primary: Card, fx: number, fy: nu
     // The board's logical width varies per screen; its height is always VIEW_H.
     const scale = r.height / VIEW_H;
     const width = r.width / scale;
-    const px = storeX((ev.clientX - r.left) / scale - fx * CARD_W, width);
-    const visualY = storeY((ev.clientY - r.top) / scale - fy * CARD_H);
+    const px = storeX((at.x - r.left) / scale - fx * CARD_W, width);
+    const visualY = storeY((at.y - r.top) / scale - fy * CARD_H);
     const py = target.dataset.flipped ? mirrorY(visualY) : visualY;
     const fromBoard = state.zones[primary.zone]?.kind === 'free';
     const positions: Record<CardId, [number, number]> = {};
@@ -225,11 +178,13 @@ function drop(ev: PointerEvent, ids: CardId[], primary: Card, fx: number, fy: nu
       const together = fromBoard && c.zone === primary.zone;
       positions[id] = together ? [px + c.x - primary.x, py + c.y - primary.y] : [px + i * 18, py + i * 6];
     });
-    act({ type: 'move', cards: ordered, to: zone.id, positions, ...(ev.altKey && { faceDown: true }) });
-  } else if (zone.kind === 'pile' && !target.dataset.dropList) {
-    act({ type: 'move', cards: ordered, to: zone.id, index: ev.shiftKey ? -1 : 0 });
+    act({ type: 'move', cards: ordered, to: zone.id, positions, ...(at.altKey && { faceDown: true }) });
+  } else if (over.index === null) {
+    // A pile: on top, or with Shift at the bottom.
+    act({ type: 'move', cards: ordered, to: zone.id, index: at.shiftKey ? -1 : 0 });
   } else {
-    act({ type: 'move', cards: ordered, to: zone.id, index: indexAt(target, ordered, ev.clientX, ev.clientY) });
+    // A row: exactly where it showed the cards would land.
+    act({ type: 'move', cards: ordered, to: zone.id, index: over.index });
   }
 }
 
@@ -256,45 +211,44 @@ export function onBoardPointerDown(e: React.PointerEvent<HTMLElement>) {
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
   const sx = e.clientX;
   const sy = e.clientY;
+  // Outside React's tree (on the body), so drawing it by hand doesn't fight a render.
   let box: HTMLElement | null = null;
 
-  const rectOf = (ev: PointerEvent) => ({
-    left: Math.min(sx, ev.clientX),
-    top: Math.min(sy, ev.clientY),
-    right: Math.max(sx, ev.clientX),
-    bottom: Math.max(sy, ev.clientY),
+  const rectOf = (at: PointerInfo) => ({
+    left: Math.min(sx, at.x),
+    top: Math.min(sy, at.y),
+    right: Math.max(sx, at.x),
+    bottom: Math.max(sy, at.y),
   });
 
-  const move = (ev: PointerEvent) => {
-    if (!box) {
-      if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < DRAG_THRESHOLD) return;
-      box = document.createElement('div');
-      box.className = 'select-box';
-      document.body.appendChild(box);
-    }
-    const r = rectOf(ev);
-    Object.assign(box.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.right - r.left}px`, height: `${r.bottom - r.top}px` });
-  };
-
-  const up = (ev: PointerEvent) => {
-    window.removeEventListener('pointermove', move);
-    window.removeEventListener('pointerup', up);
-    if (!box) {
-      if (!additive) setSelection([]);
-      return;
-    }
-    box.remove();
-    const r = rectOf(ev);
-    const hit = [...board.querySelectorAll<HTMLElement>('[data-card-id]')]
-      .filter((el) => {
-        const c = el.getBoundingClientRect();
-        return c.right > r.left && c.left < r.right && c.bottom > r.top && c.top < r.bottom;
-      })
-      .map((el) => el.dataset.cardId!);
-    const prev = additive ? useStore.getState().selection : [];
-    setSelection([...new Set([...prev, ...hit])]);
-  };
-
-  window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', up);
+  trackPress(
+    { x: sx, y: sy },
+    {
+      start() {
+        box = document.createElement('div');
+        box.className = 'select-box';
+        document.body.appendChild(box);
+      },
+      move(at) {
+        const r = rectOf(at);
+        Object.assign(box!.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.right - r.left}px`, height: `${r.bottom - r.top}px` });
+      },
+      drop(at) {
+        box?.remove();
+        const r = rectOf(at);
+        const hit = [...board.querySelectorAll<HTMLElement>('[data-card-id]')]
+          .filter((el) => {
+            const c = el.getBoundingClientRect();
+            return c.right > r.left && c.left < r.right && c.bottom > r.top && c.top < r.bottom;
+          })
+          .map((el) => el.dataset.cardId!);
+        const prev = additive ? useStore.getState().selection : [];
+        setSelection([...new Set([...prev, ...hit])]);
+      },
+      click() {
+        if (!additive) setSelection([]);
+      },
+      cancel: () => box?.remove(),
+    },
+  );
 }

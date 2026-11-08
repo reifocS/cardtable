@@ -4,6 +4,8 @@ import type { CardId, GameState, Zone } from '../core/types';
 import { closeArrange } from './actions';
 import { CardBack, FaceView } from './CardView';
 import { insertionIndex, useFlip, withInserted } from './sortable';
+import { CardGhost } from './DragGhost';
+import { trackPress } from './dragSession';
 import { act, useStore, type Store } from './store';
 
 type Dest = keyof ArrangeTo;
@@ -40,18 +42,16 @@ export function Arrange({ state }: { state: GameState }) {
   return <ArrangePanel key={arrange.ids.join()} state={state} arrange={arrange} zone={zone} />;
 }
 
+/** A card being dragged between the rows: where the pointer holds it, and where it would land. */
 interface Drag {
   id: CardId;
-  /** Where the press started, to tell a click from a drag. */
-  x0: number;
-  y0: number;
-  /** Where the pointer is, and where in the card it holds it. */
   x: number;
   y: number;
-  dx: number;
-  dy: number;
-  moving: boolean;
-  /** Where it would land if dropped now. */
+  /** Where on the card it's held (fractions), and its size. */
+  fx: number;
+  fy: number;
+  w: number;
+  h: number;
   to: Dest;
   index: number;
 }
@@ -64,13 +64,16 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
   const [randomBottom, setRandomBottom] = useState(false);
   // The card the keys and the toolbar act on: it stays picked wherever it goes.
   const [selected, setSelected] = useState<CardId | null>(arrange.ids[0] ?? null);
-  const [drag, setDragState] = useState<Drag | null>(null);
-  // The drag as of the last event, for a release that comes before the next render.
-  const dragNow = useRef<Drag | null>(null);
-  const setDrag = (d: Drag | null) => {
-    dragNow.current = d;
-    setDragState(d);
+  const [drag, setDrag] = useState<Drag | null>(null);
+  // Carried with the keys or the toolbar a moment ago: drawn up out of its row while it travels.
+  const [carried, setCarried] = useState<CardId | null>(null);
+  const carryEnd = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const carry = (id: CardId) => {
+    setCarried(id);
+    clearTimeout(carryEnd.current);
+    carryEnd.current = setTimeout(() => setCarried(null), 1000);
   };
+  useEffect(() => () => clearTimeout(carryEnd.current), []);
   const rowEls = useRef(new Map<Dest, HTMLElement>());
 
   // A card that left meanwhile (a shuffle, an undo) is no longer ours to put away.
@@ -81,16 +84,18 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
   }, [total]);
 
   // While dragging, the rows already show the card where it would land.
-  const shown = drag?.moving ? placed(piles, dests, drag.id, drag.to, drag.index) : piles;
+  const shown = drag ? placed(piles, dests, drag.id, drag.to, drag.index) : piles;
   const destOf = (id: CardId, p: Piles = piles) => dests.find((d) => p[d]?.includes(id));
 
   const send = (id: CardId, to: Dest) => {
+    carry(id);
     setPiles((p) => placed(p, dests, id, to, Infinity));
     setSelected(id);
   };
 
   /** One step left or right within its row; to either end with `far`. */
   const nudge = (id: CardId, by: -1 | 1, far = false) => {
+    carry(id);
     setPiles((p) => {
       const d = destOf(id, p);
       if (!d) return p;
@@ -112,8 +117,7 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
 
   // Cards glide to their new place whenever the order changes.
   const order = dests.map((d) => here(shown[d]).join()).join('|');
-  // The picked card rises over the others when keys or buttons move it; a dragged one is in the hand.
-  const flip = useFlip(order, { lifted: selected && !drag?.moving ? [selected] : [] });
+  const flip = useFlip(order, { lifted: carried ? [carried] : [] });
 
   /** Where a card dropped at (x, y) would go: the row under the pointer, before the first card past it. */
   const landing = (id: CardId, x: number, y: number): { to: Dest; index: number } | null => {
@@ -129,60 +133,41 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
     return null;
   };
 
+  // The press is followed like any other drag (dragSession); this only says what it does to the rows.
   const onPointerDown = (e: React.PointerEvent, id: CardId) => {
     if (e.button !== 0) return;
-    const d = destOf(id);
-    if (!d) return;
-    const r = e.currentTarget.getBoundingClientRect();
+    const from = destOf(id);
+    if (!from) return;
     e.preventDefault();
-    setDrag({
-      id,
-      x0: e.clientX,
-      y0: e.clientY,
-      x: e.clientX,
-      y: e.clientY,
-      dx: e.clientX - r.left,
-      dy: e.clientY - r.top,
-      moving: false,
-      to: d,
-      index: piles[d]!.indexOf(id),
-    });
+    const r = e.currentTarget.querySelector('.card')!.getBoundingClientRect();
+    const grip = { fx: (e.clientX - r.left) / r.width, fy: (e.clientY - r.top) / r.height, w: r.width, h: r.height };
+    // The latest drag, for each next call: the rows it measures against don't change while it's on.
+    let now: Drag = { id, x: e.clientX, y: e.clientY, ...grip, to: from, index: piles[from]!.indexOf(id) };
+    trackPress(
+      { x: e.clientX, y: e.clientY },
+      {
+        move(at) {
+          // Off every row, it stays where it was last shown.
+          now = { ...now, x: at.x, y: at.y, ...landing(id, at.x, at.y) };
+          setDrag(now);
+        },
+        drop() {
+          setPiles((p) => placed(p, dests, id, now.to, now.index));
+          setSelected(id);
+          setDrag(null);
+        },
+        // A press without a drag is a click: it picks the card for the keys and the toolbar.
+        click: () => setSelected(id),
+        cancel: () => setDrag(null),
+      },
+    );
   };
-  // Followed on the window, not the card: the card's element is replaced when it changes rows, which
-  // would lose a pointer capture, and with it the release.
-  useEffect(() => {
-    if (!drag) return;
-    const move = (e: PointerEvent) => {
-      const d = dragNow.current;
-      if (!d) return;
-      const moving = d.moving || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 5;
-      // Off every row, it stays where it was last shown.
-      const at = moving ? landing(d.id, e.clientX, e.clientY) : null;
-      setDrag({ ...d, x: e.clientX, y: e.clientY, moving, ...at });
-    };
-    const up = () => {
-      const d = dragNow.current;
-      if (!d) return;
-      if (d.moving) setPiles((p) => placed(p, dests, d.id, d.to, d.index));
-      // A press without a drag is a click: it picks the card for the keys and the toolbar.
-      setSelected(d.id);
-      setDrag(null);
-    };
-    const cancel = () => setDrag(null);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', cancel);
-    return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
-    };
-  });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'Escape') return drag ? setDrag(null) : closeArrange();
+      // (An Esc during a drag only ends the drag: dragSession takes it first.)
+      if (e.key === 'Escape') return closeArrange();
       if (e.key === 'Enter') {
         e.preventDefault();
         return confirm();
@@ -221,11 +206,10 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
     return card?.faces[card.face] ?? card?.faces[0];
   };
   const sleeve = state.players[zone.owner]?.sleeve;
-  const ghost = drag?.moving ? faceOf(drag.id) : undefined;
 
   return (
     <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && closeArrange()}>
-      <div className={`modal wide arrange${drag?.moving ? ' dragging' : ''}`} role="dialog" aria-label={title}>
+      <div className={`modal wide arrange${drag ? ' dragging' : ''}`} role="dialog" aria-label={title}>
         <div className="modal-head">
           <b>{title}</b>
           <button onClick={() => closeArrange()} aria-label="Cancel">
@@ -241,7 +225,7 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
                 if (el) rowEls.current.set(d, el);
                 else rowEls.current.delete(d);
               }}
-              className={`arrange-row${drag?.moving && drag.to === d ? ' landing' : ''}`}
+              className={`arrange-row${drag?.to === d ? ' landing' : ''}`}
             >
               <div className="arrange-label">
                 <b>{DESTS[d].label}</b>
@@ -256,7 +240,7 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
               <div className="arrange-cards">
                 {ids.map((id) => {
                   const face = faceOf(id);
-                  const held = drag?.moving && drag.id === id;
+                  const held = drag?.id === id;
                   return (
                     <div
                       key={id}
@@ -310,10 +294,8 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
           </button>
         </div>
       </div>
-      {drag?.moving && (
-        <div className="arrange-ghost" style={{ left: drag.x - drag.dx, top: drag.y - drag.dy }}>
-          <div className="card">{ghost ? <FaceView face={ghost} width={110} /> : <CardBack sleeve={sleeve} />}</div>
-        </div>
+      {drag && state.cards[drag.id] && (
+        <CardGhost card={state.cards[drag.id]} x={drag.x} y={drag.y} fx={drag.fx} fy={drag.fy} w={drag.w} h={drag.h} sleeve={sleeve} />
       )}
     </div>
   );

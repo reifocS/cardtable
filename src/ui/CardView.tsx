@@ -6,6 +6,7 @@ import { STACK, cardMenu, castToStack, isSpell, openMenu, resolve, toMyBattlefie
 import { formatCounter } from './counters';
 import { sleeveLook } from './playmats';
 import { onCardPointerDown } from './drag';
+import { useDragged } from './rowOrder';
 import { act, useStore } from './store';
 
 /**
@@ -67,7 +68,7 @@ interface Props {
 
 export const CardView = memo(function CardView({ card, zone, left, top, shownWidth, pileTop }: Props) {
   const selected = useStore((s) => s.selection.includes(card.id));
-  const dragged = useStore((s) => s.dragging.includes(card.id));
+  const dragged = useDragged(card.id);
   const me = useStore((s) => s.me);
   const sleeve = useStore((s) => s.state?.players[card.owner]?.sleeve);
   // Colors of the other players hovering this card (a string, so the selector stays cheap).

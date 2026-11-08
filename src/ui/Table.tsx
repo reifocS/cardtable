@@ -20,6 +20,7 @@ import { RollFx } from './RollFx';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
 import { Arrange } from './Arrange';
+import { TableDragGhost } from './DragGhost';
 import { MulliganBar, ProliferateDialog, RevealDialog } from './Effects';
 import { Board, Hand, Pile, StackZone, ZoomBoard } from './Zones';
 
@@ -364,6 +365,7 @@ export function Table() {
       <ProliferateDialog state={state} />
       <MulliganBar state={state} />
       <Arrows state={state} />
+      <TableDragGhost />
       <Flights state={state} />
       <RollFx state={state} />
       <ZoomOverlay state={state} />

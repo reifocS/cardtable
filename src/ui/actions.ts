@@ -423,9 +423,19 @@ export function shiftInRow(by: -1 | 1, far = false) {
   const rest = zone.cards.length - ids.length;
   const index = far ? (by < 0 ? 0 : rest) : Math.max(0, Math.min(rest, at + by));
   if (index === at && !far) return true;
+  // Carried: the row draws them up while they travel, and puts them down once the keys stop.
+  carry(ids);
   act({ type: 'move', cards: zone.cards.filter((id) => ids.includes(id)), to: zone.id, index });
   if (!selection.length) useStore.setState({ selection: ids });
   return true;
+}
+
+let carryEnd: ReturnType<typeof setTimeout> | undefined;
+/** Marks cards as carried along their row by the keys, for a moment (long enough for the move to come back from the host). */
+function carry(ids: CardId[]) {
+  useStore.setState({ carry: ids });
+  clearTimeout(carryEnd);
+  carryEnd = setTimeout(() => useStore.setState({ carry: null }), 1000);
 }
 
 export function onKeyDown(e: KeyboardEvent) {

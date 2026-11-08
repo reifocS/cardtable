@@ -28,6 +28,24 @@ export interface Prompt {
   submit: (value: string) => void;
 }
 
+/** A drag of cards across the table, from its first move to its release. */
+export interface TableDrag {
+  /** The cards carried; the first is the one held. */
+  ids: CardId[];
+  /** The pointer, and where on the held card it holds it (fractions of its width and height). */
+  x: number;
+  y: number;
+  fx: number;
+  fy: number;
+  /** The ghost's size, upright: the size the cards have in the zone below. */
+  w: number;
+  h: number;
+  /** Degrees the ghost is turned (a tapped card over a battlefield); 0 upright. */
+  turn: number;
+  /** The zone under the pointer, and for a row (a hand, a pile's viewer) where in it they'd land. */
+  over: { zone: ZoneId; index: number | null } | null;
+}
+
 export interface Store {
   session: Session | null;
   state: GameState | null;
@@ -50,10 +68,10 @@ export interface Store {
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
   dialog: 'import' | 'create' | 'help' | 'proliferate' | null;
-  /** Cards being dragged: their places show faded while their ghost follows the pointer. */
-  dragging: CardId[];
-  /** While cards are dragged over a row (a hand, a pile's viewer): where they'd land, shown there live. */
-  dropPreview: { zone: ZoneId; index: number; ids: CardId[] } | null;
+  /** Cards being dragged across the table (see drag.ts); everything a drag shows is drawn from it. */
+  drag: TableDrag | null;
+  /** Cards just moved along their row with the keys: the row draws them up out of itself as they travel. */
+  carry: CardId[] | null;
   /** The top cards of a pile being put away one by one: scry, surveil, or any "look at the top N". */
   arrange: { zone: ZoneId; ids: CardId[]; as?: 'scry' | 'surveil' } | null;
   /** This viewer shows this turn's trigger reminders (see Reminders). */
@@ -120,8 +138,8 @@ export const useStore = create<Store>((set, get) => ({
   viewer: null,
   dialog: null,
   arrange: null,
-  dropPreview: null,
-  dragging: [],
+  drag: null,
+  carry: null,
   deckDraft: null,
   reminders: loadReminders(),
   artFor: null,
@@ -161,7 +179,7 @@ export const useStore = create<Store>((set, get) => ({
 
   leave() {
     get().session?.close();
-    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null, arrange: null, artFor: null });
+    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null, arrange: null, artFor: null, drag: null, carry: null });
     history.replaceState(null, '', location.pathname);
   },
 }));

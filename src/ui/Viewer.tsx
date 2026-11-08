@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Card, GameState, Zone } from '../core/types';
 import { closeViewer } from './actions';
 import { CardView } from './CardView';
-import { useLifted, useRowOrder } from './rowOrder';
+import { useDropHover, useLifted, useRowOrder } from './rowOrder';
 import { useFlip } from './sortable';
 import { act, useStore, type Store } from './store';
 
@@ -33,6 +33,7 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
   const previewed = useRowOrder(zone, shown);
   const order = filtering ? shown : previewed;
   const flip = useFlip(order.join(), { lifted: useLifted() });
+  const hover = useDropHover(zone.id);
   const owner = state.players[zone.owner]?.name;
   const title = `${zone.owner === me ? 'Your' : `${owner}'s`} ${zone.name.toLowerCase()}${viewer.ids ? ` — top ${viewer.ids.length}` : ''}`;
 
@@ -65,7 +66,7 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
         <button onClick={closeViewer}>Close</button>
       </div>
       {/* While filtering, positions in the list aren't positions in the zone, so drops just go on top. */}
-      <div className="viewer-cards" data-drop-zone={zone.id} data-drop-list={filtering ? undefined : '1'}>
+      <div className={`viewer-cards${hover ? ' drop-hover' : ''}`} data-drop-zone={zone.id} data-drop-list={filtering ? undefined : '1'}>
         {order.map((id) =>
           state.cards[id]?.zone === zone.id ? (
             <div key={id} ref={flip.ref(id)} data-sort-id={id} className="viewer-slot">

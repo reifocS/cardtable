@@ -818,11 +818,13 @@ body.dragging,
 body.dragging * {
   cursor: grabbing !important;
 }
-/* While dragging, the cards passed over don't react as if hovered (lifting, coming forward): the
-   pointer goes through them to their row or zone, which is what the drop is looking for. */
+/* While dragging, the cards passed over don't react as if hovered (lifting, coming forward), and
+   target arrows don't catch the drop: the pointer goes through to the row or zone below, which is
+   what the drop is looking for. */
 body.dragging .card,
 body.dragging .hand-slot,
-body.dragging .viewer-slot {
+body.dragging .viewer-slot,
+body.dragging .arrows * {
   pointer-events: none;
 }
 .is-targeting .card,
@@ -1298,17 +1300,11 @@ body.dragging .viewer-slot {
 .arrange-card {
   position: relative;
 }
-/* A card drawn up out of its row while it's being moved along it, then put back down. */
+/* A card drawn up out of its row while it's being moved along it, then put back down (sortable.useFlip). */
 .hand-slot,
 .viewer-slot,
 .arrange-card {
   transition: translate 0.18s ease-out;
-}
-.hand-slot.raised,
-.viewer-slot.raised,
-.arrange-card.raised {
-  translate: 0 -14px;
-  z-index: 5;
 }
 @media (prefers-reduced-motion: reduce) {
   .hand-slot,
@@ -1544,17 +1540,6 @@ body.dragging .viewer-slot {
 .arrange-card.held .arrange-moves {
   visibility: hidden;
 }
-.arrange-ghost {
-  position: fixed;
-  z-index: 1100;
-  width: 110px;
-  pointer-events: none;
-  transform: rotate(-3deg) scale(1.04);
-  filter: drop-shadow(0 10px 14px #000c);
-}
-.arrange-ghost .card {
-  width: 100%;
-}
 .arrange-toolbar {
   display: flex;
   align-items: center;
@@ -1576,8 +1561,7 @@ body.dragging .viewer-slot {
   font-size: 11px;
 }
 @media (max-width: 600px) {
-  .arrange-card,
-  .arrange-ghost {
+  .arrange-card {
     width: 84px;
   }
   .arrange-cards {
