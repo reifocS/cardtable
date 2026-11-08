@@ -408,6 +408,7 @@ const SHORTCUTS: [string, string][] = [
   ['P / Alt-click', 'Ping a card (or a spot on a battlefield) for everyone'],
   ['B / H / G / E / L', 'To battlefield / hand / graveyard / exile / library'],
   ['D', 'Draw'],
+  ['Library → Scry… / Surveil…', 'Send each card to the top, the bottom or the graveyard with a click, a key or a drag'],
   ['S', 'Shuffle library'],
   ['U', 'Untap all'],
   ['M', 'Mulligan'],

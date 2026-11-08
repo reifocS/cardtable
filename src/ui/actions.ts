@@ -70,6 +70,21 @@ export function openViewer(zone: Zone, n?: number) {
   });
 }
 
+/** Looks at the top `n` of a pile to put each card back on top, on the bottom or elsewhere (see Arrange). */
+export function openArrange(zone: Zone, n: number, as?: 'scry' | 'surveil') {
+  const ids = zone.cards.slice(0, Math.max(0, n));
+  if (!ids.length) return;
+  act({ type: 'peek', zone: zone.id, n: ids.length });
+  useStore.setState({ arrange: { zone: zone.id, ids, as }, menu: null });
+}
+
+/** Leaves the arrange window; without `done`, the cards stay where they were. */
+export function closeArrange(done = false) {
+  const { arrange } = useStore.getState();
+  if (arrange && !done) act({ type: 'unpeek', zone: arrange.zone });
+  useStore.setState({ arrange: null });
+}
+
 export function closeViewer() {
   const { viewer } = useStore.getState();
   if (viewer?.peeked) act({ type: 'unpeek', zone: viewer.zone });
@@ -246,6 +261,9 @@ export function zoneMenu(zone: Zone): MenuItem[] {
       { label: 'Draw…', action: () => askNumber('Draw how many?', 2, draw) },
       { label: 'Draw from the bottom', action: () => act({ type: 'moveTop', from: zone.id, to: myZone('hand')!.id, n: 1, fromBottom: true }) },
       { label: 'Shuffle', hint: 'S', action: () => shuffleLibrary() },
+      { label: 'Scry…', action: () => askNumber('Scry how many?', 1, (n) => openArrange(zone, n, 'scry')) },
+      { label: 'Surveil…', action: () => askNumber('Surveil how many?', 1, (n) => openArrange(zone, n, 'surveil')) },
+      { label: 'Look at top and sort…', action: () => askNumber('Look at how many?', 3, (n) => openArrange(zone, n)) },
       { label: 'Look at top…', action: () => askNumber('Look at how many?', 3, (n) => openViewer(zone, n)) },
       { label: 'Search library', action: () => openViewer(zone) },
       { label: 'Reveal top card', action: () => zone.cards[0] && act({ type: 'reveal', cards: [zone.cards[0]], to: '*' }) },
@@ -319,7 +337,8 @@ export function onKeyDown(e: KeyboardEvent) {
     useStore.setState({ prompt: null, confirm: null });
     return;
   }
-  if (isTyping(e) || store.prompt || store.confirm) return;
+  // The arrange window has its own keys.
+  if (isTyping(e) || store.prompt || store.confirm || store.arrange) return;
   const key = e.key.toLowerCase();
 
   if ((e.metaKey || e.ctrlKey) && key === 'z') {

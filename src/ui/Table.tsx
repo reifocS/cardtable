@@ -19,6 +19,7 @@ import { Reminders } from './Reminders';
 import { RollFx } from './RollFx';
 import { TopBar } from './TopBar';
 import { Viewer } from './Viewer';
+import { Arrange } from './Arrange';
 import { Board, Hand, Pile, StackZone, ZoomBoard } from './Zones';
 
 const SIDE_PILES = ['graveyard', 'exile', 'command'];
@@ -357,6 +358,7 @@ export function Table() {
       <SidePanel state={state} />
       <FocusBoard state={state} />
       <Viewer state={state} />
+      <Arrange state={state} />
       <Arrows state={state} />
       <Flights state={state} />
       <RollFx state={state} />

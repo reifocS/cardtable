@@ -50,6 +50,8 @@ export interface Store {
   /** Floating list of a zone's cards. `ids` limits it to the cards that were looked at. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean } | null;
   dialog: 'import' | 'create' | 'help' | null;
+  /** The top cards of a pile being put away one by one: scry, surveil, or any "look at the top N". */
+  arrange: { zone: ZoneId; ids: CardId[]; as?: 'scry' | 'surveil' } | null;
   /** This viewer shows this turn's trigger reminders (see Reminders). */
   reminders: boolean;
   /** Deck list typed in the import dialog and not imported yet (null: none). */
@@ -113,6 +115,7 @@ export const useStore = create<Store>((set, get) => ({
   menu: null,
   viewer: null,
   dialog: null,
+  arrange: null,
   deckDraft: null,
   reminders: loadReminders(),
   artFor: null,
@@ -152,7 +155,7 @@ export const useStore = create<Store>((set, get) => ({
 
   leave() {
     get().session?.close();
-    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null, artFor: null });
+    set({ session: null, state: null, me: null, selection: [], viewer: null, menu: null, dialog: null, arrange: null, artFor: null });
     history.replaceState(null, '', location.pathname);
   },
 }));

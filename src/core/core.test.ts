@@ -518,6 +518,64 @@ describe('searches', () => {
   });
 });
 
+describe('arranging the top of a library', () => {
+  it('scries: top in order, bottom at the end, without naming the cards', () => {
+    const { e, a, b } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const [x, y, z] = e.state.zones[lib].cards;
+    e.dispatch(a, { type: 'peek', zone: lib, n: 3 });
+    e.dispatch(a, { type: 'arrange', zone: lib, as: 'scry', to: { top: [z, x], bottom: [y] } });
+    const cards = e.state.zones[lib].cards;
+    expect(cards.slice(0, 2)).toEqual([z, x]);
+    expect(cards.at(-1)).toBe(y);
+    expect(cards).toHaveLength(40);
+    expect(e.state.zones[lib].peeks).toBeUndefined();
+    expect(e.state.log.at(-1)?.text).toBe('scried 3: 2 on top, 1 on the bottom');
+    expect(e.state.log.at(-2)?.text).not.toMatch(/looked at/);
+    expect(redact(e.state, b).cards[z].faces).toHaveLength(0);
+  });
+
+  it('surveils into the graveyard, naming what goes there, and undoes in one step', () => {
+    const { e, a } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const before = [...e.state.zones[lib].cards];
+    const [x, y] = before;
+    e.dispatch(a, { type: 'peek', zone: lib, n: 2 });
+    e.dispatch(a, { type: 'arrange', zone: lib, as: 'surveil', to: { top: [y], graveyard: [x] } });
+    expect(e.state.zones[zoneId(a, 'graveyard')].cards).toEqual([x]);
+    expect(e.state.zones[lib].cards[0]).toBe(y);
+    expect(e.state.log.at(-1)?.text).toBe(`surveilled 2: 1 on top, ${e.state.cards[x].faces[0].name} into the graveyard`);
+    e.dispatch(a, { type: 'undo' });
+    expect(e.state.zones[lib].cards).toEqual(before);
+  });
+
+  it('only touches cards being looked at', () => {
+    const { e, a, b } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const [x, , , w] = e.state.zones[lib].cards;
+    e.dispatch(a, { type: 'peek', zone: lib, n: 3 });
+    const before = [...e.state.zones[lib].cards];
+    e.dispatch(a, { type: 'arrange', zone: lib, to: { bottom: [w] } });
+    e.dispatch(b, { type: 'arrange', zone: lib, to: { bottom: [x] } });
+    e.dispatch(a, { type: 'arrange', zone: lib, to: { top: [x], bottom: [x] } });
+    expect(e.state.zones[lib].cards).toEqual(before);
+  });
+
+  it("puts into your hand only from your own library, and can bottom in a random order", () => {
+    const { e, a, b } = twoPlayers();
+    const lib = zoneId(a, 'library');
+    const [x, y, z] = e.state.zones[lib].cards;
+    e.dispatch(b, { type: 'peek', zone: lib, n: 3 });
+    e.dispatch(b, { type: 'arrange', zone: lib, to: { hand: [x] } });
+    expect(e.state.cards[x].zone).toBe(lib);
+    e.dispatch(a, { type: 'peek', zone: lib, n: 3 });
+    e.dispatch(a, { type: 'arrange', zone: lib, to: { hand: [x], bottom: [y, z] }, randomBottom: true });
+    expect(e.state.cards[x].zone).toBe(zoneId(a, 'hand'));
+    expect(new Set(e.state.zones[lib].cards.slice(-2))).toEqual(new Set([y, z]));
+    expect(e.state.log.at(-1)?.text).toBe('looked at the top 3 of Library: 2 on the bottom in a random order, a card into their hand');
+  });
+});
+
 describe('undo history', () => {
   it('skips ops that changed nothing, or only the log', () => {
     const { e, a } = twoPlayers();

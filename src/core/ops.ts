@@ -21,6 +21,12 @@ export type Op =
   | { type: 'shuffle'; zone: ZoneId }
   | { type: 'peek'; zone: ZoneId; n?: number }
   | { type: 'unpeek'; zone: ZoneId }
+  /**
+   * Puts away cards you're looking at in a pile (see `peek`): some back on top in this order (first = top),
+   * some on the bottom (last = bottom, or in a random order), others into the pile owner's graveyard, exile
+   * or hand (your own pile only). `as` names it in the log: Magic's scry and surveil.
+   */
+  | { type: 'arrange'; zone: ZoneId; as?: 'scry' | 'surveil'; to: ArrangeTo; randomBottom?: boolean }
   | { type: 'reveal'; cards: CardId[]; to: string }
   | { type: 'hide'; cards: CardId[] }
   | { type: 'tracker'; player: PlayerId; key: string; delta: number }
@@ -56,6 +62,14 @@ export type Op =
   | { type: 'setSleeve'; sleeve: string }
   | { type: 'chat'; text: string }
   | { type: 'undo' };
+
+export interface ArrangeTo {
+  top?: CardId[];
+  bottom?: CardId[];
+  graveyard?: CardId[];
+  exile?: CardId[];
+  hand?: CardId[];
+}
 
 /** Ops a client can safely predict locally before the host confirms. */
 export const OPTIMISTIC = new Set<Op['type']>(['move', 'tap', 'untapAll', 'flip', 'counter', 'tracker']);
@@ -195,6 +209,8 @@ class Mutation {
         if (z.visibility === 'public' || (z.visibility === 'owner' && z.owner === this.actor)) return;
         return this.log(op.n == null ? `is searching ${this.zoneLabel(z)}` : `looked at the top ${ids.length} of ${this.zoneLabel(z)}`);
       }
+      case 'arrange':
+        return this.arrange(op);
       case 'unpeek': {
         const z = this.zone(op.zone);
         if (!z.peeks) return;
@@ -608,6 +624,55 @@ class Mutation {
   private part(name: keyof GameState['preset']['parts'] | 'commander'): Zone | undefined {
     const role = name === 'commander' ? this.s.preset.commander?.zone : this.s.preset.parts[name];
     return role ? this.s.zones[zoneId(this.actor, role)] : undefined;
+  }
+
+  private arrange(op: Extract<Op, { type: 'arrange' }>) {
+    const z = this.zone(op.zone);
+    const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is CardId => typeof x === 'string') : []);
+    const top = list(op.to?.top);
+    const bottom = list(op.to?.bottom);
+    const away = (['graveyard', 'exile', 'hand'] as const).map((role) => ({ role, ids: list(op.to?.[role]) }));
+    const all = [top, bottom, ...away.map((a) => a.ids)].flat();
+    const seen = z.peeks?.[this.actor] ?? [];
+    if (!all.length || new Set(all).size !== all.length) throw new Error('Nothing to arrange');
+    // Only cards you're looking at: no reordering a library blind.
+    if (all.some((id) => !seen.includes(id) || !z.cards.includes(id))) throw new Error('Not looking at those cards');
+    if (away.some((a) => a.ids.length && !this.s.zones[zoneId(z.owner, a.role)])) throw new Error('No such zone');
+    if (away[2].ids.length && z.owner !== this.actor) throw new Error("Not your hand's to take");
+
+    const parts: string[] = [];
+    if (top.length) parts.push(`${top.length} on top`);
+    if (bottom.length) parts.push(`${bottom.length} on the bottom${op.randomBottom && bottom.length > 1 ? ' in a random order' : ''}`);
+    for (const { role, ids } of away) {
+      if (!ids.length) continue;
+      const to = zoneId(z.owner, role);
+      this.move(ids, to, {}, true);
+      const where = role === 'hand' ? 'into their hand' : role === 'exile' ? 'into exile' : 'into the graveyard';
+      parts.push(`${this.label(this.cards(ids))} ${where}`);
+    }
+    const under = [...bottom];
+    if (op.randomBottom) {
+      for (let i = under.length - 1; i > 0; i--) {
+        const j = Math.floor(this.rng() * (i + 1));
+        [under[i], under[j]] = [under[j], under[i]];
+      }
+    }
+    const placed = new Set([...top, ...bottom]);
+    z.cards = [...top, ...z.cards.filter((id) => !placed.has(id)), ...under];
+    if (z.peeks) {
+      delete z.peeks[this.actor];
+      if (!Object.keys(z.peeks).length) delete z.peeks;
+    }
+
+    const n = all.length;
+    const of = z.owner === this.actor ? '' : ` of ${this.zoneLabel(z)}`;
+    const what = op.as === 'scry' ? `scried ${n}${of}` : op.as === 'surveil' ? `surveilled ${n}${of}` : `looked at the top ${n} of ${this.zoneLabel(z)}`;
+    // The "looked at the top N" line just before says the same thing: it becomes this one (edited, as
+    // patches only ever add or edit log lines).
+    const text = `${what}: ${parts.join(', ')}`;
+    const last = this.s.log.at(-1);
+    if (last?.by === this.actor && last.text === `looked at the top ${n} of ${this.zoneLabel(z)}`) Object.assign(last, { text, time: Date.now() });
+    else this.log(text);
   }
 
   /** Takes a card that left `z` out of the searches open on it. */
