@@ -14,23 +14,31 @@ function matches(card: Card, query: string) {
   return words.every((w) => haystack.includes(w));
 }
 
+/** How far past its edge the pointer must go, taking a card out, before the panel steps aside. */
+const LEAVE_PX = 40;
+
 /**
- * Whether the panel steps aside for a drag: a card taken out of it, once the pointer has left the
- * panel. It then fades and lets the pointer through until the drop, even back over where it stands,
- * so the card can land on the battlefield or the hand it covers. A card dragged in from elsewhere
- * finds it there as usual.
+ * Whether the panel steps aside for a drag: a card taken out of it, once the pointer has clearly left
+ * the panel (LEAVE_PX past where its edges were when the drag began: a card being reordered near an
+ * edge, or the grid reflowing as it makes room, doesn't count). It then fades and lets the pointer
+ * through until the drop, even back over where it stands, so the card can land on the battlefield or
+ * the hand it covers. A card dragged in from elsewhere finds it there as usual.
  */
 function usePassing(zone: Zone) {
   const ref = useRef<HTMLDivElement>(null);
-  // The drag's cards (the same array from its first move to its drop): which drag it stepped aside for.
+  // The drag's cards (the same array from its first move to its drop): which drag it is.
   const dragged = useStore((s) => (s.drag && zone.cards.includes(s.drag.ids[0]) ? s.drag.ids : null));
   const x = useStore((s) => s.drag?.x);
   const y = useStore((s) => s.drag?.y);
   const [outFor, setOutFor] = useState<unknown>(null);
+  // Where the panel stood when this drag began.
+  const start = useRef<{ for: unknown; r: DOMRect } | null>(null);
   useEffect(() => {
-    const r = ref.current?.getBoundingClientRect();
-    if (!dragged || x === undefined || y === undefined || !r) return;
-    if (x < r.left || x > r.right || y < r.top || y > r.bottom) setOutFor(dragged);
+    if (!dragged || x === undefined || y === undefined || !ref.current) return;
+    if (start.current?.for !== dragged) start.current = { for: dragged, r: ref.current.getBoundingClientRect() };
+    const { r } = start.current;
+    const away = x < r.left - LEAVE_PX || x > r.right + LEAVE_PX || y < r.top - LEAVE_PX || y > r.bottom + LEAVE_PX;
+    if (away) setOutFor(dragged);
   }, [dragged, x, y]);
   return [ref, !!dragged && outFor === dragged] as const;
 }
