@@ -83,6 +83,8 @@ export interface Store {
   /** A pile's cards open in the viewer: all, or the top `ids`; `query` fills its filter as it opens. */
   viewer: { zone: ZoneId; ids?: CardId[]; peeked: boolean; query?: string } | null;
   dialog: 'import' | 'create' | 'help' | 'proliferate' | 'palette' | null;
+  /** The guided tour of the table is on (see Tour). */
+  tour: boolean;
   /** Cards being dragged across the table (see drag.ts); everything a drag shows is drawn from it. */
   drag: TableDrag | null;
   /** Cards just moved along their row with the keys: the row draws them up out of itself as they travel. */
@@ -152,6 +154,7 @@ export const useStore = create<Store>((set, get) => ({
   menu: null,
   viewer: null,
   dialog: null,
+  tour: false,
   arrange: null,
   drag: null,
   carry: null,

@@ -19,6 +19,7 @@ import { Reminders } from './Reminders';
 import { RollFx } from './RollFx';
 import { TopBar } from './TopBar';
 import { Palette } from './Palette';
+import { Tour, tourSeen } from './Tour';
 import { Viewer } from './Viewer';
 import { Arrange } from './Arrange';
 import { TableDragGhost } from './DragGhost';
@@ -300,6 +301,13 @@ export function Table() {
     if (sleeve && sleeve !== player?.sleeve) act({ type: 'setSleeve', sleeve });
   }, [seated]);
 
+  // The first time someone sits at a table, a short tour of it, once it's drawn.
+  useEffect(() => {
+    if (!seated || spectating || tourSeen()) return;
+    const t = setTimeout(() => useStore.setState({ tour: true }), 700);
+    return () => clearTimeout(t);
+  }, [seated, spectating]);
+
   useEffect(() => {
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
@@ -378,6 +386,7 @@ export function Table() {
       <ArtDialog />
       <HelpDialog />
       <Palette state={state} />
+      <Tour />
       {offline && (
         <div className="offline">
           <div>Reconnecting to the host…</div>

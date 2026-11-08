@@ -3210,3 +3210,75 @@ body.dragging .stack-zone {
     margin-left: auto;
   }
 }
+
+/* The guided tour: the table dimmed but for what a step lights up, and a word beside it. */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+.tour-dim,
+.tour-light {
+  position: fixed;
+  pointer-events: auto;
+}
+.tour-dim {
+  inset: 0;
+  background: #000a;
+}
+.tour-light {
+  border-radius: 8px;
+  outline: 2px solid var(--gold);
+  /* The rest of the screen, darkened: the shadow of the lit-up ring. */
+  box-shadow: 0 0 0 200vmax #000a;
+  transition:
+    left 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    top 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    width 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    height 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tour-bubble {
+  position: fixed;
+  width: min(360px, calc(100vw - 24px));
+  padding: 14px 16px 12px;
+  background: var(--stone);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  box-shadow: 0 14px 40px #000c;
+  transition:
+    left 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    top 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.tour-bubble h3 {
+  margin: 2px 0 6px;
+  color: var(--gold);
+  font-family: 'Grenze', Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+}
+.tour-bubble p {
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+.tour-step {
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tour-skip {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  padding-left: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-light,
+  .tour-bubble {
+    transition: none;
+  }
+}

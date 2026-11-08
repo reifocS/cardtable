@@ -120,7 +120,7 @@ export function TopBar({ state }: { state: GameState }) {
       >
         <Icon name="leave" />
       </button>
-      <button className="icon-btn" onClick={() => useStore.setState({ dialog: 'help' })} {...tip('Help and shortcuts (?)', 'end')}>
+      <button className="icon-btn help-btn" onClick={() => useStore.setState({ dialog: 'help' })} {...tip('Help and shortcuts (?)', 'end')}>
         <Icon name="help" />
       </button>
     </header>

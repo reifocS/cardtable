@@ -444,6 +444,7 @@ export function HelpDialog() {
         </tbody>
       </table>
       <p className="muted">No rules are enforced: do what you would do at a real table, and the log keeps everyone honest.</p>
+      <button onClick={() => useStore.setState({ dialog: null, tour: true })}>Take the tour of the table again</button>
       <GithubLink />
       <p className="muted credits">
         Icons by Lorc, Delapouite, Catsu, Faithtoken, Quoting and Sbed from{' '}
