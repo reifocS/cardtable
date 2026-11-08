@@ -8,7 +8,7 @@ import { VIEW_H, fitBoard, mirrorY, viewX, viewY } from './fit';
 import { Icon, type IconName } from './Icon';
 import { matLook, matShader } from './playmats';
 import { ShaderMat } from './ShaderMat';
-import { useRowOrder } from './rowOrder';
+import { useLifted, useRowOrder } from './rowOrder';
 import { useFlip } from './sortable';
 import { setBoardLayout, useStore } from './store';
 import { tip } from './tip';
@@ -436,8 +436,7 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
  */
 export function Hand({ zone, state, compact }: { zone: Zone; state: GameState; compact?: boolean }) {
   const order = useRowOrder(zone, zone.cards);
-  const selection = useStore((s) => s.selection);
-  const flip = useFlip(order.join(), { lifted: selection });
+  const flip = useFlip(order.join(), { lifted: useLifted() });
   return (
     <div
       className={`hand${compact ? ' compact' : ''}`}

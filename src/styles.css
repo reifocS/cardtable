@@ -818,6 +818,13 @@ body.dragging,
 body.dragging * {
   cursor: grabbing !important;
 }
+/* While dragging, the cards passed over don't react as if hovered (lifting, coming forward): the
+   pointer goes through them to their row or zone, which is what the drop is looking for. */
+body.dragging .card,
+body.dragging .hand-slot,
+body.dragging .viewer-slot {
+  pointer-events: none;
+}
 .is-targeting .card,
 .is-targeting .board {
   cursor: crosshair;

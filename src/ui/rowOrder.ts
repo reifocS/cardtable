@@ -11,3 +11,14 @@ export function useRowOrder(zone: Zone, ids: CardId[]): CardId[] {
   return preview ? withInserted(ids, preview.ids, preview.index) : ids;
 }
 
+
+/**
+ * The cards a row draws up out of itself as they move (see sortable.useFlip): the picked ones, moved
+ * with the keys. None while a drag is on: the ghost under the pointer is the card then, and its faded
+ * place should slide along the row, not jump up.
+ */
+export function useLifted(): CardId[] {
+  const selection = useStore((s) => s.selection);
+  const dragging = useStore((s) => s.dragging.length > 0);
+  return dragging ? [] : selection;
+}

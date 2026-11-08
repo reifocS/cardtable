@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Card, GameState, Zone } from '../core/types';
 import { closeViewer } from './actions';
 import { CardView } from './CardView';
-import { useRowOrder } from './rowOrder';
+import { useLifted, useRowOrder } from './rowOrder';
 import { useFlip } from './sortable';
 import { act, useStore, type Store } from './store';
 
@@ -32,8 +32,7 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
   // Not while filtering: positions in the list aren't positions in the zone.
   const previewed = useRowOrder(zone, shown);
   const order = filtering ? shown : previewed;
-  const selection = useStore((s) => s.selection);
-  const flip = useFlip(order.join(), { lifted: selection });
+  const flip = useFlip(order.join(), { lifted: useLifted() });
   const owner = state.players[zone.owner]?.name;
   const title = `${zone.owner === me ? 'Your' : `${owner}'s`} ${zone.name.toLowerCase()}${viewer.ids ? ` — top ${viewer.ids.length}` : ''}`;
 
