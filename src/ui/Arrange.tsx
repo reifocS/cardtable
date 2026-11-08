@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ArrangeTo } from '../core/ops';
 import type { CardId, GameState, Zone } from '../core/types';
 import { closeArrange } from './actions';
@@ -6,6 +6,7 @@ import { CardBack, FaceView } from './CardView';
 import { act, useStore, type Store } from './store';
 
 type Dest = keyof ArrangeTo;
+type Piles = Partial<Record<Dest, CardId[]>>;
 
 const DESTS: Record<Dest, { label: string; key: string; hint: string }> = {
   top: { label: 'Top', key: 't', hint: 'first = top' },
@@ -22,6 +23,15 @@ function destsFor(as: 'scry' | 'surveil' | undefined, mine: boolean): Dest[] {
   return mine ? ['top', 'bottom', 'hand', 'graveyard', 'exile'] : ['top', 'bottom', 'graveyard', 'exile'];
 }
 
+/** `piles` with `id` taken out and put in `to` at `index` (its end when past it). */
+function placed(piles: Piles, dests: Dest[], id: CardId, to: Dest, index: number): Piles {
+  const next: Piles = {};
+  for (const d of dests) next[d] = (piles[d] ?? []).filter((c) => c !== id);
+  const list = next[to]!;
+  list.splice(Math.max(0, Math.min(index, list.length)), 0, id);
+  return next;
+}
+
 /** Puts away the top cards of a pile one by one: a button, a key or a drag sends each where it goes. */
 export function Arrange({ state }: { state: GameState }) {
   const arrange = useStore((s) => s.arrange);
@@ -30,14 +40,39 @@ export function Arrange({ state }: { state: GameState }) {
   return <ArrangePanel key={arrange.ids.join()} state={state} arrange={arrange} zone={zone} />;
 }
 
+interface Drag {
+  id: CardId;
+  /** Where the press started, to tell a click from a drag. */
+  x0: number;
+  y0: number;
+  /** Where the pointer is, and where in the card it holds it. */
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  moving: boolean;
+  /** Where it would land if dropped now. */
+  to: Dest;
+  index: number;
+}
+
 function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: NonNullable<Store['arrange']>; zone: Zone }) {
   const me = useStore((s) => s.me);
   const dests = destsFor(arrange.as, zone.owner === me);
   // Each destination's cards, in order. Everything starts back on top, as it was.
-  const [piles, setPiles] = useState<Partial<Record<Dest, CardId[]>>>({ top: arrange.ids });
+  const [piles, setPiles] = useState<Piles>({ top: arrange.ids });
   const [randomBottom, setRandomBottom] = useState(false);
-  const [hovered, setHovered] = useState<CardId | null>(null);
-  const [dragging, setDragging] = useState<CardId | null>(null);
+  // The card the keys and the toolbar act on: it stays picked wherever it goes.
+  const [selected, setSelected] = useState<CardId | null>(arrange.ids[0] ?? null);
+  const [drag, setDragState] = useState<Drag | null>(null);
+  // The drag as of the last event, for a release that comes before the next render.
+  const dragNow = useRef<Drag | null>(null);
+  const setDrag = (d: Drag | null) => {
+    dragNow.current = d;
+    setDragState(d);
+  };
+  const cardEls = useRef(new Map<CardId, HTMLElement>());
+  const rowEls = useRef(new Map<Dest, HTMLElement>());
 
   // A card that left meanwhile (a shuffle, an undo) is no longer ours to put away.
   const here = (ids: CardId[] | undefined) => (ids ?? []).filter((id) => zone.cards.includes(id));
@@ -46,32 +81,24 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
     if (!total) closeArrange();
   }, [total]);
 
-  const destOf = (id: CardId) => dests.find((d) => piles[d]?.includes(id));
+  // While dragging, the rows already show the card where it would land.
+  const shown = drag?.moving ? placed(piles, dests, drag.id, drag.to, drag.index) : piles;
+  const destOf = (id: CardId, p: Piles = piles) => dests.find((d) => p[d]?.includes(id));
 
-  /** Moves a card to a destination, before `before` (or at its end). */
-  const send = (id: CardId, to: Dest, before?: CardId) => {
-    setPiles((p) => {
-      const next: typeof p = {};
-      for (const d of dests) next[d] = (p[d] ?? []).filter((c) => c !== id);
-      const list = next[to]!;
-      const at = before && before !== id ? list.indexOf(before) : -1;
-      list.splice(at < 0 ? list.length : at, 0, id);
-      return next;
-    });
+  const send = (id: CardId, to: Dest) => {
+    setPiles((p) => placed(p, dests, id, to, Infinity));
+    setSelected(id);
   };
 
-  /** One step left or right within its row. */
-  const nudge = (id: CardId, by: -1 | 1) => {
-    const d = destOf(id);
-    if (!d) return;
+  /** One step left or right within its row; to either end with `far`. */
+  const nudge = (id: CardId, by: -1 | 1, far = false) => {
     setPiles((p) => {
-      const list = [...(p[d] ?? [])];
-      const i = list.indexOf(id);
-      const j = i + by;
-      if (j < 0 || j >= list.length) return p;
-      [list[i], list[j]] = [list[j], list[i]];
-      return { ...p, [d]: list };
+      const d = destOf(id, p);
+      if (!d) return p;
+      const i = p[d]!.indexOf(id);
+      return placed(p, dests, id, d, far ? (by < 0 ? 0 : Infinity) : i + by);
     });
+    setSelected(id);
   };
 
   const confirm = () => {
@@ -84,23 +111,124 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
     closeArrange(true);
   };
 
+  // Cards glide to their new place whenever the order changes (FLIP: measure, jump back, ease in).
+  // `last` holds where each card sits in the layout, without any glide under way.
+  const last = useRef(new Map<CardId, DOMRect>());
+  const order = dests.map((d) => here(shown[d]).join()).join('|');
+  useLayoutEffect(() => {
+    const now = new Map<CardId, DOMRect>();
+    for (const [id, el] of cardEls.current) {
+      if (!el.isConnected) continue;
+      // Where it is on screen right now: its old place plus what's left of a glide still under way.
+      const t = getComputedStyle(el).transform;
+      const m = t && t !== 'none' ? new DOMMatrixReadOnly(t) : null;
+      el.style.transition = 'none';
+      el.style.transform = '';
+      const r = el.getBoundingClientRect();
+      now.set(id, r);
+      const was = last.current.get(id);
+      if (!was) continue;
+      const dx = was.left + (m?.m41 ?? 0) - r.left;
+      const dy = was.top + (m?.m42 ?? 0) - r.top;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 170ms ease-out';
+        el.style.transform = '';
+      });
+    }
+    last.current = now;
+  }, [order]);
+
+  /** Where a card dropped at (x, y) would go: the row under the pointer, before the first card past it. */
+  const landing = (id: CardId, x: number, y: number): { to: Dest; index: number } | null => {
+    for (const d of dests) {
+      const row = rowEls.current.get(d)?.getBoundingClientRect();
+      if (!row || y < row.top || y > row.bottom) continue;
+      let index = 0;
+      for (const c of here(piles[d]).filter((c) => c !== id)) {
+        const r = last.current.get(c);
+        if (!r) continue;
+        // Rows wrap: a card on an earlier line, or left of the pointer on its line, comes first.
+        if (r.bottom < y || (r.top <= y && r.left + r.width / 2 < x)) index++;
+      }
+      return { to: d, index };
+    }
+    return null;
+  };
+
+  const onPointerDown = (e: React.PointerEvent, id: CardId) => {
+    if (e.button !== 0) return;
+    const d = destOf(id);
+    if (!d) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    e.preventDefault();
+    setDrag({
+      id,
+      x0: e.clientX,
+      y0: e.clientY,
+      x: e.clientX,
+      y: e.clientY,
+      dx: e.clientX - r.left,
+      dy: e.clientY - r.top,
+      moving: false,
+      to: d,
+      index: piles[d]!.indexOf(id),
+    });
+  };
+  // Followed on the window, not the card: the card's element is replaced when it changes rows, which
+  // would lose a pointer capture, and with it the release.
+  useEffect(() => {
+    if (!drag) return;
+    const move = (e: PointerEvent) => {
+      const d = dragNow.current;
+      if (!d) return;
+      const moving = d.moving || Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 5;
+      // Off every row, it stays where it was last shown.
+      const at = moving ? landing(d.id, e.clientX, e.clientY) : null;
+      setDrag({ ...d, x: e.clientX, y: e.clientY, moving, ...at });
+    };
+    const up = () => {
+      const d = dragNow.current;
+      if (!d) return;
+      if (d.moving) setPiles((p) => placed(p, dests, d.id, d.to, d.index));
+      // A press without a drag is a click: it picks the card for the keys and the toolbar.
+      setSelected(d.id);
+      setDrag(null);
+    };
+    const cancel = () => setDrag(null);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+  });
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'Escape') return closeArrange();
+      if (e.key === 'Escape') return drag ? setDrag(null) : closeArrange();
       if (e.key === 'Enter') {
         e.preventDefault();
         return confirm();
       }
-      if (!hovered) return;
-      if (e.key === 'ArrowLeft') return nudge(hovered, -1);
-      if (e.key === 'ArrowRight') return nudge(hovered, 1);
-      const d = dests.find((x) => DESTS[x].key === e.key.toLowerCase());
-      // The card moves away from under the pointer: the next key waits for the pointer to find one.
-      if (d) {
-        send(hovered, d);
-        setHovered(null);
+      if (!selected) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        return nudge(selected, e.key === 'ArrowLeft' ? -1 : 1, e.shiftKey);
       }
+      // Tab walks the pick through the cards, in the order they're shown.
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const all = dests.flatMap((d) => here(piles[d]));
+        const i = all.indexOf(selected);
+        return setSelected(all[(i + (e.shiftKey ? -1 : 1) + all.length) % all.length]);
+      }
+      const d = dests.find((x) => DESTS[x].key === e.key.toLowerCase());
+      if (d) send(selected, d);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -113,10 +241,19 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
         ? `Surveil ${arrange.ids.length}`
         : `Top ${arrange.ids.length} of ${zone.owner === me ? 'your' : `${state.players[zone.owner]?.name}'s`} ${zone.name.toLowerCase()}`;
   const bottomCount = here(piles.bottom).length;
+  const selDest = selected ? destOf(selected) : undefined;
+  const selIndex = selDest && selected ? here(piles[selDest]).indexOf(selected) : -1;
+  const selCount = selDest ? here(piles[selDest]).length : 0;
+  const faceOf = (id: CardId) => {
+    const card = state.cards[id];
+    return card?.faces[card.face] ?? card?.faces[0];
+  };
+  const sleeve = state.players[zone.owner]?.sleeve;
+  const ghost = drag?.moving ? faceOf(drag.id) : undefined;
 
   return (
     <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && closeArrange()}>
-      <div className="modal wide arrange" role="dialog" aria-label={title}>
+      <div className={`modal wide arrange${drag?.moving ? ' dragging' : ''}`} role="dialog" aria-label={title}>
         <div className="modal-head">
           <b>{title}</b>
           <button onClick={() => closeArrange()} aria-label="Cancel">
@@ -124,17 +261,15 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
           </button>
         </div>
         {dests.map((d) => {
-          const ids = here(piles[d]);
+          const ids = here(shown[d]);
           return (
             <section
               key={d}
-              className={`arrange-row${dragging && destOf(dragging) !== d ? ' can-drop' : ''}`}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (dragging) send(dragging, d);
-                setDragging(null);
+              ref={(el) => {
+                if (el) rowEls.current.set(d, el);
+                else rowEls.current.delete(d);
               }}
+              className={`arrange-row${drag?.moving && drag.to === d ? ' landing' : ''}`}
             >
               <div className="arrange-label">
                 <b>{DESTS[d].label}</b>
@@ -147,52 +282,34 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
                 )}
               </div>
               <div className="arrange-cards">
-                {ids.map((id, i) => {
-                  const card = state.cards[id];
-                  const face = card?.faces[card.face] ?? card?.faces[0];
+                {ids.map((id) => {
+                  const face = faceOf(id);
+                  const held = drag?.moving && drag.id === id;
                   return (
                     <div
                       key={id}
-                      className={`arrange-card${hovered === id ? ' hovered' : ''}${dragging === id ? ' dragging' : ''}`}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = 'move';
-                        setDragging(id);
+                      ref={(el) => {
+                        if (el) cardEls.current.set(id, el);
+                        else cardEls.current.delete(id);
                       }}
-                      onDragEnd={() => setDragging(null)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (dragging) send(dragging, d, id);
-                        setDragging(null);
-                      }}
-                      onPointerMove={() => {
-                        if (hovered === id) return;
-                        setHovered(id);
-                        if (face) useStore.setState({ previewId: id });
-                      }}
-                      onPointerLeave={() => setHovered((h) => (h === id ? null : h))}
+                      className={`arrange-card${selected === id ? ' selected' : ''}${held ? ' held' : ''}`}
+                      onPointerDown={(e) => onPointerDown(e, id)}
+                      onPointerEnter={() => face && useStore.setState({ previewId: id })}
                     >
-                      <div className="card">{face ? <FaceView face={face} width={110} /> : <CardBack sleeve={state.players[zone.owner]?.sleeve} />}</div>
+                      <div className="card">{face ? <FaceView face={face} width={110} /> : <CardBack sleeve={sleeve} />}</div>
                       <div className="arrange-moves">
-                        {ids.length > 1 && (
-                          <button disabled={i === 0} onClick={() => nudge(id, -1)} aria-label="Move left">
-                            ‹
-                          </button>
-                        )}
                         {dests
                           .filter((x) => x !== d)
                           .map((x) => (
-                            <button key={x} onClick={() => send(id, x)} title={`${DESTS[x].label} (${DESTS[x].key.toUpperCase()})`}>
+                            <button
+                              key={x}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => send(id, x)}
+                              title={`${DESTS[x].label} (${DESTS[x].key.toUpperCase()})`}
+                            >
                               {DESTS[x].label}
                             </button>
                           ))}
-                        {ids.length > 1 && (
-                          <button disabled={i === ids.length - 1} onClick={() => nudge(id, 1)} aria-label="Move right">
-                            ›
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -203,12 +320,32 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
           );
         })}
         <div className="modal-actions">
-          <span className="muted">Hover a card: {dests.map((d) => DESTS[d].key.toUpperCase()).join(' / ')} to send it, ← → to reorder · Enter to confirm</span>
+          {/* Fixed in place: these never move under the pointer, whatever the picked card does. */}
+          <div className="arrange-toolbar">
+            <button disabled={selIndex <= 0} onClick={() => selected && nudge(selected, -1)} title="Move the picked card left (←, ⇧← to the start)">
+              ←
+            </button>
+            <button
+              disabled={selIndex < 0 || selIndex >= selCount - 1}
+              onClick={() => selected && nudge(selected, 1)}
+              title="Move the picked card right (→, ⇧→ to the end)"
+            >
+              →
+            </button>
+            <span className="muted">
+              Click to pick · drag to place · {dests.map((d) => DESTS[d].key.toUpperCase()).join('/')} sends the picked card · Tab: next · Enter: done
+            </span>
+          </div>
           <button className="primary" onClick={confirm}>
             Done
           </button>
         </div>
       </div>
+      {drag?.moving && (
+        <div className="arrange-ghost" style={{ left: drag.x - drag.dx, top: drag.y - drag.dy }}>
+          <div className="card">{ghost ? <FaceView face={ghost} width={110} /> : <CardBack sleeve={sleeve} />}</div>
+        </div>
+      )}
     </div>
   );
 }
