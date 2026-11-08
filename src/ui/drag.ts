@@ -2,9 +2,9 @@ import type React from 'react';
 import { CARD_H, CARD_W } from '../core/state';
 import type { Card, CardId, ZoneId } from '../core/types';
 import { trackPress, type PointerInfo } from './dragSession';
-import { VIEW_H, mirrorY, storeX, storeY } from './fit';
+import { VIEW_H, mirrorY, storeX, storeY, viewX, viewY } from './fit';
 import { sticky, zoneIn } from './dropTarget';
-import { aroundGhost, ghostBox, letGoOf } from './settle';
+import { fromGhosts, letGoOf } from './settle';
 import { insertionIndex } from './sortable';
 import { act, setSelection, useStore, type LaidCard, type TableDrag } from './store';
 
@@ -93,11 +93,12 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
   const sideways = turn % 180 !== 0;
   const own = { w: sideways ? rect.height : rect.width, h: sideways ? rect.width : rect.height };
   const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-  let ids: CardId[] = store.selection.includes(card.id) ? store.selection : [card.id];
+  // The card held first (the ghost is drawn from it), then the rest of the selection.
+  let ids: CardId[] = store.selection.includes(card.id) ? [card.id, ...store.selection.filter((id) => id !== card.id)] : [card.id];
   // The zone it's over, held on to near its edges (see targetAt).
   let held: HTMLElement | null = null;
-  // Cards together on the battlefield it's picked up from (see together), and where they were.
-  let group = new Map<CardId, DOMRect>();
+  // Cards together on the battlefield it's picked up from (see together).
+  let group: Card[] = [];
 
   const update = (at: PointerInfo) => {
     const d = useStore.getState().drag;
@@ -110,15 +111,27 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
     useStore.setState({ drag: { ...d, x: at.x, y: at.y, w: size.w, h: size.h, turn: keepTurn, over: overAt(t, ids, middle, d.over), laid: laidOver(t, d.laid) } });
   };
 
-  // Over a battlefield, the ghost is the group as it lay: the cards picked up, and over their own
-  // battlefield what's attached to them too (it follows its host there, nowhere else). Anywhere else, one card.
-  let layout: LaidCard[] = [];
+  // Over a battlefield, the ghost is the group as it will lie there: the cards picked up, and over their
+  // own battlefield what's attached to them too (it follows its host there, nowhere else). They keep
+  // their stored places around the held card, so it's drawn as that board shows them (its width, which
+  // way up it is), just as the drop will put them. Anywhere else, one card.
+  let laidIn: string | null = null;
   const laidOver = (t: HTMLElement | null, was: LaidCard[] | null): LaidCard[] | null => {
-    if (!t?.classList.contains('board')) return null;
-    const home = t.dataset.dropZone === card.zone;
-    const shown = layout.filter((m) => home || ids.includes(m.id));
+    const zone = t?.classList.contains('board') ? t.dataset.dropZone! : null;
+    if (zone && zone === laidIn && was) return was;
+    laidIn = zone;
+    if (!t || !zone) return null;
+    const shown = group.filter((c) => zone === card.zone || ids.includes(c.id));
     if (shown.length < 2) return null;
-    return was?.length === shown.length ? was : shown;
+    const r = t.getBoundingClientRect();
+    const width = (r.width / r.height) * VIEW_H;
+    const up = t.dataset.flipped ? -1 : 1;
+    return shown.map((c) => ({
+      id: c.id,
+      dx: (viewX(c.x - card.x, width) - viewX(0, width)) / CARD_H,
+      dy: (up * viewY(c.y - card.y)) / CARD_H,
+      turn: c.rotation,
+    }));
   };
 
   trackPress(
@@ -130,12 +143,6 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
           setSelection(ids);
         }
         group = together(ids, card);
-        const mid = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-        const h = group.get(card.id);
-        const cards = useStore.getState().state?.cards;
-        layout = h
-          ? [...group].map(([id, r]) => ({ id, dx: (mid(r).x - mid(h).x) / own.h, dy: (mid(r).y - mid(h).y) / own.h, turn: cards?.[id]?.rotation ?? 0 }))
-          : [];
         useStore.setState({ drag: { ids, x: at.x, y: at.y, fx, fy, w: own.w, h: own.h, turn, over: null, laid: null } });
       },
       move: update,
@@ -145,9 +152,8 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
         // Where each card starts gliding from, read before the drop changes them (a card entering tapped).
         // What's attached and wasn't picked up follows its host around the battlefield (the engine lays it
         // out again), so it glides along too.
-        const sameBoard = d?.over?.zone === card.zone && !!held?.classList.contains('board');
-        const following = sameBoard ? [...group.keys()].filter((id) => !ids.includes(id)) : [];
-        const froms = aroundGhost([...ids, ...following], card.id, group, ghostBox(), turnIn(held));
+        const following = (d?.laid ?? []).map((m) => m.id).filter((id) => !ids.includes(id));
+        const froms = fromGhosts([...ids, ...following], turnIn(held));
         useStore.setState({ drag: null });
         drop(at, ids, card, fx, fy, d?.over ?? null, held);
         // Where it landed, or back where it was if the drop went nowhere: it glides there either way.
@@ -167,7 +173,7 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
         }
       },
       cancel() {
-        const froms = aroundGhost(ids, card.id, group, ghostBox(), turnIn(held));
+        const froms = fromGhosts(ids, turnIn(held));
         useStore.setState({ drag: null });
         // Back where it came from, so it's plain nothing moved.
         letGoOf(froms);
@@ -178,22 +184,14 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
 
 /**
  * The cards picked up with `card` that sit with it on its battlefield, and what's attached to any of
- * them there, with their boxes on screen: they're carried as they lie.
+ * them there, in the order they're drawn: they're carried as they lie.
  */
-function together(ids: CardId[], card: Card): Map<CardId, DOMRect> {
-  const group = new Map<CardId, DOMRect>();
+function together(ids: CardId[], card: Card): Card[] {
   const state = useStore.getState().state;
   const zone = state?.zones[card.zone];
-  if (!state || zone?.kind !== 'free') return group;
-  const board = document.querySelector<HTMLElement>(`.table [data-drop-zone="${zone.id}"]`);
+  if (!state || zone?.kind !== 'free') return [];
   const picked = new Set(ids);
-  for (const id of zone.cards) {
-    const c = state.cards[id];
-    if (!picked.has(id) && !(c?.attachedTo && picked.has(c.attachedTo))) continue;
-    const el = board?.querySelector<HTMLElement>(`[data-card-id="${id}"]`);
-    if (el) group.set(id, el.getBoundingClientRect());
-  }
-  return group;
+  return zone.cards.map((id) => state.cards[id]).filter((c) => c && (picked.has(c.id) || (!!c.attachedTo && picked.has(c.attachedTo))));
 }
 
 /** How cards let go of over `target` are turned there: on a battlefield as they lie, anywhere else upright. */

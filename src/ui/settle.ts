@@ -90,20 +90,15 @@ export function letGoOf(froms: Map<CardId, { from: DOMRect; turn: number }>) {
 }
 
 /**
- * Where each card of a group is let go of: those that were together on the held card's battlefield
- * (`group`, their boxes when picked up) keep their places around the ghost, so cards that land as they
- * were carried (a creature and what's attached to it) don't move at all; any other comes from the
- * ghost itself, which stood for it.
+ * Where each card is let go of: its own ghost where the group is drawn (so cards that land as they were
+ * shown don't move at all), otherwise the held card's, which stood for it.
  */
-export function aroundGhost(ids: CardId[], held: CardId, group: Map<CardId, DOMRect>, ghost: DOMRect | undefined, turnOf: (id: CardId) => number) {
+export function fromGhosts(ids: CardId[], turnOf: (id: CardId) => number) {
   const froms = new Map<CardId, { from: DOMRect; turn: number }>();
-  if (!ghost) return froms;
-  const h = group.get(held);
-  const k = h ? Math.max(ghost.width, ghost.height) / Math.max(h.width, h.height) : 1;
+  const held = ghostBox();
   for (const id of ids) {
-    const r = group.get(id);
-    const from = r && h ? new DOMRect(ghost.left + (r.left - h.left) * k, ghost.top + (r.top - h.top) * k, r.width * k, r.height * k) : ghost;
-    froms.set(id, { from, turn: turnOf(id) });
+    const from = document.querySelector(`.ghost[data-ghost-id="${id}"]`)?.getBoundingClientRect() ?? held;
+    if (from) froms.set(id, { from, turn: turnOf(id) });
   }
   return froms;
 }

@@ -68,7 +68,7 @@ export function CardGhost({ card, x, y, fx, fy, w: toW, h: toH, turn = 0, count 
   const top = y - fy * shownH - (h - shownH) / 2;
   const face = card.faceDown ? undefined : (card.faces[card.face] ?? card.faces[0]);
   return (
-    <div className="card ghost" data-held={held ? '' : undefined} style={{ width: w, height: h, transform: `translate(${left}px, ${top}px)${turn ? ` rotate(${turn}deg)` : ''}` }}>
+    <div className="card ghost" data-ghost-id={card.id} data-held={held ? '' : undefined} style={{ width: w, height: h, transform: `translate(${left}px, ${top}px)${turn ? ` rotate(${turn}deg)` : ''}` }}>
       {/* Its image is picked for the size it's heading to, not each step of the way. */}
       {face ? <FaceView face={face} width={Math.round(toW)} /> : <CardBack sleeve={sleeve} />}
       {count > 1 && <div className="ghost-count">{count}</div>}
