@@ -2,6 +2,7 @@ import type React from 'react';
 import { TABLE, zoneId } from '../core/state';
 import type { Card, CardFace, CardId, Zone } from '../core/types';
 import { fetchCard, isScryfallCard } from '../cards/scryfall';
+import { textActionLabel, textActions, type TextAction } from './cardText';
 import { act, ask, askNumber, myZone, targetCards, useStore, type MenuItem } from './store';
 
 const DEFAULT_COUNTER = '+1/+1';
@@ -155,6 +156,23 @@ async function createToken(id: string, near: Card) {
   }
 }
 
+/** Does what a card's text says, to my own library; X is asked for. */
+function runTextAction({ kind, n }: TextAction) {
+  const lib = myZone('library');
+  if (!lib) return;
+  const run = (n: number) => {
+    if (kind === 'scry' || kind === 'surveil') openArrange(lib, n, kind);
+    else if (kind === 'look') openArrange(lib, n);
+    else if (kind === 'draw') draw(n);
+    else {
+      const gy = myZone('graveyard');
+      if (gy) act({ type: 'moveTop', from: lib.id, to: gy.id, n });
+    }
+  };
+  if (n === null) askNumber(`${textActionLabel({ kind, n })}: how many?`, 1, run);
+  else run(n);
+}
+
 export function openMenu(e: React.MouseEvent, items: MenuItem[]) {
   e.preventDefault();
   e.stopPropagation();
@@ -171,6 +189,13 @@ export function cardMenu(card: Card, zone: Zone): MenuItem[] {
   const many = ids.length > 1 ? ` (${ids.length})` : '';
   const onBoard = zone.kind === 'free';
   const items: MenuItem[] = [];
+
+  // What the card says to do, one click away: "Scry 2", "Draw a card"…
+  const face = card.faces[card.face] ?? card.faces[0];
+  const fromText = ids.length === 1 ? textActions(face?.text) : [];
+  if (fromText.length) {
+    items.push(...fromText.map((t) => ({ label: textActionLabel(t), action: () => runTextAction(t) })), { label: '', heading: true });
+  }
 
   if (onBoard) {
     items.push(
