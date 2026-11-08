@@ -26,8 +26,8 @@ export function withInserted<T>(list: T[], items: T[], index: number): T[] {
 const EASE = 'cubic-bezier(0.2, 0.7, 0.2, 1)';
 /** How long a moved card stays out of the row after its last move, before it's put back down. */
 const SETTLE_MS = 420;
-/** How far it's drawn up out of the row. */
-const RAISE_PX = 14;
+/** How far it's drawn up out of the row: a row with little room above it sets a smaller `--raise`. */
+const RAISE = 'calc(-1 * var(--raise, 14px))';
 
 const still = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -87,7 +87,7 @@ export function useFlip(order: string, { lifted = [] }: FlipOptions = {}) {
       if (!liftedNow.current.includes(key)) continue;
       // Drawn up while it travels; put back down a moment after its last move. Set on its inline style,
       // which the rows never render: a class here would be wiped by the row's next render.
-      el.style.translate = `0 ${-RAISE_PX}px`;
+      el.style.translate = `0 ${RAISE}`;
       el.style.zIndex = '5';
       clearTimeout(settle.current.get(key));
       settle.current.set(

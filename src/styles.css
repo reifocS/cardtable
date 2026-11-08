@@ -863,6 +863,11 @@ body.dragging .arrows * {
 .tray > .hand {
   /* My hand keeps room for a slice of every card. */
   min-width: 160px;
+  /* Cards sit low in the tray, leaving room above them inside its rail for a card that rises (hovered,
+     or carried along the row: 8px + the selection outline's 4px, or --raise + 4px). */
+  --hand-card-h: 132px;
+  --raise: 12px;
+  align-items: flex-end;
 }
 @container (max-width: 760px) {
   .tray-piles .pile-slot {
