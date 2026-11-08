@@ -28,9 +28,10 @@ function indexAt(target: HTMLElement, dragged: CardId[], x: number, y: number): 
 /** An element's box without the transform of a glide under way. */
 function restingRect(el: HTMLElement): DOMRect {
   const r = el.getBoundingClientRect();
-  const t = el.style.transform;
-  if (!t) return r;
-  const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+  if (!el.getAnimations().length) return r;
+  const t = getComputedStyle(el).transform;
+  if (!t || t === 'none') return r;
+  const m = new DOMMatrixReadOnly(t);
   return new DOMRect(r.left - m.m41, r.top - m.m42, r.width, r.height);
 }
 

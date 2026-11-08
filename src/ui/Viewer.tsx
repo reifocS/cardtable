@@ -32,7 +32,8 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
   // Not while filtering: positions in the list aren't positions in the zone.
   const previewed = useRowOrder(zone, shown);
   const order = filtering ? shown : previewed;
-  const flip = useFlip(order.join());
+  const selection = useStore((s) => s.selection);
+  const flip = useFlip(order.join(), { lifted: selection });
   const owner = state.players[zone.owner]?.name;
   const title = `${zone.owner === me ? 'Your' : `${owner}'s`} ${zone.name.toLowerCase()}${viewer.ids ? ` — top ${viewer.ids.length}` : ''}`;
 

@@ -112,7 +112,8 @@ function ArrangePanel({ state, arrange, zone }: { state: GameState; arrange: Non
 
   // Cards glide to their new place whenever the order changes.
   const order = dests.map((d) => here(shown[d]).join()).join('|');
-  const flip = useFlip(order);
+  // The picked card rises over the others when keys or buttons move it; a dragged one is in the hand.
+  const flip = useFlip(order, { lifted: selected && !drag?.moving ? [selected] : [] });
 
   /** Where a card dropped at (x, y) would go: the row under the pointer, before the first card past it. */
   const landing = (id: CardId, x: number, y: number): { to: Dest; index: number } | null => {

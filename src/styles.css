@@ -1286,7 +1286,35 @@ body.dragging * {
 .viewer-cards .card {
   height: 120px;
 }
-/* Where cards dragged over a row would land, before they're dropped. */
+/* A row's slots stack by z-index while one passes over the others (see sortable.useFlip). */
+.viewer-slot,
+.arrange-card {
+  position: relative;
+}
+/* Where cards dragged over a row would land, before they're dropped: the room opens up. */
+.hand-slot.drop-gap {
+  animation: gap-open 0.22s ease-out;
+}
+.viewer-slot.drop-gap {
+  width: calc(120px * 63 / 88);
+  animation: gap-open-width 0.22s ease-out;
+}
+@keyframes gap-open {
+  from {
+    flex-basis: 0;
+  }
+}
+@keyframes gap-open-width {
+  from {
+    width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand-slot.drop-gap,
+  .viewer-slot.drop-gap {
+    animation: none;
+  }
+}
 .hand-slot.drop-gap::before,
 .viewer-slot.drop-gap {
   content: '';

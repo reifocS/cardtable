@@ -436,7 +436,8 @@ export function Pile({ zone, state, small }: { zone: Zone; state: GameState; sma
  */
 export function Hand({ zone, state, compact }: { zone: Zone; state: GameState; compact?: boolean }) {
   const order = useRowOrder(zone, zone.cards);
-  const flip = useFlip(order.join());
+  const selection = useStore((s) => s.selection);
+  const flip = useFlip(order.join(), { lifted: selection });
   return (
     <div
       className={`hand${compact ? ' compact' : ''}`}
