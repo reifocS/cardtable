@@ -23,14 +23,17 @@ function dropTargetAt(x: number, y: number): HTMLElement | null {
 const STICK_PX = 12;
 
 /**
- * The drop zone for a pointer at (x, y), given the one it was over (`held`). A zone holds on until the
- * pointer is clearly out of it: right at an edge, or as a row grows to make room under the pointer,
- * the target would otherwise flicker between it and what's next to it.
+ * The drop zone for a pointer at (x, y), given the one it was over (`held`). A zone holds on while the
+ * pointer is just past its edge: right at an edge, or as a row grows to make room under the pointer,
+ * the target would otherwise flicker between it and what's next to it. Inside it, whatever lies on
+ * top wins: a pile's viewer or the stack over a battlefield is a zone of its own.
  */
 function stickyTarget(held: HTMLElement | null, x: number, y: number): HTMLElement | null {
   const hit = dropTargetAt(x, y);
   if (!held || hit === held || !held.isConnected) return hit;
   const r = held.getBoundingClientRect();
+  const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  if (inside) return hit;
   const near = x >= r.left - STICK_PX && x <= r.right + STICK_PX && y >= r.top - STICK_PX && y <= r.bottom + STICK_PX;
   return near ? held : hit;
 }
