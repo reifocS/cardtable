@@ -82,13 +82,18 @@ export function letGoOf(froms: Map<CardId, { from: DOMRect; turn: number }>) {
   // After the render the drop causes (and Flights noting the landings), before it's painted.
   requestAnimationFrame(() => {
     const cards = useStore.getState().state?.cards;
+    const landing: [HTMLElement, LetGo][] = [];
     for (const [id, go] of letGo) {
       const card = cards?.[id];
       const el = card && shownIn(card.zone, id);
-      if (el) settle(el, go.from, go.turn, go.onLand);
+      if (el) landing.push([el, go]);
       else go.onLand?.(go.from);
     }
     letGo.clear();
+    // The copies stack in the order they're added: the order the cards are drawn in, so what lies under
+    // its host (an aura, an equipment) glides under it too, rather than over it until it lands.
+    landing.sort(([a], [b]) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    for (const [el, go] of landing) settle(el, go.from, go.turn, go.onLand);
   });
 }
 

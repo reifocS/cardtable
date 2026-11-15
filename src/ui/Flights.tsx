@@ -125,7 +125,7 @@ export function Flights({ state }: { state: GameState }) {
     const before = seen.current;
     const now = new Map<CardId, Seen>();
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let n = 0;
+    const flights: { el: HTMLElement; from: DOMRect; to: DOMRect; onLand?: (at: DOMRect) => void }[] = [];
     for (const card of Object.values(state.cards)) {
       const { el, rect } = placeOf(card.id, card.zone);
       if (rect) now.set(card.id, { zone: card.zone, rect });
@@ -155,8 +155,12 @@ export function Flights({ state }: { state: GameState }) {
       // Dropped by hand: it glides there from where it was let go instead (settle.ts), and lands as it arrives.
       const go = letGo.get(card.id);
       if (go) go.onLand = onLand;
-      else fly(el, was.rect, rect, n++ * STAGGER_MS, onLand);
+      else flights.push({ el, from: was.rect, to: rect, onLand });
     }
+    // Leaving one after another, and stacked as they'll lie (the copies stack in the order they're added):
+    // in the order they're drawn, not the order the cards happen to be stored in.
+    flights.sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    flights.forEach((f, n) => fly(f.el, f.from, f.to, n * STAGGER_MS, f.onLand));
     seen.current = now;
   }, [state]);
 

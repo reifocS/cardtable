@@ -174,7 +174,9 @@ export function onCardPointerDown(e: React.PointerEvent<HTMLElement>, card: Card
         }
       },
       cancel() {
-        const froms = fromGhosts(ids, turnIn(held));
+        // What's attached was drawn in the ghost too (its place faded): it glides back with its host.
+        const following = (useStore.getState().drag?.laid ?? []).map((m) => m.id).filter((id) => !ids.includes(id));
+        const froms = fromGhosts([...ids, ...following], turnIn(held));
         useStore.setState({ drag: null });
         // Back where it came from, so it's plain nothing moved.
         letGoOf(froms);
