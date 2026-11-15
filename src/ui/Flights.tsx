@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { CardId, GameState, ZoneId } from '../core/types';
 import { fireWheel, herald } from './herald';
-import { letGo } from './settle';
+import { letGo, shownIn } from './settle';
 
 const FLIGHT_MS = 420;
 /** Between cards moved together (a draw of seven), so they leave one after another. */
@@ -15,7 +15,7 @@ type Seen = { zone: ZoneId; rect: DOMRect };
  * on top: the one that's seen.
  */
 function placeOf(id: CardId, zone: ZoneId) {
-  const el = [...document.querySelectorAll<HTMLElement>(`.table [data-card-id="${id}"]`)].reverse().find((e) => e.offsetWidth > 0) ?? null;
+  const el = shownIn(zone, id);
   const at = el ?? document.querySelector<HTMLElement>(`.table [data-drop-zone="${zone}"]`);
   return { el, rect: at?.getBoundingClientRect() };
 }
