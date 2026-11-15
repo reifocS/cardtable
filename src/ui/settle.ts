@@ -43,14 +43,19 @@ export function settle(el: HTMLElement, from: DOMRect, fromTurn = 0, onLand?: (a
   // Let go of right where it lands (a battlefield): nothing to glide.
   if (Math.hypot(dx, dy) < 1 && Math.abs(s - 1) < 0.01 && fromTurn === turn) return onLand?.(to);
 
+  // Drawn at the card's own size (in a battlefield's units) and scaled up to its size on screen, as the
+  // battlefield draws it: its counters and badges keep the size they have there, not grow as it lands.
+  const ow = el.offsetWidth || w;
+  const oh = el.offsetHeight || h;
+  const k = w / ow;
   const copy = el.cloneNode(true) as HTMLElement;
   copy.removeAttribute('data-card-id');
   copy.className = 'card settling';
-  copy.style.cssText = `width:${w}px;height:${h}px;left:${cx - w / 2}px;top:${cy - h / 2}px`;
+  copy.style.cssText = `width:${ow}px;height:${oh}px;left:${cx - ow / 2}px;top:${cy - oh / 2}px`;
   document.body.appendChild(copy);
   el.style.visibility = 'hidden';
   const glide = copy.animate(
-    [{ transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(${fromTurn}deg)` }, { transform: `translate(0, 0) scale(1) rotate(${turn}deg)` }],
+    [{ transform: `translate(${dx}px, ${dy}px) scale(${s * k}) rotate(${fromTurn}deg)` }, { transform: `translate(0, 0) scale(${k}) rotate(${turn}deg)` }],
     { duration: settleMs(Math.hypot(dx, dy)), easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' },
   );
   glide.onfinish = glide.oncancel = () => {

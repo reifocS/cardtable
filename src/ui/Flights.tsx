@@ -9,9 +9,13 @@ const STAGGER_MS = 45;
 
 type Seen = { zone: ZoneId; rect: DOMRect };
 
-/** A card on the table, or failing that the pile it's in (only a pile's top card is drawn). */
+/**
+ * A card on the table, or failing that the pile it's in (only a pile's top card is drawn). Where a card
+ * is drawn twice (a battlefield and its zoomed view over the table, a pile and its open viewer), the one
+ * on top: the one that's seen.
+ */
 function placeOf(id: CardId, zone: ZoneId) {
-  const el = document.querySelector<HTMLElement>(`.table [data-card-id="${id}"]`);
+  const el = [...document.querySelectorAll<HTMLElement>(`.table [data-card-id="${id}"]`)].reverse().find((e) => e.offsetWidth > 0) ?? null;
   const at = el ?? document.querySelector<HTMLElement>(`.table [data-drop-zone="${zone}"]`);
   return { el, rect: at?.getBoundingClientRect() };
 }
@@ -30,6 +34,9 @@ function fly(el: HTMLElement, from: DOMRect, to: DOMRect, delay: number, onLand?
   const dx = from.left + from.width / 2 - cx;
   const dy = from.top + from.height / 2 - cy;
   const s = Math.min(3, Math.max(0.3, Math.max(from.width, from.height) / Math.max(to.width, to.height)));
+  // The copy is drawn at the card's own size (a battlefield's units) and scaled to its size on screen, as
+  // the battlefield draws it: it lands that size, its counters and badges too.
+  const k = Math.max(to.width, to.height) / Math.max(w, h);
 
   const copy = el.cloneNode(true) as HTMLElement;
   copy.removeAttribute('data-card-id');
@@ -39,9 +46,9 @@ function fly(el: HTMLElement, from: DOMRect, to: DOMRect, delay: number, onLand?
   el.style.visibility = 'hidden';
   const flight = copy.animate(
     [
-      { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(0deg)` },
-      { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 18}px) scale(${(s + 1) / 2 + 0.08}) rotate(${Number(turn) / 2}deg)`, offset: 0.55 },
-      { transform: `translate(0, 0) scale(1) rotate(${turn}deg)` },
+      { transform: `translate(${dx}px, ${dy}px) scale(${s * k}) rotate(0deg)` },
+      { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 18}px) scale(${((s + 1) / 2 + 0.08) * k}) rotate(${Number(turn) / 2}deg)`, offset: 0.55 },
+      { transform: `translate(0, 0) scale(${k}) rotate(${turn}deg)` },
     ],
     { duration: FLIGHT_MS, delay, easing: 'cubic-bezier(0.3, 0.6, 0.2, 1)', fill: 'backwards' },
   );

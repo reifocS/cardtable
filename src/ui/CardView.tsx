@@ -81,7 +81,6 @@ export const CardView = memo(function CardView({ card, zone, left, top, shownWid
   const ping = useStore((s) => s.pings.filter((p) => p.card === card.id).at(-1));
   const pingColor = useStore((s) => (ping ? s.state?.players[ping.by]?.color : undefined));
   const face = card.faces[card.face] ?? card.faces[0];
-  const counters = Object.entries(card.counters);
   const onBoard = zone.kind === 'free';
   // Seen by someone else: shown to them, or in a search they have open.
   const seen = card.revealedTo.some((p) => p !== me) || Object.entries(zone.peeks ?? {}).some(([p, ids]) => p !== me && ids.includes(card.id));
@@ -103,33 +102,52 @@ export const CardView = memo(function CardView({ card, zone, left, top, shownWid
       onContextMenu={pileTop ? undefined : (e) => openMenu(e, cardMenu(card, zone))}
     >
       {face && !card.faceDown ? <FaceView face={face} width={shownWidth} /> : <CardBack sleeve={sleeve} />}
-      {card.faceDown && face && <span className="peek" title="Face down — only you can see it">👁</span>}
-      {card.token && <span className="token-badge">token</span>}
-      {card.note && <span className="note-badge">{card.note}</span>}
       {ping && <span key={ping.id} className="ping-ring" style={{ '--c': pingColor } as React.CSSProperties} />}
-      {!!card.tax && <span className="tax-badge" title="Commander tax">+{card.tax}</span>}
-      {counters.length > 0 && (
-        <div className="counters">
-          {counters.map(([key, n]) => (
-            <button
-              key={key}
-              className="counter"
-              title={`${key} — click +1, right-click −1`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => act({ type: 'counter', cards: [card.id], key, delta: 1 })}
-              // Two quick clicks are two +1s, not a double-click that taps the card.
-              onDoubleClick={(e) => e.stopPropagation()}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                act({ type: 'counter', cards: [card.id], key, delta: -1 });
-              }}
-            >
-              {formatCounter(key, n)}
-            </button>
-          ))}
-        </div>
-      )}
+      <CardMarks card={card} live />
     </div>
   );
 });
+
+/**
+ * What's marked on a card, over its face: face down (to whoever can see it), token, note, commander tax, counters. `live` on the table,
+ * where a counter is clicked +1 and right-clicked −1; anywhere else (a ghost, a copy gliding) just shown.
+ */
+export function CardMarks({ card, live }: { card: Card; live?: boolean }) {
+  const counters = Object.entries(card.counters);
+  return (
+    <>
+      {card.faceDown && card.faces.length > 0 && <span className="peek" title="Face down — only you can see it">👁</span>}
+      {card.token && <span className="token-badge">token</span>}
+      {card.note && <span className="note-badge">{card.note}</span>}
+      {!!card.tax && <span className="tax-badge" title="Commander tax">+{card.tax}</span>}
+      {counters.length > 0 && (
+        <div className="counters">
+          {counters.map(([key, n]) =>
+            live ? (
+              <button
+                key={key}
+                className="counter"
+                title={`${key} — click +1, right-click −1`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => act({ type: 'counter', cards: [card.id], key, delta: 1 })}
+                // Two quick clicks are two +1s, not a double-click that taps the card.
+                onDoubleClick={(e) => e.stopPropagation()}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  act({ type: 'counter', cards: [card.id], key, delta: -1 });
+                }}
+              >
+                {formatCounter(key, n)}
+              </button>
+            ) : (
+              <span key={key} className="counter">
+                {formatCounter(key, n)}
+              </span>
+            ),
+          )}
+        </div>
+      )}
+    </>
+  );
+}

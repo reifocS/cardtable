@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CARD_H, CARD_W } from '../core/state';
 import type { Card } from '../core/types';
-import { CardBack, FaceView } from './CardView';
+import { CardBack, CardMarks, FaceView } from './CardView';
 import { useStore } from './store';
 
 interface GhostProps {
@@ -69,8 +70,13 @@ export function CardGhost({ card, x, y, fx, fy, w: toW, h: toH, turn = 0, count 
   const face = card.faceDown ? undefined : (card.faces[card.face] ?? card.faces[0]);
   return (
     <div className="card ghost" data-ghost-id={card.id} data-held={held ? '' : undefined} style={{ width: w, height: h, transform: `translate(${left}px, ${top}px)${turn ? ` rotate(${turn}deg)` : ''}` }}>
-      {/* Its image is picked for the size it's heading to, not each step of the way. */}
-      {face ? <FaceView face={face} width={Math.round(toW)} /> : <CardBack sleeve={sleeve} />}
+      {/* Its image is picked for the size it's heading to, not each step of the way, rounded as a battlefield
+          rounds it (see Surface): the same image it lands with, not another one to load as it's let go. */}
+      {face ? <FaceView face={face} width={Math.ceil(toW / 16) * 16} /> : <CardBack sleeve={sleeve} />}
+      {/* Its marks drawn as a battlefield draws them, a card's size in its units scaled up: no bigger or smaller once it lands. */}
+      <div className="ghost-marks" style={{ width: CARD_W, height: CARD_H, zoom: w / CARD_W }}>
+        <CardMarks card={card} />
+      </div>
       {count > 1 && <div className="ghost-count">{count}</div>}
     </div>
   );

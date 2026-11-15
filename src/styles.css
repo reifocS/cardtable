@@ -813,6 +813,12 @@ kbd {
     0 18px 36px #000b;
   /* Its size eases to the zone below in script (DragGhost), along with where it's placed. */
 }
+.ghost-marks {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
 .ghost-count {
   position: absolute;
   top: -8px;
