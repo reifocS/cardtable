@@ -38,7 +38,7 @@ function PalettePanel({ state }: { state: GameState }) {
   const [active, setActive] = useState(0);
   const list = useRef<HTMLDivElement>(null);
   // What can be found, as the table is now.
-  const [cards, actions] = useMemo(() => [cardEntries(state), actionEntries()], [state]);
+  const [cards, actions] = useMemo(() => [cardEntries(state), actionEntries(state)], [state]);
   const spectating = useStore((s) => !!s.session?.spectating);
 
   const { text, count } = withCount(query);
@@ -181,22 +181,35 @@ function showCard(card: Card, zone: Zone) {
   useStore.setState({ menu: { x: r.right - 6, y: r.top + 6, items: cardMenu(card, zone) } });
 }
 
-/** The actions of my menus (library, hand, battlefield) and the game's, as their menus show them. */
-function actionEntries(): Entry[] {
-  const { me, session, controlled } = useStore.getState();
+/**
+ * The actions of the cards selected (first: what's picked is what's acted on), of my menus (library,
+ * hand, battlefield) and the game's, as their menus show them.
+ */
+function actionEntries(state: GameState): Entry[] {
+  const { me, session, controlled, selection } = useStore.getState();
   if (!me || session?.spectating) return [];
   const entries: Entry[] = [];
   const add = (from: string, items: MenuItem[]) => {
     let section = from;
     for (const item of items) {
       if (item.heading) {
-        section = `${from} · ${item.label}`;
+        // A heading without a name only sets a group apart.
+        section = item.label ? `${from} · ${item.label}` : from;
         continue;
       }
       if (!item.action || item.disabled) continue;
       entries.push({ key: `${section}:${item.label}`, label: item.label, detail: section, hint: item.hint, run: item.action });
     }
   };
+  // The selection's menu, as a right-click on its first card opens it (acting on all of them).
+  const picked = selection.map((id) => state.cards[id]).filter((c) => !!c);
+  const first = picked[0];
+  const zone = first && state.zones[first.zone];
+  if (first && zone) {
+    const face = first.faces[first.face] ?? first.faces[0];
+    const name = first.faceDown && first.owner !== me ? 'Face-down card' : (face?.name ?? 'Card');
+    add(picked.length > 1 ? `${picked.length} selected` : name, cardMenu(first, zone));
+  }
   const lib = myZone('library');
   const hand = myZone('hand');
   const bf = myZone('battlefield');
