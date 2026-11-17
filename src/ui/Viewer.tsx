@@ -34,6 +34,8 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
   const order = filtering ? shown : previewed;
   const flip = useFlip(order.join(), { lifted: useLifted() });
   const hover = useDropHover(zone.id);
+  // Cards dragged from this very list: while filtering, they can't be put anywhere else in it.
+  const fromHere = useStore((s) => !!s.drag?.ids.length && s.drag.ids.every((id) => state.cards[id]?.zone === zone.id));
   const owner = state.players[zone.owner]?.name;
   const title = `${zone.owner === me ? 'Your' : `${owner}'s`} ${zone.name.toLowerCase()}${viewer.ids ? ` — top ${viewer.ids.length}` : ''}`;
 
@@ -49,9 +51,15 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
           placeholder="Filter: name, type or text…"
           autoFocus={!viewer.ids}
         />
-        <span className="muted">
-          {filtering ? `${shown.length} of ${ids.length}` : ids.length} card{ids.length === 1 ? '' : 's'} · first = top
-        </span>
+        {/* Filtered, a place in the list isn't a place in the zone (cards hidden between): no reordering, and it says so. */}
+        {filtering && hover ? (
+          <span className="viewer-hint">{fromHere ? 'Clear the filter to reorder' : 'Goes on top · Shift: at the bottom'}</span>
+        ) : (
+          <span className="muted">
+            {filtering ? `${shown.length} of ${ids.length}` : ids.length} card{ids.length === 1 ? '' : 's'} · first = top
+            {filtering && ' · clear the filter to reorder'}
+          </span>
+        )}
         <div className="spacer" />
         {zone.kind === 'pile' && zone.owner === me && (
           <button
@@ -65,8 +73,14 @@ function ViewerPanel({ state, viewer, zone }: { state: GameState; viewer: NonNul
         )}
         <button onClick={closeViewer}>Close</button>
       </div>
-      {/* While filtering, positions in the list aren't positions in the zone, so drops just go on top. */}
-      <div className={`viewer-cards${hover ? ' drop-hover' : ''}`} data-drop-zone={zone.id} data-drop-list={filtering ? undefined : '1'}>
+      {/* While filtering, positions in the list aren't positions in the zone: cards from elsewhere go on top, and
+          its own cards stay where they are (see drag.ts). */}
+      <div
+        className={`viewer-cards${hover ? ' drop-hover' : ''}`}
+        data-drop-zone={zone.id}
+        data-drop-list={filtering ? undefined : '1'}
+        data-filtered={filtering ? '1' : undefined}
+      >
         {order.map((id) =>
           state.cards[id]?.zone === zone.id ? (
             <div key={id} ref={flip.ref(id)} data-sort-id={id} className="viewer-slot">

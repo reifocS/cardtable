@@ -1293,8 +1293,12 @@ body.dragging .viewer-slot {
 .viewer-filter {
   width: 240px;
 }
-.viewer-head .muted {
+.viewer-head .muted,
+.viewer-hint {
   font-size: 12px;
+}
+.viewer-hint {
+  color: var(--gold);
 }
 .viewer-cards {
   display: flex;

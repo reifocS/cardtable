@@ -247,6 +247,9 @@ function drop(at: PointerInfo, ids: CardId[], primary: Card, fx: number, fy: num
     });
     act({ type: 'move', cards: ordered, to: zone.id, positions, ...(at.altKey && { faceDown: true }) });
   } else if (over.index === null) {
+    // Moved about within a filtered list, where a place isn't a place in the zone: they stay where they are
+    // (and glide back there), rather than go on top unasked.
+    if (target.dataset.filtered && ordered.every((id) => state.cards[id].zone === zone.id)) return;
     // A pile: on top, or with Shift at the bottom.
     act({ type: 'move', cards: ordered, to: zone.id, index: at.shiftKey ? -1 : 0 });
   } else {
